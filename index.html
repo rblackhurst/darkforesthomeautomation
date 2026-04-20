@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark Forest Home Automation — Local-First Smart Home Systems · Middle Tennessee</title>
+<meta name="description" content="Local-first, privacy-first home automation systems. No cloud dependencies. You own every login. Serving Fayetteville, Tennessee and surrounding Middle Tennessee.">
+
+<!-- Open Graph for link previews -->
+<meta property="og:title" content="Dark Forest Home Automation">
+<meta property="og:description" content="Local-first smart home systems. Your home, on your terms. Middle Tennessee.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://darkforesthomeautomation.com">
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg:          #0e0e0e;
+    --bg2:         #141414;
+    --bg3:         #1a1a1a;
+    --bg-card:     #181818;
+    --border:      #2a2a2a;
+    --border2:     #333333;
+    --green:       #4caf7d;
+    --green-dim:   #2d6b4e;
+    --green-glow:  rgba(76,175,125,0.12);
+    --amber:       #c8a84b;
+    --amber-dim:   rgba(200,168,75,0.15);
+    --red:         #c0504a;
+    --text:        #d8d8d8;
+    --text-strong: #f0f0f0;
+    --text-dim:    #888888;
+    --text-muted:  #555555;
+    --mono:        'IBM Plex Mono', monospace;
+    --sans:        'IBM Plex Sans', sans-serif;
+    --radius:      6px;
+    --maxwidth:    980px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Subtle atmospheric background */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(76,175,125,0.04) 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, rgba(76,175,125,0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: var(--maxwidth);
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── Top nav ── */
+  .nav {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .nav-brand {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    font-size: 13.5px;
+    font-family: var(--mono);
+  }
+
+  .nav-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .nav-links a:hover { color: var(--green); }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 72px 0 56px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .hero h1 {
+    font-family: var(--sans);
+    font-size: 44px;
+    font-weight: 600;
+    color: var(--text-strong);
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    margin-bottom: 22px;
+    max-width: 780px;
+  }
+
+  .hero h1 .accent { color: var(--green); }
+
+  .hero-lead {
+    font-size: 17px;
+    color: var(--text);
+    line-height: 1.55;
+    max-width: 680px;
+    margin-bottom: 28px;
+  }
+
+  .hero-lead strong {
+    color: var(--text-strong);
+    font-weight: 600;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .hero-meta span::before {
+    content: "›";
+    color: var(--green);
+    margin-right: 8px;
+  }
+
+  /* ── Section ── */
+  section {
+    padding: 64px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  section:last-of-type { border-bottom: none; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.18em;
+  }
+
+  .section-head h2 {
+    font-family: var(--sans);
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--text-strong);
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Pillars ── */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .pillar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 22px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .pillar:hover {
+    border-color: var(--green-dim);
+    transform: translateY(-2px);
+  }
+
+  .pillar-head {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.18em;
+    margin-bottom: 14px;
+  }
+
+  .pillar-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-strong);
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+
+  .pillar-body {
+    font-size: 13.5px;
+    color: var(--text);
+    line-height: 1.55;
+  }
+
+  /* ── Packages ── */
+  .packages {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  .pkg {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 22px;
+    position: relative;
+    transition: border-color 0.2s ease;
+  }
+
+  .pkg:hover { border-color: var(--green-dim); }
+
+  .pkg.featured {
+    border-color: var(--green-dim);
+    background: linear-gradient(180deg, var(--bg-card) 0%, rgba(76,175,125,0.03) 100%);
+  }
+
+  .pkg.featured::after {
+    content: "MOST POPULAR";
+    position: absolute;
+    top: -9px;
+    right: 16px;
+    background: var(--green);
+    color: var(--bg);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    padding: 3px 9px;
+    border-radius: 3px;
+  }
+
+  .pkg-name {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.18em;
+    margin-bottom: 10px;
+  }
+
+  .pkg-label {
+    font-size: 16px;
+    color: var(--text-strong);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  .pkg-starting {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .pkg-price {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--green);
+    line-height: 1;
+    margin-bottom: 14px;
+  }
+
+  .pkg-included {
+    font-size: 12.5px;
+    color: var(--text);
+    line-height: 1.55;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .pkg-note {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  /* ── Service area ── */
+  .service {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 30px;
+  }
+
+  .service-lead {
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .service-lead strong { color: var(--text-strong); font-weight: 600; }
+
+  .cities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .city {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 5px 11px;
+  }
+
+  .city.home {
+    background: var(--green-glow);
+    border-color: var(--green-dim);
+    color: var(--green);
+  }
+
+  .service-note {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  /* ── Strip ── */
+  .strip {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    padding: 24px 26px;
+    border-radius: var(--radius);
+    font-size: 15.5px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .strip .kicker {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 12px;
+  }
+
+  /* ── Contact ── */
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 32px;
+  }
+
+  .contact-info {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px 24px;
+  }
+
+  .contact-info h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .contact-row {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px dotted var(--border);
+  }
+
+  .contact-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .contact-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .contact-val {
+    font-size: 15px;
+    color: var(--text-strong);
+    font-weight: 500;
+  }
+
+  .contact-val a {
+    color: var(--text-strong);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--border2);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .contact-val a:hover {
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+
+  /* ── Form ── */
+  form {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px 24px;
+  }
+
+  form h3 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .field label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .field label .req { color: var(--green); }
+
+  .field input,
+  .field textarea,
+  .field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 10px 12px;
+    color: var(--text-strong);
+    font-family: var(--sans);
+    font-size: 14px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .field input:focus,
+  .field textarea:focus,
+  .field select:focus {
+    outline: none;
+    border-color: var(--green);
+    background: var(--bg3);
+  }
+
+  .field textarea {
+    min-height: 110px;
+    resize: vertical;
+    font-family: var(--sans);
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .btn {
+    display: inline-block;
+    background: var(--green);
+    color: var(--bg);
+    border: none;
+    border-radius: 4px;
+    padding: 11px 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  .btn:hover { background: #5dc28d; }
+  .btn:active { transform: translateY(1px); }
+
+  .form-note {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  .form-status {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    display: none;
+  }
+
+  .form-status.success {
+    display: block;
+    background: var(--green-glow);
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+  }
+
+  .form-status.error {
+    display: block;
+    background: rgba(192,80,74,0.12);
+    border: 1px solid rgba(192,80,74,0.4);
+    color: var(--red);
+  }
+
+  /* ── Footer ── */
+  footer {
+    padding: 28px 0 40px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  footer .tag {
+    color: var(--green);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 760px) {
+    .hero { padding: 52px 0 44px; }
+    .hero h1 { font-size: 32px; }
+    .hero-lead { font-size: 15.5px; }
+    .pillars, .packages { grid-template-columns: 1fr; }
+    .contact-grid { grid-template-columns: 1fr; gap: 20px; }
+    .field-row { grid-template-columns: 1fr; }
+    .nav-links { gap: 18px; font-size: 12.5px; }
+    section { padding: 48px 0; }
+    .pkg.featured::after { right: 12px; font-size: 9px; }
+  }
+
+  @media (max-width: 460px) {
+    .nav { flex-direction: column; align-items: flex-start; }
+    .hero h1 { font-size: 28px; }
+    .section-head { flex-wrap: wrap; gap: 8px; }
+    .section-head h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ═══ NAV ═══ -->
+  <nav class="nav">
+    <div class="nav-brand">Dark Forest Home Automation</div>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#packages">Packages</a>
+      <a href="#area">Service area</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </nav>
+
+  <!-- ═══ HERO ═══ -->
+  <section class="hero" style="border-bottom: 1px solid var(--border);">
+    <div class="hero-tag">Local-First · Privacy-First · Client-Owned</div>
+    <h1>Your home, on <span class="accent">your terms.</span></h1>
+    <p class="hero-lead">
+      DFHA builds home automation systems that run entirely on hardware in your home.
+      <strong>No cloud dependencies. No subscriptions to use your own house. No data leaving your network.</strong>
+      When the internet goes down, your lights still work. When we're done, you own every login, every device, every password.
+    </p>
+    <div class="hero-meta">
+      <span>Fayetteville, Tennessee</span>
+      <span>Serving Middle Tennessee</span>
+      <span>Dark Forest Home Automation, LLC</span>
+    </div>
+  </section>
+
+  <!-- ═══ HOW IT WORKS / PILLARS ═══ -->
+  <section id="how">
+    <div class="section-head">
+      <span class="section-num">01 / How it works</span>
+      <h2>What makes DFHA different</h2>
+    </div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-head">LOCAL-FIRST</div>
+        <div class="pillar-title">Nothing leaves your house</div>
+        <div class="pillar-body">
+          Home Assistant runs on a small computer we install in your home. Your devices connect directly to it. No Google, no Amazon, no cloud account required.
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-head">YOU OWN IT</div>
+        <div class="pillar-title">Every password is yours</div>
+        <div class="pillar-body">
+          We hand you a printed ownership document with every login. No vendor lock-in. Keep us around for support, or run it yourself.
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-head">PRIVACY BY DESIGN</div>
+        <div class="pillar-title">We never watch your cameras</div>
+        <div class="pillar-body">
+          Optional monitoring is uptime-only &mdash; we check that your system is healthy, not what's happening inside. Your home stays yours.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ PACKAGES ═══ -->
+  <section id="packages">
+    <div class="section-head">
+      <span class="section-num">02 / Packages</span>
+      <h2>Whole-home systems</h2>
+    </div>
+    <div class="packages">
+      <div class="pkg">
+        <div class="pkg-name">CONNECTED HOME</div>
+        <div class="pkg-label">1 BR &middot; 1 BA</div>
+        <div class="pkg-starting">Starting at</div>
+        <div class="pkg-price">$2,249</div>
+        <div class="pkg-included">
+          Backend system, living room, kitchen, bathroom, bedroom with dimmer, and front porch doorbell.
+        </div>
+      </div>
+      <div class="pkg featured">
+        <div class="pkg-name">CONNECTED HOME</div>
+        <div class="pkg-label">2 BR &middot; 2 BA</div>
+        <div class="pkg-starting">Starting at</div>
+        <div class="pkg-price">$2,899</div>
+        <div class="pkg-included">
+          Backend system, living room, kitchen, two bathrooms, two bedrooms with dimmers, and front porch doorbell.
+        </div>
+      </div>
+      <div class="pkg">
+        <div class="pkg-name">CONNECTED HOME</div>
+        <div class="pkg-label">3 BR &middot; 2 BA</div>
+        <div class="pkg-starting">Starting at</div>
+        <div class="pkg-price">$3,199</div>
+        <div class="pkg-included">
+          Backend system, living room, kitchen, two bathrooms, three bedrooms with dimmers, and front porch doorbell.
+        </div>
+      </div>
+    </div>
+    <p class="pkg-note">
+      Every home is different. We also build à la carte &mdash; individual rooms, garage systems, outdoor lighting, smart locks, and more. <a href="#contact" style="color: var(--green); text-decoration: none; border-bottom: 1px dotted var(--green-dim);">Get a detailed quote for your home</a>.
+    </p>
+  </section>
+
+  <!-- ═══ SERVICE AREA ═══ -->
+  <section id="area">
+    <div class="section-head">
+      <span class="section-num">03 / Service area</span>
+      <h2>Middle Tennessee</h2>
+    </div>
+    <div class="service">
+      <p class="service-lead">
+        DFHA is based in <strong>Fayetteville, Tennessee</strong> and serves Lincoln County and surrounding Middle Tennessee.
+      </p>
+      <div class="cities">
+        <span class="city home">Fayetteville</span>
+        <span class="city">Shelbyville</span>
+        <span class="city">Tullahoma</span>
+        <span class="city">Lewisburg</span>
+        <span class="city">Columbia</span>
+        <span class="city">Spring Hill</span>
+        <span class="city">Franklin</span>
+        <span class="city">Murfreesboro</span>
+      </div>
+      <p class="service-note">
+        Not listed but close to one of these cities? Get in touch &mdash; we're happy to confirm.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══ STRIP ═══ -->
+  <section>
+    <div class="strip">
+      Every system we install is designed so you can fire us tomorrow and keep everything running. That's the standard.
+      <span class="kicker">Everything local.</span>
+    </div>
+  </section>
+
+  <!-- ═══ CONTACT ═══ -->
+  <section id="contact">
+    <div class="section-head">
+      <span class="section-num">04 / Contact</span>
+      <h2>Get in touch</h2>
+    </div>
+
+    <div class="contact-grid">
+
+      <div class="contact-info">
+        <h3>Direct</h3>
+        <div class="contact-row">
+          <div class="contact-label">Owner</div>
+          <div class="contact-val">Ron Blackhurst</div>
+        </div>
+        <div class="contact-row">
+          <div class="contact-label">Email</div>
+          <div class="contact-val"><a href="mailto:Ron@DFHA.net">Ron@DFHA.net</a></div>
+        </div>
+        <div class="contact-row">
+          <div class="contact-label">Phone</div>
+          <!-- PHONE: replace with provisioned 931 number -->
+          <div class="contact-val"><a href="tel:+1931XXXXXXX">(931) XXX-XXXX</a></div>
+        </div>
+        <div class="contact-row">
+          <div class="contact-label">Based in</div>
+          <div class="contact-val">Fayetteville, Tennessee</div>
+        </div>
+      </div>
+
+      <form id="contact-form" action="https://api.web3forms.com/submit" method="POST">
+        <h3>Request a consultation</h3>
+
+        <!-- WEB3FORMS: replace with your access key from web3forms.com -->
+        <input type="hidden" name="access_key" value="YOUR_WEB3FORMS_ACCESS_KEY">
+        <input type="hidden" name="subject" value="DFHA Website — New Consultation Request">
+        <input type="hidden" name="from_name" value="DFHA Website">
+        <input type="checkbox" name="botcheck" style="display:none;">
+
+        <div class="field">
+          <label for="name">Name <span class="req">*</span></label>
+          <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="email">Email <span class="req">*</span></label>
+            <input type="email" id="email" name="email" required>
+          </div>
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="city">City</label>
+          <input type="text" id="city" name="city" placeholder="Fayetteville, Columbia, Franklin, etc.">
+        </div>
+
+        <div class="field">
+          <label for="message">What are you looking to do? <span class="req">*</span></label>
+          <textarea id="message" name="message" required placeholder="Tell us a bit about your home and what you'd like automated. No technical knowledge needed."></textarea>
+        </div>
+
+        <button type="submit" class="btn">Send message</button>
+
+        <p class="form-note">
+          We'll get back to you within one business day. Your information stays with DFHA &mdash; we don't sell contact lists or share data.
+        </p>
+
+        <div id="form-status" class="form-status"></div>
+      </form>
+
+    </div>
+  </section>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer>
+    <span class="tag">Local-First &middot; Privacy-First &middot; Client-Owned</span>
+    <span>Dark Forest Home Automation, LLC &middot; Fayetteville, Tennessee</span>
+  </footer>
+
+</div>
+
+<script>
+  // Lightweight form handler — submits via fetch so the page doesn't redirect away
+  (function() {
+    const form = document.getElementById('contact-form');
+    const statusEl = document.getElementById('form-status');
+    if (!form) return;
+
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      statusEl.className = 'form-status';
+      statusEl.textContent = '';
+
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const originalLabel = submitBtn.textContent;
+      submitBtn.textContent = 'Sending…';
+      submitBtn.disabled = true;
+
+      try {
+        const formData = new FormData(form);
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: { 'Accept': 'application/json' }
+        });
+        const data = await response.json();
+        if (data.success) {
+          statusEl.className = 'form-status success';
+          statusEl.textContent = 'Thanks — your message is in. We\'ll be in touch within one business day.';
+          form.reset();
+        } else {
+          statusEl.className = 'form-status error';
+          statusEl.textContent = 'Something went wrong. Please email Ron@DFHA.net directly.';
+        }
+      } catch (err) {
+        statusEl.className = 'form-status error';
+        statusEl.textContent = 'Connection issue. Please email Ron@DFHA.net directly.';
+      } finally {
+        submitBtn.textContent = originalLabel;
+        submitBtn.disabled = false;
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>

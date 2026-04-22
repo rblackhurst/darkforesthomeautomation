@@ -399,6 +399,58 @@
     margin-top: 12px;
   }
 
+  /* ── Partners ── */
+  .partners-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    justify-content: center;
+  }
+
+  .partner-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .partner-card:hover {
+    border-color: var(--green-dim);
+    transform: translateY(-2px);
+  }
+
+  .partner-logo {
+    height: 48px;
+    width: auto;
+    max-width: 200px;
+    object-fit: contain;
+    filter: brightness(0.9) saturate(0);
+    transition: filter 0.2s ease;
+  }
+
+  .partner-card:hover .partner-logo {
+    filter: brightness(1) saturate(1);
+  }
+
+  .partner-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .partner-card:hover .partner-name {
+    color: var(--green);
+  }
+
   /* ── Contact ── */
   .contact-grid {
     display: grid;
@@ -744,6 +796,20 @@
     </div>
   </section>
 
+  <!-- ═══ PARTNERS ═══ -->
+  <section id="partners">
+    <div class="section-head">
+      <span class="section-num">04 / Partnering with</span>
+      <h2>Trusted brands we work with</h2>
+    </div>
+    <div class="partners-grid">
+      <a href="https://reolink.com" target="_blank" rel="noopener" class="partner-card">
+        <img src="reolink-logo.png" alt="Reolink — Security Cameras & Surveillance Systems" class="partner-logo">
+        <span class="partner-name">Reolink</span>
+      </a>
+    </div>
+  </section>
+
   <!-- ═══ STRIP ═══ -->
   <section>
     <div class="strip">
@@ -755,7 +821,7 @@
   <!-- ═══ CONTACT ═══ -->
   <section id="contact">
     <div class="section-head">
-      <span class="section-num">04 / Contact</span>
+      <span class="section-num">05 / Contact</span>
       <h2>Get in touch</h2>
     </div>
 

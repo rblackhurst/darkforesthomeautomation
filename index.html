@@ -426,16 +426,16 @@
   }
 
   .partner-logo {
-    height: 120px;
-    width: auto;
-    max-width: 280px;
-    object-fit: contain;
-    filter: brightness(0.9) saturate(0);
-    transition: filter 0.2s ease;
+    height: 80px;
+    width: 200px;
+    object-fit: cover;
+    object-position: center;
+    filter: none;
+    transition: transform 0.2s ease;
   }
 
   .partner-card:hover .partner-logo {
-    filter: brightness(1) saturate(1);
+    transform: scale(1.05);
   }
 
   .partner-name {

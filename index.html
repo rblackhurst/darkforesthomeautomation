@@ -764,22 +764,15 @@
       <div class="contact-info">
         <h3>Direct</h3>
         <div class="contact-row">
-          <div class="contact-label">Owner</div>
-          <div class="contact-val">Ron Blackhurst</div>
-        </div>
-        <div class="contact-row">
           <div class="contact-label">Email</div>
-          <div class="contact-val"><a href="mailto:Ron@DFHA.net">Ron@DFHA.net</a></div>
+          <div class="contact-val"><a href="mailto:contact@DFHA.net">contact@DFHA.net</a></div>
         </div>
         <div class="contact-row">
           <div class="contact-label">Phone</div>
           <!-- PHONE: replace with provisioned 931 number -->
           <div class="contact-val"><a href="tel:+19312403444">(931) 240-3444</a></div>
         </div>
-        <div class="contact-row">
-          <div class="contact-label">Based in</div>
-          <div class="contact-val">Fayetteville, Tennessee</div>
-        </div>
+
       </div>
 
       <form id="contact-form" action="https://api.web3forms.com/submit" method="POST">
@@ -868,11 +861,11 @@
           form.reset();
         } else {
           statusEl.className = 'form-status error';
-          statusEl.textContent = 'Something went wrong. Please email Ron@DFHA.net directly.';
+          statusEl.textContent = 'Something went wrong. Please email contact@DFHA.net directly.';
         }
       } catch (err) {
         statusEl.className = 'form-status error';
-        statusEl.textContent = 'Connection issue. Please email Ron@DFHA.net directly.';
+        statusEl.textContent = 'Connection issue. Please email contact@DFHA.net directly.';
       } finally {
         submitBtn.textContent = originalLabel;
         submitBtn.disabled = false;

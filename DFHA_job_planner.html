@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFHA Job Planner</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg:          #0e0e0e;
+  --bg2:         #141414;
+  --bg3:         #1a1a1a;
+  --bg4:         #222222;
+  --bg5:         #2a2a2a;
+  --border:      #2a2a2a;
+  --border2:     #383838;
+  --green:       #4caf7d;
+  --green-dim:   #2d6b4e;
+  --green-glow:  rgba(76,175,125,0.12);
+  --green-light: rgba(76,175,125,0.08);
+  --amber:       #c8a84b;
+  --amber-dim:   rgba(200,168,75,0.15);
+  --red:         #c0504a;
+  --red-dim:     rgba(192,80,74,0.15);
+  --blue:        #5b9bd5;
+  --blue-dim:    rgba(91,155,213,0.15);
+  --text:        #d8d8d8;
+  --text-dim:    #888888;
+  --text-muted:  #555555;
+  --code:        #a8d8a8;
+  --mono:        'IBM Plex Mono', monospace;
+  --sans:        'IBM Plex Sans', sans-serif;
+  --r:           4px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh;}
+
+/* ── Top bar ── */
+.topbar{background:var(--bg2);border-bottom:2px solid var(--green);padding:0 24px;display:flex;align-items:center;gap:20px;height:52px;position:sticky;top:0;z-index:100;}
+.topbar-logo{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--green);letter-spacing:.14em;white-space:nowrap;}
+.topbar-job{font-size:12px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.topbar-job strong{color:var(--text);}
+.topbar-actions{display:flex;gap:8px;flex-shrink:0;}
+
+/* ── Tabs ── */
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;gap:0;}
+.tab{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--text-muted);padding:10px 18px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.06em;white-space:nowrap;user-select:none;}
+.tab:hover{color:var(--text);background:var(--green-light);}
+.tab.active{color:var(--green);border-bottom-color:var(--green);}
+.tab-num{background:var(--bg5);color:var(--text-muted);border-radius:2px;padding:1px 5px;font-size:9px;margin-right:6px;}
+.tab.active .tab-num{background:var(--green-dim);color:var(--green);}
+
+/* ── Panels ── */
+.panel{display:none;padding:24px;max-width:1100px;margin:0 auto;}
+.panel.active{display:block;}
+
+/* ── Section headers ── */
+.section-hdr{display:flex;align-items:center;gap:12px;margin:24px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border2);}
+.section-hdr h3{font-size:13px;font-weight:600;color:#f0f0f0;letter-spacing:-.01em;}
+.section-tag{font-family:var(--mono);font-size:9px;color:var(--green);background:var(--green-glow);border:1px solid var(--green-dim);border-radius:2px;padding:2px 7px;letter-spacing:.08em;}
+
+/* ── Form elements ── */
+.form-row{display:grid;gap:12px;margin-bottom:12px;}
+.form-row.cols2{grid-template-columns:1fr 1fr;}
+.form-row.cols3{grid-template-columns:1fr 1fr 1fr;}
+.form-row.cols4{grid-template-columns:1fr 1fr 1fr 1fr;}
+label{font-size:11px;color:var(--text-dim);font-family:var(--mono);letter-spacing:.06em;display:block;margin-bottom:4px;}
+input[type=text],input[type=email],input[type=tel],select,textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;border-radius:var(--r);outline:none;transition:border-color .2s;}
+input:focus,select:focus,textarea:focus{border-color:var(--green);}
+textarea{resize:vertical;min-height:70px;}
+select option{background:var(--bg3);}
+
+/* ── Buttons ── */
+.btn{font-family:var(--mono);font-size:11px;font-weight:500;padding:7px 14px;border-radius:var(--r);cursor:pointer;transition:all .2s;border:1px solid;letter-spacing:.04em;white-space:nowrap;user-select:none;}
+.btn-green{background:var(--green);border-color:var(--green);color:#0a0a0a;}
+.btn-green:hover{background:#5dc98f;border-color:#5dc98f;}
+.btn-outline{background:none;border-color:var(--border2);color:var(--text-dim);}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-danger{background:none;border-color:var(--border2);color:var(--text-muted);}
+.btn-danger:hover{border-color:var(--red);color:var(--red);}
+.btn-amber{background:none;border-color:var(--amber);color:var(--amber);}
+.btn-amber:hover{background:var(--amber-dim);}
+.btn-copy{font-family:var(--mono);font-size:10px;background:none;border:1px solid var(--border2);color:var(--text-muted);padding:2px 8px;border-radius:2px;cursor:pointer;transition:all .15s;}
+.btn-copy:hover{border-color:var(--green);color:var(--green);}
+.btn-copy.copied{border-color:var(--green);color:var(--green);}
+
+/* ── Cards ── */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.card-title{font-size:13px;font-weight:600;color:#f0f0f0;}
+.card-sub{font-size:11px;color:var(--text-dim);}
+.card-actions{margin-left:auto;display:flex;gap:6px;}
+
+/* ── Room card ── */
+.room-card{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;overflow:hidden;transition:border-color .2s;}
+.room-card.has-kit{border-color:var(--green-dim);}
+.room-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;}
+.room-header:hover{background:var(--green-light);}
+.room-icon{font-size:16px;flex-shrink:0;}
+.room-name{font-size:13px;font-weight:600;color:#f0f0f0;flex:1;}
+.room-kit-badge{font-family:var(--mono);font-size:9px;color:var(--green);background:var(--green-glow);border:1px solid var(--green-dim);border-radius:2px;padding:2px 7px;}
+.room-device-count{font-family:var(--mono);font-size:10px;color:var(--text-muted);}
+.room-chevron{color:var(--text-muted);transition:transform .2s;font-size:12px;}
+.room-card.open .room-chevron{transform:rotate(90deg);}
+.room-body{display:none;padding:0 14px 14px;border-top:1px solid var(--border);}
+.room-card.open .room-body{display:block;}
+
+/* ── Kit selector ── */
+.kit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:10px 0;}
+.kit-option{background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);padding:10px;cursor:pointer;transition:all .2s;user-select:none;}
+.kit-option:hover{border-color:var(--green-dim);background:var(--green-light);}
+.kit-option.selected{border-color:var(--green);background:var(--green-glow);}
+.kit-option-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.kit-option-price{font-family:var(--mono);font-size:10px;color:var(--green);}
+.kit-option-desc{font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.4;}
+
+/* ── Add-on checkboxes ── */
+.addon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin:8px 0;}
+.addon-item{display:flex;align-items:flex-start;gap:8px;background:var(--bg4);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;cursor:pointer;transition:border-color .2s;}
+.addon-item:hover{border-color:var(--border2);}
+.addon-item.selected{border-color:var(--amber);background:var(--amber-dim);}
+.addon-item input[type=checkbox]{margin-top:2px;accent-color:var(--amber);flex-shrink:0;}
+.addon-label{font-size:12px;color:var(--text);}
+.addon-price{font-family:var(--mono);font-size:10px;color:var(--amber);margin-top:2px;}
+
+/* ── Device name display ── */
+.device-list{margin-top:10px;}
+.device-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg4);border:1px solid var(--border);border-radius:var(--r);margin-bottom:4px;}
+.device-name{font-family:var(--mono);font-size:11px;color:var(--code);flex:1;}
+.device-type{font-size:10px;color:var(--text-muted);flex-shrink:0;min-width:80px;}
+
+/* ── Inventory table ── */
+.inv-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.inv-table th{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--text-muted);padding:7px 10px;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border2);letter-spacing:.06em;}
+.inv-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.inv-table tr:last-child td{border-bottom:none;}
+.inv-table tr:hover td{background:var(--bg3);}
+.inv-table td:first-child{font-weight:500;color:var(--text);}
+.inv-table .model{font-family:var(--mono);font-size:11px;color:var(--code);}
+.inv-table .qty{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green);text-align:center;}
+.inv-table .cost{font-family:var(--mono);font-size:12px;text-align:right;}
+.pulled-cb{accent-color:var(--green);width:16px;height:16px;cursor:pointer;}
+
+/* ── Pairing worksheet ── */
+.pair-room{margin-bottom:16px;}
+.pair-room-hdr{background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r) var(--r) 0 0;padding:10px 14px;display:flex;align-items:center;gap:10px;}
+.pair-room-name{font-size:13px;font-weight:600;color:#f0f0f0;flex:1;}
+.pair-room-progress{font-family:var(--mono);font-size:10px;color:var(--text-muted);}
+.pair-device-row{display:grid;grid-template-columns:32px 1fr 120px 100px 100px;gap:8px;align-items:center;padding:8px 14px;border-left:1px solid var(--border2);border-right:1px solid var(--border2);border-bottom:1px solid var(--border);}
+.pair-device-row:last-child{border-radius:0 0 var(--r) var(--r);}
+.pair-device-row.done{background:var(--green-light);}
+.pair-cb{accent-color:var(--green);width:16px;height:16px;cursor:pointer;}
+.pair-name{font-family:var(--mono);font-size:11px;color:var(--code);}
+.pair-status{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:center;}
+.pair-status.ok{color:var(--green);}
+
+/* ── Progress bar ── */
+.progress-wrap{background:var(--border);border-radius:2px;height:3px;margin:6px 0;}
+.progress-bar{height:100%;background:var(--green);border-radius:2px;transition:width .3s;}
+
+/* ── Summary / Export ── */
+.export-block{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:16px;margin-bottom:14px;}
+.export-block h4{font-size:12px;font-family:var(--mono);color:var(--green);letter-spacing:.08em;margin-bottom:10px;}
+.summary-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12.5px;}
+.summary-row:last-child{border-bottom:none;}
+.summary-label{color:var(--text-dim);}
+.summary-val{color:var(--text);font-weight:500;}
+.total-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px;font-weight:600;margin-top:6px;}
+.total-row .summary-val{color:var(--green);font-family:var(--mono);}
+
+/* ── Callout ── */
+.callout{display:flex;gap:10px;padding:10px 14px;border-radius:var(--r);margin:10px 0;font-size:12.5px;line-height:1.6;}
+.callout.info{background:var(--bg3);border-left:2px solid var(--border2);color:var(--text-dim);}
+.callout.warn{background:var(--amber-dim);border-left:2px solid var(--amber);color:#d4b86a;}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* ── Print ── */
+@media print{
+  .topbar,.tabs,.btn,.btn-copy,.card-actions,.room-chevron{display:none!important;}
+  body{background:#fff;color:#000;}
+  .panel{display:block!important;padding:0;}
+  .room-body{display:block!important;}
+  .pair-device-row,.inv-table td,.inv-table th{border-color:#ccc;}
+  .device-name,.pair-name,.model{color:#1a5c3a;}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<div class="topbar">
+  <div class="topbar-logo">DFHA JOB PLANNER</div>
+  <div class="topbar-job" id="topbar-job">No job loaded — start in the Intake tab</div>
+  <div class="topbar-actions">
+    <button class="btn btn-outline" onclick="clearJob()">New Job</button>
+    <button class="btn btn-amber" onclick="switchTab('export')">Export</button>
+  </div>
+</div>
+
+<!-- ── Tabs ── -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('intake')" data-tab="intake"><span class="tab-num">01</span>Job Intake</div>
+  <div class="tab" onclick="switchTab('inventory')" data-tab="inventory"><span class="tab-num">02</span>Inventory Pick</div>
+  <div class="tab" onclick="switchTab('pairing')" data-tab="pairing"><span class="tab-num">03</span>Device Pairing</div>
+  <div class="tab" onclick="switchTab('export')" data-tab="export"><span class="tab-num">04</span>Export / Summary</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ TAB 1 — INTAKE -->
+<div class="panel active" id="panel-intake">
+
+  <div class="section-hdr" style="margin-top:8px;">
+    <h3>Client Information</h3><span class="section-tag">REQUIRED</span>
+  </div>
+  <div class="form-row cols3">
+    <div><label>CLIENT NAME</label><input type="text" id="cl-name" placeholder="Smith" oninput="saveJob()"></div>
+    <div><label>PHONE</label><input type="tel" id="cl-phone" placeholder="(615) 555-0100" oninput="saveJob()"></div>
+    <div><label>EMAIL</label><input type="email" id="cl-email" placeholder="client@email.com" oninput="saveJob()"></div>
+  </div>
+  <div class="form-row cols2">
+    <div><label>ADDRESS</label><input type="text" id="cl-addr" placeholder="123 Main St, Fayetteville TN 37334" oninput="saveJob()"></div>
+    <div><label>INSTALL DATE</label><input type="text" id="cl-date" placeholder="2026-05-01" oninput="saveJob()"></div>
+  </div>
+  <div class="form-row cols2">
+    <div><label>ROUTER BRAND / MODEL</label><input type="text" id="cl-router" placeholder="ASUS RT-AX88U" oninput="saveJob()"></div>
+    <div><label>CLIENT LAN SUBNET</label><input type="text" id="cl-subnet" placeholder="192.168.1.0/24" oninput="saveJob()"></div>
+  </div>
+  <div class="form-row cols2">
+    <div>
+      <label>VLAN AVAILABLE</label>
+      <select id="cl-vlan" onchange="saveJob()">
+        <option value="">— confirm at pre-install —</option>
+        <option value="yes">YES</option>
+        <option value="no">NO — flat network</option>
+      </select>
+    </div>
+    <div>
+      <label>MONITORING PLAN</label>
+      <select id="cl-monitor" onchange="saveJob()">
+        <option value="none">None</option>
+        <option value="basic">Basic — $29/mo</option>
+        <option value="standard">Standard — $49/mo / $539/yr</option>
+        <option value="premium">Premium — $79/mo / $790/yr</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div><label>NOTES</label><textarea id="cl-notes" placeholder="Pre-install notes, special requirements..." oninput="saveJob()"></textarea></div>
+  </div>
+
+  <!-- Backend -->
+  <div class="section-hdr">
+    <h3>Backend</h3><span class="section-tag">EVERY INSTALL</span>
+  </div>
+  <div class="callout info">
+    <span>ℹ</span><div>Backend setup ($499) is included on every install. NUC second M.2 slot and UPS are optional add-ons.</div>
+  </div>
+  <div class="form-row cols3">
+    <div>
+      <label>NUC SECOND M.2/SATA SLOT</label>
+      <select id="be-m2" onchange="saveJob()">
+        <option value="unknown">Unknown — confirm on site</option>
+        <option value="yes">YES — available</option>
+        <option value="no">NO — not available</option>
+      </select>
+    </div>
+    <div>
+      <label>UPS — APC BACK-UPS 600VA</label>
+      <select id="be-ups" onchange="saveJob()">
+        <option value="no">Not included</option>
+        <option value="yes">YES — include UPS</option>
+      </select>
+    </div>
+    <div>
+      <label>SWITCH STYLE IN HOME</label>
+      <select id="be-switch" onchange="saveJob()">
+        <option value="toggle">Toggle</option>
+        <option value="paddle">Paddle / Rocker</option>
+        <option value="mixed">Mixed</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Room builder -->
+  <div class="section-hdr">
+    <h3>Room Builder</h3><span class="section-tag">NAME ROOMS FIRST</span>
+    <button class="btn btn-green" onclick="addRoom()" style="margin-left:auto;">+ Add Room</button>
+  </div>
+
+  <div class="callout info">
+    <span>ℹ</span><div>Name each room first using plain language (e.g. "Front Bedroom", "Guest Bath"). The system converts names to DFHA device naming convention automatically. After naming, open the room to select a kit and add-ons.</div>
+  </div>
+
+  <!-- Quick-add package -->
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-header"><div class="card-title">Quick-Add Package</div><div class="card-sub">Populates standard rooms for a Connected Home package</div></div>
+    <div class="form-row cols2">
+      <div>
+        <label>SELECT PACKAGE</label>
+        <select id="pkg-select">
+          <option value="">— select —</option>
+          <option value="1br1ba">Connected Home 1BR/1BA — $2,149</option>
+          <option value="2br2ba">Connected Home 2BR/2BA — $2,799</option>
+          <option value="3br2ba">Connected Home 3BR/2BA — $3,099</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end;">
+        <button class="btn btn-amber" onclick="applyPackage()">Apply Package Rooms</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="room-list"></div>
+
+  <div style="margin-top:16px;display:flex;gap:10px;">
+    <button class="btn btn-green" onclick="buildInventory();switchTab('inventory')">→ Build Inventory Pick List</button>
+    <button class="btn btn-outline" onclick="buildPairing();switchTab('pairing')">→ Build Pairing Worksheet</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ TAB 2 — INVENTORY -->
+<div class="panel" id="panel-inventory">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;margin-top:8px;">
+    <div>
+      <h2 style="font-size:16px;font-weight:600;color:#f0f0f0;">Inventory Pick List</h2>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:2px;" id="inv-job-label">—</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline" onclick="buildInventory()">Refresh</button>
+      <button class="btn btn-outline" onclick="window.print()">Print</button>
+    </div>
+  </div>
+  <div id="inventory-content">
+    <div class="callout info"><span>ℹ</span><div>Complete the Job Intake tab first, then click "Build Inventory Pick List".</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ TAB 3 — PAIRING -->
+<div class="panel" id="panel-pairing">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;margin-top:8px;">
+    <div>
+      <h2 style="font-size:16px;font-weight:600;color:#f0f0f0;">Device Pairing Worksheet</h2>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:2px;" id="pair-job-label">—</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline" onclick="buildPairing()">Refresh</button>
+      <button class="btn btn-outline" onclick="window.print()">Print</button>
+    </div>
+  </div>
+  <div id="pairing-progress-wrap" style="margin-bottom:16px;display:none;">
+    <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:4px;">
+      <span>Overall pairing progress</span><span id="pair-pct">0 / 0 devices</span>
+    </div>
+    <div class="progress-wrap"><div class="progress-bar" id="pair-progress" style="width:0%"></div></div>
+  </div>
+  <div id="pairing-content">
+    <div class="callout info"><span>ℹ</span><div>Complete the Job Intake tab first, then click "Build Pairing Worksheet".</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ TAB 4 — EXPORT -->
+<div class="panel" id="panel-export">
+  <div style="margin-bottom:16px;margin-top:8px;">
+    <h2 style="font-size:16px;font-weight:600;color:#f0f0f0;">Export & Summary</h2>
+    <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">Job record, pricing summary, and device manifest</div>
+  </div>
+  <div id="export-content">
+    <div class="callout info"><span>ℹ</span><div>Complete the Job Intake tab to generate the export summary.</div></div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:16px;" id="export-actions" style="display:none;">
+    <button class="btn btn-green" onclick="window.print()">Print / Save as PDF</button>
+    <button class="btn btn-outline" onclick="exportJSON()">Export JSON (backup)</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// DATA — Kit definitions, add-ons, device templates
+// ════════════════════════════════════════════════════════════════════════════
+
+const KITS = {
+  basic_room:       { name:'Basic Room', price:299,  desc:'Light on/off + presence', icon:'💡',
+    devices: r => [relay(r,'light'), sensor(r,'presence')] },
+  living_room:      { name:'Living Room', price:349, desc:'Light + fan + presence', icon:'🛋️',
+    devices: r => [relay(r,'light'), relay(r,'fan'), sensor(r,'presence')] },
+  bedroom_relay:    { name:'Bedroom — Relay + Presence', price:299, desc:'No dimming, single switch', icon:'🛏️',
+    devices: r => [relay(r,'light'), sensor(r,'presence')] },
+  bedroom_dual:     { name:'Bedroom — Dual Relay + Fan', price:349, desc:'No dimming, two switches', icon:'🛏️',
+    devices: r => [relay(r,'light'), relay(r,'fan'), sensor(r,'presence')] },
+  bedroom_dimmer:   { name:'Bedroom — Dimmer + Presence', price:349, desc:'Dimming, single switch', icon:'🛏️',
+    devices: r => [sw(r,'dimmer'), sensor(r,'presence')] },
+  bedroom_dimfan:   { name:'Bedroom — Dimmer + Fan + Presence', price:399, desc:'Dimming + fan', icon:'🛏️',
+    devices: r => [sw(r,'dimmer'), relay(r,'fan'), sensor(r,'presence')] },
+  bedroom_primary:  { name:'Primary Bedroom', price:499, desc:'Dimming + Aqara FP2 premium presence', icon:'🛏️',
+    devices: r => [sw(r,'dimmer'), sensor(r,'presence')] },
+  hallway:          { name:'Hallway', price:299, desc:'Presence-based lighting', icon:'🚪',
+    devices: r => [relay(r,'light'), sensor(r,'presence')] },
+  kitchen:          { name:'Kitchen', price:399, desc:'Light + presence + 3x water sensors', icon:'🍳',
+    devices: r => [relay(r,'light'), sensor(r,'presence'), sensor(r,'water','sink'), sensor(r,'water','dishwasher'), sensor(r,'water','fridge')] },
+  bathroom:         { name:'Bathroom', price:369, desc:'Light + fan + presence + humidity + water', icon:'🚿',
+    devices: r => [relay(r,'light'), relay(r,'fan'), sensor(r,'presence'), sensor(r,'humidity'), sensor(r,'water','vanity')] },
+  garage_std:       { name:'Garage Standard', price:379, desc:'Light + tilt + presence + alert', icon:'🏠',
+    devices: r => [relay(r,'light'), relay(r,'opener'), sensor(r,'presence'), sensor(r,'tilt')] },
+  garage_prem:      { name:'Garage Premium', price:599, desc:'Standard + camera + opener + sensors', icon:'🏠',
+    devices: r => [relay(r,'light'), relay(r,'opener'), sensor(r,'presence'), sensor(r,'tilt'), sensor(r,'vibration'), sensor(r,'door'), {type:'camera', name: toSlug(r)+'_camera', label:'Camera', hw:'Reolink E1'}] },
+  laundry:          { name:'Laundry Room', price:299, desc:'Light + presence + power + vibration + water', icon:'🫧',
+    devices: r => [relay(r,'light'), sensor(r,'presence'), plug(r,'power'), sensor(r,'vibration'), sensor(r,'water','floor')] },
+  porch_front:      { name:'Front Porch', price:449, desc:'Welcome home + Reolink doorbell', icon:'🚪',
+    devices: r => [relay(r,'light'), {type:'camera', name:'porch_front_camera', label:'Doorbell Camera', hw:'Reolink Video Doorbell WiFi'}] },
+  stairwell_2sw:    { name:'Stairwell (2-switch)', price:349, desc:'Presence-based 3-way', icon:'🪜',
+    devices: r => [relay(r,'light'), sensor(r,'presence'), {type:'switch', name: toSlug(r)+'_switch_scene', label:'Scene Switch (2nd location)', hw:'SNZB-01P'}] },
+  hallway_3sw:      { name:'Hallway (3-switch)', price:399, desc:'Presence-based 4-way', icon:'🚪',
+    devices: r => [relay(r,'light'), sensor(r,'presence'), {type:'switch', name: toSlug(r)+'_switch_scene_1', label:'Scene Switch 1', hw:'SNZB-01P'}, {type:'switch', name: toSlug(r)+'_switch_scene_2', label:'Scene Switch 2', hw:'SNZB-01P'}] },
+};
+
+const ADDONS = [
+  { id:'scene_switch',  name:'3-way scene switch (2nd location)', price:49,  hw:'SNZB-01P',
+    devices: r => [{type:'switch', name: toSlug(r)+'_switch_scene', label:'Scene Switch', hw:'SNZB-01P'}] },
+  { id:'dimmer_upgrade',name:'Dimmer module upgrade', price:39, hw:'MINI-ZBDIM',
+    devices: r => [] },
+  { id:'fan_relay',     name:'Fan on/off dual relay', price:39,  hw:'MINI-ZB2GS',
+    devices: r => [relay(r,'fan')] },
+  { id:'fp1e',          name:'Aqara FP1E presence upgrade', price:49,  hw:'Aqara FP1E', devices: r=>[] },
+  { id:'fp2',           name:'Aqara FP2 presence upgrade', price:129, hw:'Aqara FP2',  devices: r=>[] },
+  { id:'second_sensor', name:'Second presence sensor (large room)', price:79,  hw:'Tuya mmWave',
+    devices: r => [sensor(r,'presence','2')] },
+  { id:'smart_plug',    name:'Zigbee smart plug (lamp/appliance)', price:49,  hw:'ThirdReality plug',
+    devices: r => [plug(r,'power')] },
+  { id:'contact_door',  name:'Contact sensor — door', price:5,   hw:'DP-ZD001',
+    devices: r => [sensor(r,'door')] },
+  { id:'contact_window',name:'Contact sensor — window', price:5,  hw:'DP-ZD001',
+    devices: r => [sensor(r,'window')] },
+  { id:'water_extra',   name:'Extra water sensor', price:10,  hw:'Tuya water sensor',
+    devices: r => [sensor(r,'water','extra')] },
+  { id:'grocy',         name:'Grocy inventory setup', price:50,  hw:'Software only', devices: r=>[] },
+  { id:'inovelli',      name:'Inovelli Blue Series wallplate dimmer', price:60, hw:'VZM31-SN',
+    devices: r => [{type:'switch', name: toSlug(r)+'_switch_dimmer', label:'Wallplate Dimmer', hw:'Inovelli VZM31-SN'}] },
+  { id:'second_garage', name:'Second garage door', price:149, hw:'Tilt + opener relay',
+    devices: r => [sensor(r,'tilt','2'), relay(r,'opener')] },
+  { id:'double_vanity', name:'Bathroom double vanity add-on', price:15,  hw:'Water sensor',
+    devices: r => [sensor(r,'water','vanity2')] },
+];
+
+const HW_COSTS = {
+  'ZBMINIR2':28,'ZBMINIL2':16,'MINI-ZB2GS':18,'MINI-ZB2GS-L':18,'MINI-ZBDIM':27,
+  'Inovelli VZM31-SN':60,'SNZB-01P':12,'Tuya mmWave':25,'Aqara FP1E':50,'Aqara FP2':74,
+  'DP-ZD001':2.25,'Tuya water sensor':10,'Tuya vibration':13,'Tuya tilt':10,
+  'ThirdReality plug':12,'ThirdReality power plug':12,'Reolink E1':40,
+  'Reolink Video Doorbell WiFi':107,'NUT APC':84,'APC Back-UPS 600VA':84,
+  'Intel N100 NUC':230,'Sonoff Zigbee Dongle Plus':20,'32GB mini USB':9,
+};
+
+// ── Device name helpers ──────────────────────────────────────────────────────
+function toSlug(roomLabel) {
+  // Convert plain room name to DFHA location token
+  const l = roomLabel.toLowerCase().trim();
+  const map = [
+    [/primary bedroom|master bedroom|main bedroom/,   'bedroom_primary'],
+    [/guest bedroom/,                                  'bedroom_guest'],
+    [/secondary bedroom/,                              'bedroom_secondary'],
+    [/bedroom/,                                        null], // handled below
+    [/primary bathroom|master bath|ensuite primary/,  'bathroom_primary'],
+    [/main bathroom|main bath|shared bath/,            'bathroom_main'],
+    [/guest bathroom|guest bath/,                      'bathroom_guest'],
+    [/secondary bathroom/,                             'bathroom_secondary'],
+    [/bathroom|bath/,                                  null],
+    [/living room|living/,                             'living'],
+    [/kitchen/,                                        'kitchen'],
+    [/dining/,                                         'dining'],
+    [/hallway|hall/,                                   null],
+    [/garage/,                                         'garage'],
+    [/front porch|porch front/,                        'porch_front'],
+    [/back porch|porch back/,                          'porch_back'],
+    [/backyard|back yard/,                             'backyard'],
+    [/stairwell|stairs|stair/,                         'stair'],
+    [/laundry/,                                        'laundry'],
+    [/entry|foyer/,                                    'entry'],
+  ];
+  for (const [re, token] of map) {
+    if (re.test(l)) {
+      if (token) return token;
+      // Need descriptor
+      const slug = l.replace(/bedroom|bathroom|bath|hallway|hall/g,'')
+                    .trim().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+      const base = /bedroom/.test(l) ? 'bedroom' : /bath/.test(l) ? 'bathroom' : 'hallway';
+      return slug ? `${base}_${slug}` : base;
+    }
+  }
+  // Fallback: slugify the label
+  return l.replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+}
+
+function relay(room, fn, suffix='') {
+  const s = toSlug(room);
+  const sfx = suffix ? `_${suffix}` : '';
+  const hwMap = {light:'ZBMINIR2', fan:'ZBMINIR2', opener:'Dry contact relay'};
+  return {type:'relay', name:`${s}_relay_${fn}${sfx}`, label:`${fn.charAt(0).toUpperCase()+fn.slice(1)} relay`, hw:hwMap[fn]||'ZBMINIR2'};
+}
+function sensor(room, fn, suffix='') {
+  const s = toSlug(room);
+  const sfx = suffix ? `_${suffix}` : '';
+  const hwMap = {presence:'Tuya mmWave', humidity:'Tuya humidity', water:'Tuya water sensor',
+                 tilt:'Tuya tilt', vibration:'Tuya vibration', door:'DP-ZD001', window:'DP-ZD001', co:'Heiman CO', smoke:'Smoke sensor'};
+  return {type:'sensor', name:`${s}_sensor_${fn}${sfx}`, label:`${fn.charAt(0).toUpperCase()+fn.slice(1)} sensor${suffix?' ('+suffix+')':''}`, hw:hwMap[fn]||'Tuya Zigbee sensor'};
+}
+function sw(room, fn) {
+  const s = toSlug(room);
+  return {type:'switch', name:`${s}_switch_${fn}`, label:`${fn.charAt(0).toUpperCase()+fn.slice(1)} switch`, hw:'MINI-ZBDIM'};
+}
+function plug(room, fn) {
+  const s = toSlug(room);
+  return {type:'plug', name:`${s}_plug_${fn}`, label:`Power plug (${fn})`, hw:'ThirdReality power plug'};
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+let job = {
+  client:{name:'',phone:'',email:'',addr:'',date:'',router:'',subnet:'',vlan:'',monitor:'none',notes:''},
+  backend:{m2:'unknown',ups:'no',switchStyle:'toggle'},
+  rooms:[],
+  pairingState:{},
+  inventoryState:{},
+};
+
+function loadJob() {
+  try {
+    const s = localStorage.getItem('dfha_job');
+    if (s) job = JSON.parse(s);
+  } catch(e){}
+  applyJobToForm();
+  renderRooms();
+  updateTopbar();
+}
+
+function saveJob() {
+  readFormIntoJob();
+  localStorage.setItem('dfha_job', JSON.stringify(job));
+  updateTopbar();
+}
+
+function readFormIntoJob() {
+  job.client.name    = v('cl-name');
+  job.client.phone   = v('cl-phone');
+  job.client.email   = v('cl-email');
+  job.client.addr    = v('cl-addr');
+  job.client.date    = v('cl-date');
+  job.client.router  = v('cl-router');
+  job.client.subnet  = v('cl-subnet');
+  job.client.vlan    = v('cl-vlan');
+  job.client.monitor = v('cl-monitor');
+  job.client.notes   = v('cl-notes');
+  job.backend.m2          = v('be-m2');
+  job.backend.ups         = v('be-ups');
+  job.backend.switchStyle = v('be-switch');
+}
+
+function applyJobToForm() {
+  set('cl-name',   job.client.name);
+  set('cl-phone',  job.client.phone);
+  set('cl-email',  job.client.email);
+  set('cl-addr',   job.client.addr);
+  set('cl-date',   job.client.date);
+  set('cl-router', job.client.router);
+  set('cl-subnet', job.client.subnet);
+  set('cl-vlan',   job.client.vlan);
+  set('cl-monitor',job.client.monitor);
+  set('cl-notes',  job.client.notes);
+  set('be-m2',     job.backend.m2);
+  set('be-ups',    job.backend.ups);
+  set('be-switch', job.backend.switchStyle);
+}
+
+function v(id){ return document.getElementById(id)?.value||''; }
+function set(id,val){ const el=document.getElementById(id); if(el) el.value=val||''; }
+
+function updateTopbar() {
+  const n = job.client.name || 'Unnamed Job';
+  const d = job.client.date || '—';
+  document.getElementById('topbar-job').innerHTML =
+    `<strong>${n}</strong> · ${job.client.addr||'No address'} · Install: ${d} · ${job.rooms.length} room(s)`;
+}
+
+function clearJob() {
+  if (!confirm('Start a new job? Current job will be cleared.')) return;
+  localStorage.removeItem('dfha_job');
+  job = {client:{name:'',phone:'',email:'',addr:'',date:'',router:'',subnet:'',vlan:'',monitor:'none',notes:''},
+         backend:{m2:'unknown',ups:'no',switchStyle:'toggle'},rooms:[],pairingState:{},inventoryState:{}};
+  applyJobToForm();
+  renderRooms();
+  updateTopbar();
+  document.getElementById('inventory-content').innerHTML = '<div class="callout info"><span>ℹ</span><div>Complete the Job Intake tab first.</div></div>';
+  document.getElementById('pairing-content').innerHTML   = '<div class="callout info"><span>ℹ</span><div>Complete the Job Intake tab first.</div></div>';
+}
+
+// ── Room management ──────────────────────────────────────────────────────────
+function addRoom(label='', kitId='', addons=[]) {
+  const id = 'room_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  job.rooms.push({id, label, kitId, addons});
+  saveJob();
+  renderRooms();
+  if (!label) {
+    // Open the new room and focus name input
+    setTimeout(()=>{
+      const card = document.getElementById('rc_'+id);
+      if(card){ card.classList.add('open'); card.querySelector('.room-body').style.display='block'; }
+      const inp = document.getElementById('rl_'+id);
+      if(inp) inp.focus();
+    }, 50);
+  }
+}
+
+function removeRoom(id) {
+  job.rooms = job.rooms.filter(r=>r.id!==id);
+  saveJob();
+  renderRooms();
+}
+
+function applyPackage() {
+  const pkg = document.getElementById('pkg-select').value;
+  if (!pkg) return;
+  const templates = {
+    '1br1ba': [['Living Room','living_room'],['Kitchen','kitchen'],['Main Bathroom','bathroom'],['Bedroom','bedroom_relay'],['Front Porch','porch_front']],
+    '2br2ba': [['Living Room','living_room'],['Kitchen','kitchen'],['Main Bathroom','bathroom'],['Guest Bathroom','bathroom'],['Primary Bedroom','bedroom_relay'],['Guest Bedroom','bedroom_relay'],['Front Porch','porch_front']],
+    '3br2ba': [['Living Room','living_room'],['Kitchen','kitchen'],['Main Bathroom','bathroom'],['Primary Bathroom','bathroom'],['Primary Bedroom','bedroom_relay'],['Guest Bedroom','bedroom_relay'],['Secondary Bedroom','bedroom_relay'],['Front Porch','porch_front']],
+  };
+  const rooms = templates[pkg];
+  if (!rooms) return;
+  if (job.rooms.length > 0 && !confirm('This will add rooms to the current list. Continue?')) return;
+  rooms.forEach(([label, kitId]) => addRoom(label, kitId));
+}
+
+function toggleRoom(id) {
+  const card = document.getElementById('rc_'+id);
+  card.classList.toggle('open');
+}
+
+function setRoomLabel(id, val) {
+  const r = job.rooms.find(r=>r.id===id);
+  if(r){ r.label=val; saveJob(); renderRooms(); }
+}
+
+function selectKit(roomId, kitId) {
+  const r = job.rooms.find(r=>r.id===roomId);
+  if(!r) return;
+  r.kitId = r.kitId===kitId ? '' : kitId;
+  saveJob();
+  renderRooms();
+}
+
+function toggleAddon(roomId, addonId) {
+  const r = job.rooms.find(r=>r.id===roomId);
+  if(!r) return;
+  const idx = r.addons.indexOf(addonId);
+  if(idx>=0) r.addons.splice(idx,1); else r.addons.push(addonId);
+  saveJob();
+  renderRooms();
+}
+
+function getRoomDevices(room) {
+  const devices = [];
+  if (room.kitId && KITS[room.kitId]) {
+    KITS[room.kitId].devices(room.label).forEach(d=>devices.push(d));
+  }
+  room.addons.forEach(aid => {
+    const a = ADDONS.find(x=>x.id===aid);
+    if(a) a.devices(room.label).forEach(d=>devices.push(d));
+  });
+  return devices;
+}
+
+function renderRooms() {
+  const container = document.getElementById('room-list');
+  if (!job.rooms.length) {
+    container.innerHTML = '<div class="callout info"><span>ℹ</span><div>No rooms added yet. Click "+ Add Room" or use Quick-Add Package above.</div></div>';
+    return;
+  }
+  container.innerHTML = job.rooms.map(room => {
+    const kit = room.kitId ? KITS[room.kitId] : null;
+    const devices = getRoomDevices(room);
+    const isOpen = document.getElementById('rc_'+room.id)?.classList.contains('open');
+
+    const kitGrid = Object.entries(KITS).map(([kid,k])=>`
+      <div class="kit-option ${room.kitId===kid?'selected':''}" onclick="selectKit('${room.id}','${kid}')">
+        <div class="kit-option-name">${k.icon} ${k.name}</div>
+        <div class="kit-option-price">$${k.price.toLocaleString()}</div>
+        <div class="kit-option-desc">${k.desc}</div>
+      </div>`).join('');
+
+    const addonGrid = ADDONS.map(a=>`
+      <label class="addon-item ${room.addons.includes(a.id)?'selected':''}">
+        <input type="checkbox" ${room.addons.includes(a.id)?'checked':''} onchange="toggleAddon('${room.id}','${a.id}')">
+        <div><div class="addon-label">${a.name}</div><div class="addon-price">+$${a.price}</div></div>
+      </label>`).join('');
+
+    const deviceList = devices.length ? `
+      <div style="margin-top:12px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-bottom:6px;letter-spacing:.08em;">GENERATED DEVICE NAMES</div>
+        ${devices.map(d=>`
+          <div class="device-item">
+            <div class="device-name">${d.name}</div>
+            <div class="device-type">${d.hw||d.type}</div>
+            <button class="btn-copy" onclick="copyText('${d.name}',this)">Copy</button>
+          </div>`).join('')}
+      </div>` : '';
+
+    return `
+    <div class="room-card ${kit?'has-kit':''} ${isOpen?'open':''}" id="rc_${room.id}">
+      <div class="room-header" onclick="toggleRoom('${room.id}')">
+        <span class="room-icon">${kit?kit.icon:'📦'}</span>
+        <span class="room-name">${room.label||'<em style="color:var(--text-muted)">Unnamed room</em>'}</span>
+        ${kit?`<span class="room-kit-badge">${kit.name}</span>`:''}
+        ${devices.length?`<span class="room-device-count">${devices.length} devices</span>`:''}
+        ${room.addons.length?`<span style="font-family:var(--mono);font-size:9px;color:var(--amber);background:var(--amber-dim);border:1px solid rgba(200,168,75,.3);border-radius:2px;padding:2px 6px;">${room.addons.length} add-on${room.addons.length>1?'s':''}</span>`:''}
+        <span class="room-chevron">▶</span>
+      </div>
+      <div class="room-body">
+        <div style="margin:12px 0 8px;">
+          <label>ROOM NAME <span style="color:var(--text-muted);font-size:9px;">(plain language — auto-converts to naming convention)</span></label>
+          <input type="text" value="${room.label}" placeholder="e.g. Front Bedroom, Guest Bath, Primary Bedroom"
+            id="rl_${room.id}"
+            onchange="setRoomLabel('${room.id}',this.value)"
+            oninput="setRoomLabel('${room.id}',this.value)">
+          ${room.label?`<div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:4px;">→ ${toSlug(room.label)}_[device]_[function]</div>`:''}
+        </div>
+
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);letter-spacing:.08em;margin:14px 0 8px;">SELECT KIT</div>
+        <div class="kit-grid">${kitGrid}</div>
+
+        <div style="font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:.08em;margin:14px 0 8px;">ADD-ONS FOR THIS ROOM</div>
+        <div class="addon-grid">${addonGrid}</div>
+
+        ${deviceList}
+
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+          <button class="btn btn-danger" onclick="removeRoom('${room.id}')">Remove Room</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Inventory ────────────────────────────────────────────────────────────────
+function buildInventory() {
+  readFormIntoJob();
+  const tally = {};
+
+  function add(hw, qty=1) {
+    if(!hw) return;
+    tally[hw] = (tally[hw]||0) + qty;
+  }
+
+  // Backend always
+  add('Intel N100 NUC');
+  add('Sonoff Zigbee Dongle Plus');
+  add('32GB mini USB');
+  if (job.backend.ups==='yes') add('APC Back-UPS 600VA');
+
+  // Rooms
+  job.rooms.forEach(room => {
+    getRoomDevices(room).forEach(d => add(d.hw));
+  });
+
+  if (!Object.keys(tally).length) {
+    document.getElementById('inventory-content').innerHTML =
+      '<div class="callout warn"><span>⚠</span><div>No rooms configured yet.</div></div>';
+    return;
+  }
+
+  let totalCost = 0;
+  const rows = Object.entries(tally).sort((a,b)=>a[0].localeCompare(b[0])).map(([hw, qty]) => {
+    const cost = HW_COSTS[hw]||0;
+    const line = cost*qty;
+    totalCost += line;
+    const cbId = `inv_${hw.replace(/\W/g,'_')}`;
+    const pulled = job.inventoryState[hw]||false;
+    return `<tr>
+      <td>${hw}</td>
+      <td class="qty">${qty}</td>
+      <td class="cost">$${cost>0?cost.toFixed(2):'—'}</td>
+      <td class="cost">${cost>0?'$'+line.toFixed(2):'—'}</td>
+      <td style="text-align:center;"><input type="checkbox" class="pulled-cb" id="${cbId}" ${pulled?'checked':''} onchange="setInvPulled('${hw}',this.checked)"></td>
+    </tr>`;
+  }).join('');
+
+  const label = `${job.client.name||'Unnamed'} — ${job.client.date||'No date'}`;
+  document.getElementById('inv-job-label').textContent = label;
+
+  document.getElementById('inventory-content').innerHTML = `
+    <table class="inv-table">
+      <thead><tr>
+        <th>Device / Hardware</th>
+        <th style="text-align:center;">Qty</th>
+        <th style="text-align:right;">Unit Cost</th>
+        <th style="text-align:right;">Line Cost</th>
+        <th style="text-align:center;">Pulled ✓</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td colspan="3" style="font-weight:600;padding:10px;">Estimated Hardware Total</td>
+        <td class="cost" style="font-weight:600;color:var(--green);font-family:var(--mono);">$${totalCost.toFixed(2)}</td>
+        <td></td>
+      </tr></tfoot>
+    </table>`;
+}
+
+function setInvPulled(hw, val) {
+  job.inventoryState[hw] = val;
+  saveJob();
+}
+
+// ── Pairing worksheet ────────────────────────────────────────────────────────
+function buildPairing() {
+  readFormIntoJob();
+  if (!job.rooms.length) {
+    document.getElementById('pairing-content').innerHTML =
+      '<div class="callout warn"><span>⚠</span><div>No rooms configured yet.</div></div>';
+    return;
+  }
+
+  let totalDevices = 0;
+  let pairedDevices = 0;
+
+  const html = job.rooms.map(room => {
+    const devices = getRoomDevices(room);
+    if (!devices.length) return '';
+    totalDevices += devices.length;
+
+    const roomPaired = devices.filter(d => job.pairingState[d.name]).length;
+    pairedDevices += roomPaired;
+    const pct = devices.length ? Math.round(roomPaired/devices.length*100) : 0;
+
+    const rows = devices.map(d => {
+      const done = job.pairingState[d.name]||false;
+      pairedDevices;
+      return `<div class="pair-device-row ${done?'done':''}" id="pdr_${d.name.replace(/\W/g,'_')}">
+        <input type="checkbox" class="pair-cb" ${done?'checked':''} onchange="setPaired('${d.name}',this.checked)">
+        <div>
+          <div class="pair-name">${d.name}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${d.label} · ${d.hw||''}</div>
+        </div>
+        <button class="btn-copy" onclick="copyText('${d.name}',this)" style="justify-self:center;">Copy name</button>
+        <div class="pair-status ${done?'ok':''}" style="text-align:center;">${done?'✓ Paired':'—'}</div>
+        <div class="pair-status ${done?'ok':''}" style="text-align:center;">${done?'✓ HAOS':'—'}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="pair-room">
+      <div class="pair-room-hdr">
+        <span class="room-name">${room.label||'Unnamed Room'}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--green);margin-right:8px;">${toSlug(room.label||'room')}</span>
+        <span class="pair-room-progress">${roomPaired}/${devices.length} paired</span>
+        <div class="progress-wrap" style="width:80px;margin-left:10px;"><div class="progress-bar" style="width:${pct}%"></div></div>
+      </div>
+      <div style="background:var(--bg4);border-left:1px solid var(--border2);border-right:1px solid var(--border2);">
+        <div style="display:grid;grid-template-columns:32px 1fr 120px 100px 100px;gap:8px;padding:5px 14px;font-family:var(--mono);font-size:9px;color:var(--text-muted);letter-spacing:.06em;">
+          <span></span><span>DEVICE NAME / HARDWARE</span><span style="text-align:center;">COPY</span><span style="text-align:center;">Z2M PAIRED</span><span style="text-align:center;">HAOS ENTITY</span>
+        </div>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  const pct = totalDevices ? Math.round(pairedDevices/totalDevices*100) : 0;
+  document.getElementById('pair-pct').textContent = `${pairedDevices} / ${totalDevices} devices`;
+  document.getElementById('pair-progress').style.width = pct+'%';
+  document.getElementById('pairing-progress-wrap').style.display = 'block';
+
+  const label = `${job.client.name||'Unnamed'} — ${job.client.date||'No date'}`;
+  document.getElementById('pair-job-label').textContent = label;
+  document.getElementById('pairing-content').innerHTML = html || '<div class="callout warn"><span>⚠</span><div>No devices found — check room kits are selected.</div></div>';
+}
+
+function setPaired(deviceName, val) {
+  job.pairingState[deviceName] = val;
+  saveJob();
+  buildPairing();
+}
+
+// ── Export / Summary ─────────────────────────────────────────────────────────
+function buildExport() {
+  readFormIntoJob();
+  const c = job.client;
+  const b = job.backend;
+
+  // Pricing
+  let total = 499; // backend always
+  if (b.ups==='yes') total += 84;
+  const roomLines = job.rooms.map(room => {
+    const kit = room.kitId ? KITS[room.kitId] : null;
+    let roomTotal = kit ? kit.price : 0;
+    const addonLines = room.addons.map(aid=>{
+      const a = ADDONS.find(x=>x.id===aid);
+      if(a){ roomTotal += a.price; }
+      return a ? `<div style="font-size:11px;color:var(--text-dim);padding-left:16px;">+ ${a.name} <span style="color:var(--amber)">+$${a.price}</span></div>` : '';
+    }).join('');
+    total += roomTotal;
+    return {room, kit, roomTotal, addonLines};
+  });
+
+  const monitor = {none:'None',basic:'Basic $29/mo',standard:'Standard $49/mo',premium:'Premium $79/mo'}[c.monitor]||'None';
+
+  const pairingDone = Object.values(job.pairingState).filter(Boolean).length;
+  const pairingTotal = job.rooms.reduce((n,r)=>n+getRoomDevices(r).length,0);
+
+  const allDevices = job.rooms.flatMap(room =>
+    getRoomDevices(room).map(d=>({...d, roomLabel:room.label}))
+  );
+
+  document.getElementById('export-content').innerHTML = `
+    <div class="export-block">
+      <h4>JOB DETAILS</h4>
+      <div class="summary-row"><span class="summary-label">Client</span><span class="summary-val">${c.name||'—'}</span></div>
+      <div class="summary-row"><span class="summary-label">Address</span><span class="summary-val">${c.addr||'—'}</span></div>
+      <div class="summary-row"><span class="summary-label">Phone</span><span class="summary-val">${c.phone||'—'}</span></div>
+      <div class="summary-row"><span class="summary-label">Email</span><span class="summary-val">${c.email||'—'}</span></div>
+      <div class="summary-row"><span class="summary-label">Install date</span><span class="summary-val">${c.date||'—'}</span></div>
+      <div class="summary-row"><span class="summary-label">Router</span><span class="summary-val">${c.router||'—'}</span></div>
+      <div class="summary-row"><span class="summary-label">Subnet</span><span class="summary-val">${c.subnet||'—'}</span></div>
+      <div class="summary-row"><span class="summary-label">VLAN</span><span class="summary-val">${c.vlan||'Not confirmed'}</span></div>
+      <div class="summary-row"><span class="summary-label">Monitoring plan</span><span class="summary-val">${monitor}</span></div>
+      <div class="summary-row"><span class="summary-label">UPS</span><span class="summary-val">${b.ups==='yes'?'APC Back-UPS 600VA — included':'Not included'}</span></div>
+      <div class="summary-row"><span class="summary-label">Switch style</span><span class="summary-val">${b.switchStyle}</span></div>
+      ${c.notes?`<div class="summary-row"><span class="summary-label">Notes</span><span class="summary-val">${c.notes}</span></div>`:''}
+    </div>
+
+    <div class="export-block">
+      <h4>PRICING SUMMARY</h4>
+      <div class="summary-row"><span class="summary-label">Backend setup</span><span class="summary-val">$499.00</span></div>
+      ${b.ups==='yes'?'<div class="summary-row"><span class="summary-label">UPS — APC Back-UPS 600VA</span><span class="summary-val">$84.00</span></div>':''}
+      ${roomLines.map(({room,kit,roomTotal,addonLines})=>`
+        <div class="summary-row">
+          <span class="summary-label">${room.label||'Unnamed'} — ${kit?kit.name:'No kit'}</span>
+          <span class="summary-val">$${roomTotal.toFixed(2)}</span>
+        </div>
+        ${addonLines}
+      `).join('')}
+      <div class="total-row"><span class="summary-label">ESTIMATED TOTAL</span><span class="summary-val">$${total.toLocaleString('en-US',{minimumFractionDigits:2})}</span></div>
+    </div>
+
+    <div class="export-block">
+      <h4>PAIRING STATUS</h4>
+      <div class="summary-row"><span class="summary-label">Devices paired</span><span class="summary-val">${pairingDone} / ${pairingTotal}</span></div>
+      <div class="progress-wrap" style="margin:8px 0;"><div class="progress-bar" style="width:${pairingTotal?Math.round(pairingDone/pairingTotal*100):0}%"></div></div>
+    </div>
+
+    <div class="export-block">
+      <h4>FULL DEVICE MANIFEST</h4>
+      <table class="inv-table" style="margin-top:0;">
+        <thead><tr><th>Room</th><th>Device Name (Z2M / HAOS)</th><th>Type</th><th>Hardware</th><th style="text-align:center;">Paired</th></tr></thead>
+        <tbody>
+          ${allDevices.map(d=>`<tr>
+            <td>${d.roomLabel}</td>
+            <td class="model">${d.name} <button class="btn-copy" onclick="copyText('${d.name}',this)">Copy</button></td>
+            <td>${d.type}</td>
+            <td style="font-size:11px;color:var(--text-dim);">${d.hw||'—'}</td>
+            <td style="text-align:center;">${job.pairingState[d.name]?'✓':'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('export-actions').style.display='flex';
+}
+
+function exportJSON() {
+  readFormIntoJob();
+  const blob = new Blob([JSON.stringify(job,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `DFHA_job_${(job.client.name||'unnamed').replace(/\s+/g,'_')}_${job.client.date||'nodate'}.json`;
+  a.click();
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
+  if (name==='inventory') buildInventory();
+  if (name==='pairing')   buildPairing();
+  if (name==='export')    buildExport();
+}
+
+// ── Copy helper ───────────────────────────────────────────────────────────────
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='Copied!'; btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent='Copy'; btn.classList.remove('copied'); },1800);
+  }).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    btn.textContent='Copied!';
+    setTimeout(()=>{ btn.textContent='Copy'; },1800);
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadJob();
+</script>
+</body>
+</html>

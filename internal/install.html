@@ -1,0 +1,3504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFHA — Backend OS & Shop Prep — S11</title>
+<style>
+  /* ── Nextcloud config (edit before first use) ── */
+  /* See NEXTCLOUD_CONFIG object in script section  */
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:         #0e0e0e;
+    --bg2:        #141414;
+    --bg3:        #1a1a1a;
+    --bg4:        #222222;
+    --border:     #2a2a2a;
+    --border2:    #333333;
+    --green:      #4caf7d;
+    --green-dim:  #2d6b4e;
+    --green-glow: rgba(76,175,125,0.12);
+    --amber:      #c8a84b;
+    --amber-dim:  rgba(200,168,75,0.15);
+    --red:        #c0504a;
+    --text:       #d8d8d8;
+    --text-dim:   #888888;
+    --text-muted: #555555;
+    --code-text:  #a8d8a8;
+    --code-bg:    #0a0a0a;
+    --mono:       'IBM Plex Mono', monospace;
+    --sans:       'IBM Plex Sans', sans-serif;
+    --radius:     4px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 18px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 34px;
+    height: calc(100vh - 34px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .sidebar-header {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-title {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .sidebar-progress {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .progress-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--border2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--green);
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  .nav-section { padding: 8px 0; }
+
+  .nav-section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 6px 16px 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-decoration: none;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+
+  .nav-item.active {
+    background: var(--green-glow);
+    color: var(--green);
+    border-left: 2px solid var(--green);
+    padding-left: 14px;
+  }
+
+  .nav-item.completed .nav-num { background: var(--green); color: var(--bg); }
+
+  .nav-num {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    background: var(--border2);
+    color: var(--text-muted);
+    border-radius: 2px;
+    padding: 1px 4px;
+    min-width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  /* ── Main content ── */
+  .main {
+    padding: 32px 40px 80px;
+    max-width: 900px;
+  }
+
+  .page-header {
+    margin-bottom: 36px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: 8px;
+  }
+
+  .page-title {
+    font-size: 26px;
+    font-weight: 300;
+    color: #f0f0f0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .page-title strong { font-weight: 600; color: #ffffff; }
+
+  .page-meta {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .page-meta span { display: flex; align-items: center; gap: 5px; }
+
+  .page-intro {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+    max-width: 680px;
+    line-height: 1.7;
+    padding: 12px 16px;
+    background: var(--bg3);
+    border-left: 2px solid var(--green-dim);
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+
+  /* ── Steps ── */
+  .step-section {
+    margin-bottom: 48px;
+    scroll-margin-top: 24px;
+  }
+
+  .step-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--bg4);
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+    border-radius: var(--radius);
+    padding: 3px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+
+  .step-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #f0f0f0;
+    letter-spacing: -0.01em;
+  }
+
+  .step-complete-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .step-complete-btn:hover { border-color: var(--green-dim); color: var(--green); }
+  .step-complete-btn.done { background: var(--green-glow); border-color: var(--green); color: var(--green); }
+
+  /* ── Sub-sections ── */
+  .subsection {
+    margin: 20px 0 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Instruction steps with checkboxes ── */
+  .instructions { list-style: none; }
+
+  .instructions li {
+    display: grid;
+    grid-template-columns: 20px 28px 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 19px;
+    line-height: 1.65;
+    color: var(--text);
+    align-items: start;
+  }
+
+  /* Sub-step checkbox */
+  .sub-check {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    border: 1px solid var(--border2);
+    border-radius: 2px;
+    background: var(--bg4);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 3px;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .sub-check:checked {
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  .sub-check:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 1px;
+    width: 5px;
+    height: 8px;
+    border: 2px solid var(--bg);
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+  }
+
+  .sub-check:hover:not(:checked) { border-color: var(--green-dim); }
+
+  .instructions li.checked-item > div {
+    opacity: 0.45;
+    text-decoration: line-through;
+    text-decoration-color: var(--text-muted);
+  }
+
+  .inst-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg4);
+    border-radius: 2px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    margin: 10px 0 14px;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border2);
+  }
+
+  .code-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .copy-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .copy-btn:hover { border-color: var(--green-dim); color: var(--green); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+  .code-body {
+    padding: 14px 16px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .code-body pre {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--code-text);
+    line-height: 1.7;
+    white-space: pre;
+  }
+
+  .code-comment { color: var(--text-muted); }
+  .code-key     { color: #89b4d8; }
+  .code-val     { color: #c8a86b; }
+
+  /* ── Callouts ── */
+  .callout {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin: 10px 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .callout-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  .callout.note {
+    background: var(--bg3);
+    border-left: 2px solid var(--border2);
+    color: var(--text-dim);
+  }
+
+  .callout.warn {
+    background: var(--amber-dim);
+    border-left: 2px solid var(--amber);
+    color: #d4b86a;
+  }
+
+  .callout.danger {
+    background: rgba(192,80,74,0.1);
+    border-left: 2px solid var(--red);
+    color: #d47a76;
+  }
+
+  /* ── Links ── */
+  .ext-link {
+    color: var(--green);
+    text-decoration: none;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    border-bottom: 1px solid var(--green-dim);
+    transition: border-color 0.15s;
+  }
+  .ext-link:hover { border-color: var(--green); }
+
+  /* ── Tables ── */
+  .ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin: 10px 0 14px;
+  }
+
+  .ref-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    text-align: left;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border2);
+  }
+
+  .ref-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+
+  .ref-table tr:last-child td { border-bottom: none; }
+  .ref-table tr:hover td { background: var(--bg3); }
+
+  .ref-table td:first-child {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--code-text);
+    white-space: nowrap;
+  }
+
+  /* ── Navigation Path ── */
+  .nav-path {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--amber);
+    background: var(--amber-dim);
+    border: 1px solid rgba(200,168,75,0.2);
+    border-radius: var(--radius);
+    padding: 5px 10px;
+    display: inline-block;
+    margin: 4px 0 10px;
+  }
+
+  .nav-path span { color: var(--text-muted); margin: 0 4px; }
+
+  /* ── Inline code ── */
+  code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--code-text);
+    background: var(--code-bg);
+    border: 1px solid var(--border2);
+    border-radius: 2px;
+    padding: 1px 5px;
+  }
+
+  /* ── Deferred badge ── */
+  .deferred {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--amber);
+    background: var(--amber-dim);
+    border: 1px solid rgba(200,168,75,0.3);
+    border-radius: 2px;
+    padding: 2px 7px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Internal nav ── */
+  .internal-nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 34px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    position: sticky;
+    top: 0;
+    z-index: 250;
+  }
+  .internal-nav-brand { color: var(--text-muted); text-transform: uppercase; }
+  .internal-nav-links { display: flex; }
+  .internal-nav-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0 14px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    transition: color .15s, background .15s;
+    border-left: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .internal-nav-link:hover { color: var(--text); background: var(--green-glow); }
+  .internal-nav-link.active { color: var(--green); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; }
+    .main { padding: 20px 16px 60px; }
+  }
+
+  p { margin-bottom: 8px; font-size: 19px; color: var(--text); line-height: 1.65; }
+
+  /* ── Sidebar action buttons ── */
+  .sidebar-actions {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .action-btn {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.18s;
+    border: 1px solid;
+    text-align: center;
+  }
+
+  .action-btn.storage {
+    background: var(--green-glow);
+    border-color: var(--green-dim);
+    color: var(--green);
+  }
+  .action-btn.storage:hover { background: rgba(76,175,125,0.2); border-color: var(--green); }
+
+  .action-btn.reset {
+    background: rgba(192,80,74,0.08);
+    border-color: rgba(192,80,74,0.3);
+    color: var(--red);
+  }
+  .action-btn.reset:hover { background: rgba(192,80,74,0.18); border-color: var(--red); }
+
+  /* ── Storage Panel (full-page overlay) ── */
+  .storage-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    overflow-y: auto;
+  }
+
+  .storage-panel.open { display: block; }
+
+  .storage-topbar {
+    position: sticky;
+    top: 0;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 10;
+  }
+
+  .storage-topbar-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    flex: 1;
+  }
+
+  .storage-close-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .storage-close-btn:hover { border-color: var(--green-dim); color: var(--green); }
+
+  .storage-body {
+    padding: 32px 40px 80px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .storage-section-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin: 28px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .storage-section-title:first-child { margin-top: 0; }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+  }
+
+  .field-grid.single { grid-template-columns: 1fr; }
+  .field-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .field-label .req { color: var(--red); margin-left: 2px; }
+
+  .storage-input, .storage-select, .storage-textarea {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 10px;
+    width: 100%;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+
+  .storage-input:focus, .storage-select:focus, .storage-textarea:focus {
+    border-color: var(--green-dim);
+  }
+
+  .storage-input.flagged, .storage-textarea.flagged {
+    border-color: rgba(192,80,74,0.5);
+  }
+
+  .storage-textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+
+  .storage-select option { background: var(--bg3); }
+
+  .field-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+
+  .storage-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0 10px;
+  }
+
+  .dev-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 2fr;
+    gap: 8px;
+    margin-bottom: 6px;
+    align-items: start;
+  }
+
+  .dev-row-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 2fr;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .dev-row-header span {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .add-row-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: none;
+    border: 1px dashed var(--border2);
+    color: var(--text-muted);
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    margin-top: 6px;
+    transition: all 0.15s;
+    width: 100%;
+  }
+  .add-row-btn:hover { border-color: var(--green-dim); color: var(--green); }
+
+  .remove-row-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px 0;
+    transition: color 0.15s;
+    text-align: center;
+  }
+  .remove-row-btn:hover { color: var(--red); }
+
+  .storage-submit-row {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .submit-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 9px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.18s;
+    border: 1px solid;
+  }
+
+  .submit-btn.primary {
+    background: var(--green-glow);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .submit-btn.primary:hover { background: rgba(76,175,125,0.25); }
+
+  .submit-btn.secondary {
+    background: none;
+    border-color: var(--border2);
+    color: var(--text-muted);
+  }
+  .submit-btn.secondary:hover { border-color: var(--green-dim); color: var(--green); }
+
+  .nc-config-notice {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--amber);
+    background: var(--amber-dim);
+    border: 1px solid rgba(200,168,75,0.2);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    flex: 1;
+  }
+
+  /* ── Modals ── */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    width: 560px;
+    max-width: 95vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+
+  .modal-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .modal-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    flex: 1;
+  }
+
+  .modal-body { padding: 16px 20px; }
+
+  .modal-footer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .review-section {
+    margin-bottom: 14px;
+  }
+
+  .review-section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .review-item {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: 3px;
+    align-items: flex-start;
+  }
+
+  .review-item .ri-key {
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    min-width: 160px;
+    flex-shrink: 0;
+  }
+
+  .review-item .ri-val { color: var(--text); word-break: break-all; }
+  .review-item .ri-val.missing { color: var(--red); font-style: italic; }
+  .review-item .ri-val.ok { color: var(--green); }
+  .review-item .ri-val.warn { color: var(--amber); }
+
+  .flag-list { margin: 10px 0; }
+
+  .flag-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    margin-bottom: 4px;
+  }
+
+  .flag-item.error { background: rgba(192,80,74,0.1); color: #d47a76; }
+  .flag-item.warning { background: var(--amber-dim); color: #d4b86a; }
+  .flag-item.ok { background: var(--green-glow); color: var(--green); }
+
+  .flag-icon { flex-shrink: 0; font-size: 13px; }
+
+  .nc-path-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 12px 0 6px;
+  }
+
+  .nc-path-row label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .nc-path-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 10px;
+    outline: none;
+  }
+  .nc-path-input:focus { border-color: var(--green-dim); }
+
+  /* upload status */
+  .upload-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    margin-top: 10px;
+    display: none;
+  }
+  .upload-status.show { display: block; }
+  .upload-status.success { background: var(--green-glow); color: var(--green); border: 1px solid var(--green-dim); }
+  .upload-status.error   { background: rgba(192,80,74,0.1); color: #d47a76; border: 1px solid rgba(192,80,74,0.3); }
+  .upload-status.working { background: var(--bg3); color: var(--text-muted); border: 1px solid var(--border2); }
+
+  /* Reset confirm modal specifics */
+  .reset-warning {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.65;
+    margin-bottom: 10px;
+  }
+
+  .reset-warning strong { color: var(--red); }
+
+  /* ── Inline capture fields ── */
+  .capture-block {
+    margin: 8px 0 12px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .capture-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .capture-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+    min-width: 140px;
+  }
+
+  .capture-input {
+    flex: 1;
+    background: rgba(76,175,125,0.04);
+    border: 1px solid rgba(76,175,125,0.2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 9px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .capture-input:focus {
+    border-color: var(--green-dim);
+    background: rgba(76,175,125,0.08);
+  }
+
+  .capture-input.has-value {
+    border-color: var(--green-dim);
+    color: var(--green);
+  }
+
+  .capture-sync-icon {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: color 0.2s;
+  }
+
+  .capture-sync-icon.synced { color: var(--green); }
+
+  .capture-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: 148px;
+    line-height: 1.4;
+  }
+
+  /* ── Customer Info Bar ── */
+  .customer-bar {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 16px 8px;
+    margin-bottom: 28px;
+  }
+  .customer-bar-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 8px;
+  }
+  .customer-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+  }
+  .cfield {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 120px;
+  }
+  .cfield-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .cfield-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--code-text);
+    cursor: pointer;
+    padding: 2px 0;
+    border-bottom: 1px dashed var(--border2);
+    transition: color 0.15s;
+  }
+  .cfield-value:hover { color: var(--green); border-color: var(--green-dim); }
+  .cfield-value.empty { color: var(--text-muted); font-style: italic; }
+  .customer-bar-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Internal nav ── -->
+<nav class="internal-nav">
+  <span class="internal-nav-brand">DFHA Internal</span>
+  <div class="internal-nav-links">
+    <a href="index.html" class="internal-nav-link">Hub</a>
+    <a href="planner.html" class="internal-nav-link">Job Planner</a>
+    <a href="install.html" class="internal-nav-link active">Install Guide</a>
+  </div>
+</nav>
+
+<div class="layout">
+
+<!-- ── Storage Panel (full-page overlay) ───────────────────────────────── -->
+<div class="storage-panel" id="storage-panel">
+  <div class="storage-topbar">
+    <div class="storage-topbar-title">⬡ DFHA Client Record</div>
+    <button class="submit-btn secondary" onclick="saveStorageToLocal()">Save Draft</button>
+    <button class="storage-close-btn" onclick="closeStorage()">✕ Close</button>
+  </div>
+  <div class="storage-body">
+
+    <div class="storage-section-title">Client &amp; Job Info</div>
+    <div class="field-grid">
+      <div class="field-group">
+        <label class="field-label">Client Last Name <span class="req">*</span></label>
+        <input class="storage-input" id="s_lastname" placeholder="Smith" oninput="autoPath()">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Client First Name</label>
+        <input class="storage-input" id="s_firstname" placeholder="John">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Install Date <span class="req">*</span></label>
+        <input class="storage-input" id="s_date" type="date">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Package</label>
+        <input class="storage-input" id="s_package" placeholder="Starter / Premium / Custom">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Technician</label>
+        <input class="storage-input" id="s_tech" value="Ron Blackhurst">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Client Address</label>
+        <input class="storage-input" id="s_address" placeholder="123 Main St, City, TN">
+      </div>
+    </div>
+
+    <div class="storage-section-title">Network Configuration</div>
+    <div class="field-grid">
+      <div class="field-group">
+        <label class="field-label">Client LAN Subnet <span class="req">*</span></label>
+        <input class="storage-input" id="s_subnet" placeholder="192.168.1.0/24">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Router Make / Model</label>
+        <input class="storage-input" id="s_router" placeholder="ASUS RT-AX88U">
+      </div>
+      <div class="field-group">
+        <label class="field-label">NUC LAN IP</label>
+        <input class="storage-input" id="s_nuc_ip" placeholder="192.168.1.254">
+      </div>
+      <div class="field-group">
+        <label class="field-label">HAOS Hostname</label>
+        <input class="storage-input" id="s_hostname" placeholder="e.g. HASmitr">
+      </div>
+      <div class="field-group">
+        <label class="field-label">VLAN Installed</label>
+        <select class="storage-select" id="s_vlan">
+          <option value="">-- Select --</option>
+          <option value="No">No</option>
+          <option value="Yes">Yes</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">IoT VLAN NUC IP</label>
+        <input class="storage-input" id="s_nuc_vlan_ip" placeholder="X.X.8.254 (if VLAN)">
+      </div>
+      <div class="field-group">
+        <label class="field-label">IoT SSID Name</label>
+        <input class="storage-input" id="s_iot_ssid" placeholder="DFHA-IoT (if VLAN)">
+      </div>
+      <div class="field-group">
+        <label class="field-label">IoT SSID Password</label>
+        <input class="storage-input" id="s_iot_pass" placeholder="(if VLAN)">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Tailscale External URL</label>
+        <input class="storage-input" id="s_tailscale_url" placeholder="https://[device].ts.net (set on-site)">
+      </div>
+      <div class="field-group">
+        <label class="field-label">AdGuard URL</label>
+        <input class="storage-input" id="s_adguard_url" placeholder="http://192.168.1.254:3000">
+      </div>
+    </div>
+
+    <div class="storage-section-title">Backup &amp; Security Keys</div>
+    <div class="field-grid single">
+      <div class="field-group">
+        <label class="field-label">Backup Encryption Key <span class="req">*</span></label>
+        <input class="storage-input" id="s_backup_key" placeholder="Paste full backup encryption key here">
+        <div class="field-hint">Captured at end of HAOS onboarding wizard. Also saved to backup_key.txt on USB dongle.</div>
+      </div>
+    </div>
+    <div class="field-grid">
+      <div class="field-group">
+        <label class="field-label">Zigbee PAN ID</label>
+        <input class="storage-input" id="s_pan_id" placeholder="e.g. 32687 or 0x3F7A">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Zigbee Channel</label>
+        <input class="storage-input" id="s_zb_channel" placeholder="25" value="25">
+      </div>
+      <div class="field-group" style="grid-column:1/-1">
+        <label class="field-label">Zigbee Extended PAN ID</label>
+        <input class="storage-input" id="s_ext_pan_id" placeholder="e.g. [42, 95, 193, 148, 200, 62, 10, 85]">
+        <div class="field-hint">DFHA internal records only — not on ownership sheet.</div>
+      </div>
+      <div class="field-group" style="grid-column:1/-1">
+        <label class="field-label">Zigbee Network Key</label>
+        <input class="storage-input" id="s_zb_key" placeholder="[12, 45, 3, 198, ...]">
+        <div class="field-hint">DFHA internal records only — not on ownership sheet.</div>
+      </div>
+    </div>
+
+    <div class="storage-section-title">Service Credentials</div>
+    <div class="field-grid triple">
+      <div class="field-group">
+        <label class="field-label">Mosquitto Password</label>
+        <input class="storage-input" id="s_mqtt_pass" placeholder="MQTT[Last4] e.g. MQTTSmit">
+      </div>
+      <div class="field-group">
+        <label class="field-label">AdGuard Password</label>
+        <input class="storage-input" id="s_ag_pass" placeholder="Adguard@[First4]">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Z2M / MQTT Password</label>
+        <input class="storage-input" id="s_z2m_pass" placeholder="Same as MQTT password — MQTT[Last4]">
+        <div class="field-hint">Same credential as Mosquitto — mqtt_admin / MQTT[Last4]</div>
+      </div>
+    </div>
+
+    <div class="storage-section-title">User Accounts</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">List all HAOS accounts created. DFHAA is always present — document client accounts here.</p>
+    <div class="dev-row-header">
+      <span>Display Name / User ID</span>
+      <span>Role</span>
+      <span>Notes</span>
+    </div>
+    <div id="accounts-list">
+      <div class="dev-row">
+        <input class="storage-input" placeholder="John Smith / john">
+        <select class="storage-select"><option>Admin</option><option>User</option></select>
+        <input class="storage-input" placeholder="Primary client account">
+      </div>
+    </div>
+    <button class="add-row-btn" onclick="addRow('accounts-list', accountRowTemplate)">+ Add Account</button>
+
+    <div class="storage-section-title">Hardware Inventory</div>
+    <div class="field-grid">
+      <div class="field-group">
+        <label class="field-label">NUC Model / Serial</label>
+        <input class="storage-input" id="s_nuc_serial" placeholder="Intel N100 NUC / SN: ...">
+      </div>
+      <div class="field-group">
+        <label class="field-label">RAM</label>
+        <input class="storage-input" id="s_ram" placeholder="8GB DDR4" value="8GB DDR4">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Primary SSD</label>
+        <input class="storage-input" id="s_ssd" placeholder="256GB M.2" value="256GB M.2">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Second Slot</label>
+        <select class="storage-select" id="s_second_slot">
+          <option value="">-- Select --</option>
+          <option value="Empty — available">Empty — available</option>
+          <option value="Not present">Not present</option>
+          <option value="Occupied">Occupied</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Zigbee Dongle</label>
+        <input class="storage-input" id="s_dongle" placeholder="Sonoff Zigbee Dongle Plus CC2652P" value="Sonoff Zigbee Dongle Plus CC2652P">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Backup USB Drive</label>
+        <input class="storage-input" id="s_usb" placeholder="32GB mini USB" value="32GB mini USB — rear port">
+      </div>
+      <div class="field-group">
+        <label class="field-label">UPS</label>
+        <input class="storage-input" id="s_ups" placeholder="None / APC Back-UPS 600VA">
+      </div>
+      <div class="field-group">
+        <label class="field-label">NAS</label>
+        <input class="storage-input" id="s_nas" placeholder="None / model + IP">
+      </div>
+    </div>
+
+    <div class="storage-section-title">Installed Devices</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Every device paired and added to HAOS. Include device name, model, location, and any non-default configuration.</p>
+    <div class="dev-row-header">
+      <span>Device Name (HAOS)</span>
+      <span>Model</span>
+      <span>Location / Notes</span>
+    </div>
+    <div id="devices-list">
+      <div class="dev-row">
+        <input class="storage-input" placeholder="kitchen_relay_light">
+        <input class="storage-input" placeholder="ZBMINIR2">
+        <input class="storage-input" placeholder="Kitchen — above switch">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="add-row-btn" onclick="addRow('devices-list', deviceRowTemplate)" style="flex:1;">+ Add Device</button>
+      <button class="add-row-btn" id="import-devices-btn" onclick="importDevicesFromPlanner()" style="flex:1;border-color:var(--green-dim);color:var(--green);">⬡ Import from Job Planner</button>
+    </div>
+    <div id="import-devices-status" style="display:none;font-family:var(--mono);font-size:10px;padding:5px 8px;border-radius:3px;margin-top:6px;"></div>
+
+    <div class="storage-section-title">Add-ons &amp; Integrations — Non-Default Config</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Document any add-on or integration setting that differs from the DFHA standard template. Standard settings do not need to be repeated here.</p>
+    <div class="field-grid single">
+      <div class="field-group">
+        <label class="field-label">Mosquitto — deviations from standard</label>
+        <textarea class="storage-textarea" id="s_mqtt_notes" placeholder="None — standard config"></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Zigbee2MQTT — deviations from standard</label>
+        <textarea class="storage-textarea" id="s_z2m_notes" placeholder="USB path: /dev/ttyUSB0 (confirm if different)"></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">AdGuard — deviations from standard</label>
+        <textarea class="storage-textarea" id="s_ag_notes" placeholder="None — standard 4-list config"></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">HAOS General Settings — deviations</label>
+        <textarea class="storage-textarea" id="s_haos_notes" placeholder="Elevation: ___ ft   Home name: ___ Home"></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Other add-ons / integrations not in standard template</label>
+        <textarea class="storage-textarea" id="s_other_notes" placeholder="e.g. Reolink cameras — 2x RLC-810A at 192.168.8.20 and .21, username admin"></textarea>
+      </div>
+    </div>
+
+    <div class="storage-section-title">Change Log — Deviations from Quoted Plan</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Any device substitutions, scope changes, or on-site decisions that differ from what was originally planned.</p>
+    <div class="field-grid single">
+      <div class="field-group">
+        <textarea class="storage-textarea" id="s_changelog" style="min-height:100px" placeholder="e.g. Garage — no neutral wire found. Substituted ZBMINIL2 for ZBMINIR2. Client informed."></textarea>
+      </div>
+    </div>
+
+    <div class="storage-section-title">Nextcloud Upload Path</div>
+    <!-- Hidden shadow inputs — synced from inline capture fields, included in JSON export -->
+    <div style="display:none">
+      <input id="s_dhcp_ip">
+      <input id="s_client_uid">
+      <input id="s_client_display">
+      <input id="s_client_temppass">
+      <input id="s_router_gw">
+      <input id="s_z2m_usb_path">
+      <input id="s_home_name">
+      <input id="s_elevation">
+      <input id="s_ext_pan_id">
+    </div>
+    <div class="field-grid">
+      <div class="field-group">
+        <label class="field-label">Destination Path (auto-filled from client name)</label>
+        <input class="storage-input" id="s_nc_path" placeholder="/DFHA/Clients/Smith/">
+        <div class="field-hint">Override if needed. Folder will be created if it does not exist. You will be warned if it already exists.</div>
+      </div>
+    </div>
+
+    <div class="storage-submit-row">
+      <button class="submit-btn primary" onclick="openReviewModal()">Review &amp; Send to Nextcloud →</button>
+      <button class="submit-btn secondary" onclick="saveStorageToLocal()">Save Draft</button>
+      <div class="nc-config-notice" id="nc-config-notice">⚠ Nextcloud credentials not configured — edit NEXTCLOUD_CONFIG in source before uploading</div>
+    </div>
+
+  </div><!-- /storage-body -->
+</div><!-- /storage-panel -->
+
+
+<!-- ── Review Modal ─────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="review-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📋 Install Record Review</div>
+    </div>
+    <div class="modal-body" id="review-modal-body">
+      <!-- Populated by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="submit-btn secondary" onclick="closeModal('review-modal')">Cancel</button>
+      <button class="submit-btn primary" id="send-btn" onclick="startUpload()">Send to Nextcloud</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Folder Exists Modal ──────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="folder-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚠ Folder Already Exists</div>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px;">The destination folder already contains a file for this client. Choose how to proceed:</p>
+      <div class="nc-path-row">
+        <label>Rename folder to:</label>
+        <input class="nc-path-input" id="folder-rename-input" placeholder="/DFHA/Clients/Smith_2025-05/">
+      </div>
+      <div id="upload-status-folder" class="upload-status"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="submit-btn secondary" onclick="closeModal('folder-modal')">Cancel</button>
+      <button class="submit-btn secondary" onclick="doUpload(true)">Overwrite Existing</button>
+      <button class="submit-btn primary" onclick="doUploadRenamed()">Upload to Renamed Folder</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Reset Confirm Modal ──────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="reset-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚠ Reset Install Progress</div>
+    </div>
+    <div class="modal-body">
+      <p class="reset-warning">This will clear <strong>all checkboxes, all step completions, and all saved draft data</strong> for this install. The storage form will be wiped.</p>
+      <p class="reset-warning">Use this when aborting a partially completed install and starting fresh with a new client.</p>
+      <p style="font-size:12px;color:var(--text-muted);">This cannot be undone. Make sure you have sent the record to Nextcloud first if this was a partial install.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="submit-btn secondary" onclick="closeModal('reset-modal')">Cancel — Keep Progress</button>
+      <button class="submit-btn" style="background:rgba(192,80,74,0.15);border-color:var(--red);color:var(--red)" onclick="doReset()">Reset Everything</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">DFHA</div>
+    <div class="sidebar-title">Backend OS &amp; Shop Prep</div>
+  </div>
+
+  <div class="sidebar-progress">
+    <div class="progress-label">
+      <span>Progress</span>
+      <span id="progress-count">0 / 15</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="sidebar-actions">
+    <button class="action-btn storage" onclick="openStorage()">⬡ Client Record</button>
+    <button class="action-btn reset" onclick="openModal('reset-modal')">↺ Reset Install</button>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Shop Prep</div>
+    <a href="#step-1"  class="nav-item" data-step="1"><span class="nav-num">01</span>Hardware Preparation</a>
+    <a href="#step-2"  class="nav-item" data-step="2"><span class="nav-num">02</span>HAOS Installation</a>
+    <a href="#step-3"  class="nav-item" data-step="3"><span class="nav-num">03</span>Hostname, IP &amp; General Settings</a>
+    <a href="#step-4"  class="nav-item" data-step="4"><span class="nav-num">04</span>User Accounts</a>
+    <a href="#step-5"  class="nav-item" data-step="5"><span class="nav-num">05</span>Backup Configuration</a>
+    <a href="#step-6"  class="nav-item" data-step="6"><span class="nav-num">06</span>HACS</a>
+    <a href="#step-7"  class="nav-item" data-step="7"><span class="nav-num">07</span>Mosquitto MQTT</a>
+    <a href="#step-8"  class="nav-item" data-step="8"><span class="nav-num">08</span>Zigbee2MQTT</a>
+    <a href="#step-9"  class="nav-item" data-step="9"><span class="nav-num">09</span>Tailscale</a>
+    <a href="#step-10" class="nav-item" data-step="10"><span class="nav-num">10</span>AdGuard Home</a>
+    <a href="#step-11" class="nav-item" data-step="11"><span class="nav-num">11</span>Add-ons &amp; Tools</a>
+    <a href="#step-12" class="nav-item" data-step="12"><span class="nav-num">12</span>General Settings (→ Step 3)</a>
+    <a href="#step-13" class="nav-item" data-step="13"><span class="nav-num">13</span>Standard Integrations</a>
+    <a href="#step-14" class="nav-item" data-step="14"><span class="nav-num">14</span>Dashboard Framework</a>
+    <a href="#step-15" class="nav-item" data-step="15"><span class="nav-num">15</span>Final Verification</a>
+  </div>
+
+  <div class="sidebar-footer">
+    Dark Forest Home Automation<br>
+    Ron Blackhurst<br>
+    Ron@DFHA.net · (615) 498-4389<br>
+    Session 11 — May 2026<br>
+    INTERNAL USE ONLY
+  </div>
+</nav>
+
+<!-- ── Main ─────────────────────────────────────────────────────────────── -->
+<main class="main">
+
+  <div class="page-header">
+    <div class="page-eyebrow">Dark Forest Home Automation · Internal Reference</div>
+    <h1 class="page-title"><strong>Backend OS</strong> &amp; Shop Prep</h1>
+    <div class="page-meta">
+      <span>📋 15 Steps</span>
+      <span>🏠 Shop Prep → Ready for Install Day</span>
+      <span>🔒 Internal Only</span>
+    </div>
+    <div class="page-intro">
+      Complete these steps in order on every backend install. This is the how-to reference behind the Backend Install Checklist — that document is the tick-box layer, this is the procedure. Start from a bare NUC and finish with a fully configured HAOS instance ready for install day. Device pairing happens separately via the per-client pairing guide. Check each sub-step as you go — the step completes automatically when all sub-steps are done.
+    </div>
+  </div>
+
+
+
+  <!-- ── Customer Info Quick Reference ───────────────────────────────────── -->
+  <div class="customer-bar" id="customer-bar">
+    <div class="customer-bar-title">▸ JOB INFO</div>
+    <div class="customer-fields">
+      <div class="cfield">
+        <span class="cfield-label">Client</span>
+        <span class="cfield-value" id="cb_name">—</span>
+      </div>
+      <div class="cfield">
+        <span class="cfield-label">Address</span>
+        <span class="cfield-value" id="cb_address">—</span>
+      </div>
+      <div class="cfield">
+        <span class="cfield-label">Hostname</span>
+        <span class="cfield-value" id="cb_hostname">—</span>
+      </div>
+      <div class="cfield">
+        <span class="cfield-label">NUC IP</span>
+        <span class="cfield-value" id="cb_nuc_ip">—</span>
+      </div>
+      <div class="cfield">
+        <span class="cfield-label">MQTT Pass</span>
+        <span class="cfield-value" id="cb_mqtt">—</span>
+      </div>
+      <div class="cfield">
+        <span class="cfield-label">Last4</span>
+        <span class="cfield-value" id="cb_last4">—</span>
+      </div>
+      <div class="cfield">
+        <span class="cfield-label">Date</span>
+        <span class="cfield-value" id="cb_date">—</span>
+      </div>
+    </div>
+    <div class="customer-bar-hint">Populated from ⬡ Client Record — click any value to copy</div>
+  </div>
+
+  <!-- ── STEP 1 ── -->
+  <section class="step-section" id="step-1">
+    <div class="step-header">
+      <span class="step-badge">STEP 01</span>
+      <h2 class="step-title">Hardware Preparation</h2>
+      <button class="step-complete-btn" id="btn-1" onclick="toggleStep(1)">Mark Complete</button>
+    </div>
+
+    <p>Inspect the NUC before doing anything else. A damaged unit found after hours of configuration work costs you the whole evening.</p>
+
+    <ol class="instructions" id="checks-1">
+      <li data-step="1"><input type="checkbox" class="sub-check" onchange="handleCheck(this,1)"><span class="inst-num">1</span><div>Unbox the Intel N100 NUC. Inspect for physical damage — corners, ports, bottom panel.</div></li>
+      <li data-step="1"><input type="checkbox" class="sub-check" onchange="handleCheck(this,1)"><span class="inst-num">2</span><div>Open the bottom panel. Confirm RAM is seated — 8GB SO-DIMM. Confirm primary SSD installed — 256GB M.2.</div></li>
+      <li data-step="1"><input type="checkbox" class="sub-check" onchange="handleCheck(this,1)"><span class="inst-num">3</span><div>Check whether the second M.2 or SATA slot is available and empty. Document YES or NO on the ownership sheet and install worksheet.</div></li>
+      <li data-step="1"><input type="checkbox" class="sub-check" onchange="handleCheck(this,1)"><span class="inst-num">4</span><div>Insert the 32GB mini USB drive into a <strong>rear USB port</strong>. This is the permanent local backup drive — rear port keeps it out of the way and less likely to be bumped. Do not use a front port.</div></li>
+      <li data-step="1"><input type="checkbox" class="sub-check" onchange="handleCheck(this,1)"><span class="inst-num">5</span><div>Seat the Sonoff Zigbee Dongle Plus in a USB port. Front port is fine for the dongle.</div></li>
+      <li data-step="1"><input type="checkbox" class="sub-check" onchange="handleCheck(this,1)"><span class="inst-num">6</span><div>Enter BIOS — press <code>F2</code> at the splash screen on most Intel NUCs. Update firmware if a newer version is available. Set boot order so USB is first. <strong>Disable Secure Boot.</strong> Save and exit.</div></li>
+    </ol>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠</span>
+      <div>Secure Boot will block HAOS from booting. This is the most common reason for a failed first boot — always confirm it is off before moving on.</div>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 2 ── -->
+  <section class="step-section" id="step-2">
+    <div class="step-header">
+      <span class="step-badge">STEP 02</span>
+      <h2 class="step-title">HAOS Installation</h2>
+      <button class="step-complete-btn" id="btn-2" onclick="toggleStep(2)">Mark Complete</button>
+    </div>
+
+    <p>HAOS is installed from the bootable USB you prepared in the shop tools kit. If you need to rebuild the USB, the image is at:</p>
+    <a href="https://www.home-assistant.io/installation/generic-x86-64" target="_blank" class="ext-link">home-assistant.io/installation/generic-x86-64 ↗</a>
+
+    <div style="margin-top: 12px;">
+    <ol class="instructions" id="checks-2">
+      <li data-step="2"><input type="checkbox" class="sub-check" onchange="handleCheck(this,2)"><span class="inst-num">1</span><div>Insert the bootable HAOS USB. Boot the NUC. The installer loads automatically. If not, press <code>F10</code> at splash to select USB boot.</div></li>
+      <li data-step="2"><input type="checkbox" class="sub-check" onchange="handleCheck(this,2)"><span class="inst-num">2</span><div>The installer writes HAOS to the primary SSD and reboots automatically. Takes 3–8 minutes. Do not interrupt.</div></li>
+      <li data-step="2"><input type="checkbox" class="sub-check" onchange="handleCheck(this,2)"><span class="inst-num">3</span><div>After reboot, HAOS shows the console screen with the DHCP-assigned IP. Note this address — you will replace it with a static IP in Step 3.</div></li>
+    </ol>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">DHCP IP (temp)</span>
+        <input class="capture-input" id="cap_dhcp_ip" placeholder="e.g. 192.168.1.87" oninput="syncCapture('cap_dhcp_ip','s_dhcp_ip')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_dhcp_ip">⇄</span>
+      </div>
+      <div class="capture-hint">Temporary address only — will be replaced with X.X.X.254 in Step 3. Record here so you can navigate to the wizard.</div>
+    </div>
+    <ol class="instructions" id="checks-2-cont" start="4">
+      <li data-step="2"><input type="checkbox" class="sub-check" onchange="handleCheck(this,2)"><span class="inst-num">4</span><div>From a laptop on the same network, navigate to the HAOS onboarding wizard:</div></li>
+    </ol>
+    </div>
+
+    <div class="nav-path">http://[DHCP-IP]:8123</div>
+
+    <ol class="instructions" id="checks-2b" start="5">
+      <li data-step="2"><input type="checkbox" class="sub-check" onchange="handleCheck(this,2)"><span class="inst-num">5</span><div>Create the <strong>primary client account</strong> in the wizard — not the DFHAA account. First name as user ID (lowercase), first + last name as display name, set a temporary password. The client changes it during the walkthrough.</div></li>
+    </ol>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">Client User ID</span>
+        <input class="capture-input" id="cap_client_uid" placeholder="e.g. john" oninput="syncCapture('cap_client_uid','s_client_uid')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_client_uid">⇄</span>
+      </div>
+      <div class="capture-row">
+        <span class="capture-label">Display Name</span>
+        <input class="capture-input" id="cap_client_display" placeholder="e.g. John Smith" oninput="syncCapture('cap_client_display','s_client_display')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_client_display">⇄</span>
+      </div>
+      <div class="capture-row">
+        <span class="capture-label">Temp Password</span>
+        <input class="capture-input" id="cap_client_temppass" placeholder="Temporary — client changes on-site" oninput="syncCapture('cap_client_temppass','s_client_temppass')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_client_temppass">⇄</span>
+      </div>
+      <div class="capture-hint">These populate the Accounts section of the Client Record automatically.</div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>The onboarding wizard automatically creates the first account as Administrator. This is correct — the client's primary account should be an admin.</div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>After onboarding completes, HAOS may show the backup encryption key. If you see it, copy it somewhere temporary — you will capture it properly in Step 5 when you configure backups. If you miss it here, retrieve it from <strong>Settings › System › Backups › Manage Encryption Key</strong>.</div>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 3 ── -->
+  <section class="step-section" id="step-3">
+    <div class="step-header">
+      <span class="step-badge">STEP 03</span>
+      <h2 class="step-title">Hostname, Static IP &amp; General Settings</h2>
+      <button class="step-complete-btn" id="btn-3" onclick="toggleStep(3)">Mark Complete</button>
+    </div>
+
+    <p>Set the hostname first — HAOS does not allow underscores in hostnames. Then set the static IP. Finish with General Settings while you are already in the System section.</p>
+
+    <p class="subsection">Set Hostname</p>
+
+    <div class="nav-path">Settings <span>›</span> System <span>›</span> General</div>
+
+    <ol class="instructions" id="checks-3-hostname">
+      <li data-step="3"><input type="checkbox" class="sub-check" onchange="handleCheck(this,3)"><span class="inst-num">1</span><div>Set the hostname. HAOS rejects hostnames with underscores — use the format below exactly:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Hostname Format — no underscores allowed</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>HA[LastFirstinitial]
+
+Examples:
+  HASmitr    (Smith, Ron)
+  HAJohnd    (Johnson, David)
+  HABlacr    (Blackhurst, Ron)</pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>Formula: <strong>HA</strong> + first four letters of last name (capital first) + first initial of first name (lowercase). DNS-safe — no underscores, spaces, or special characters.</div>
+    </div>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">HAOS Hostname</span>
+        <input class="capture-input" id="cap_hostname" placeholder="e.g. HASmitr" oninput="syncCapture('cap_hostname','s_hostname')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_hostname">⇄</span>
+      </div>
+    </div>
+
+    <p class="subsection">Set Static IP</p>
+
+    <div class="nav-path">Settings <span>›</span> System <span>›</span> Network</div>
+
+    <ol class="instructions" id="checks-3">
+      <li data-step="3"><input type="checkbox" class="sub-check" onchange="handleCheck(this,3)"><span class="inst-num">2</span><div>Under the wired interface, switch from DHCP to Static.</div></li>
+      <li data-step="3"><input type="checkbox" class="sub-check" onchange="handleCheck(this,3)"><span class="inst-num">3</span><div>Set values per install type (see tables below).</div></li>
+    </ol>
+
+    <p class="subsection">Without VLAN</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Network Config</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>IP address:   X.X.X.254
+Subnet mask:  255.255.255.0  (/24)
+Gateway:      X.X.X.1
+DNS:          127.0.0.1   (AdGuard — once running)
+              1.1.1.1     (fallback)</pre></div>
+    </div>
+
+    <p class="subsection">With VLAN — configure two interfaces</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Network Config — VLAN</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Customer LAN interface:
+  IP address:   X.X.X.254
+  Subnet:       /24
+  Gateway:      X.X.X.1
+
+IoT VLAN interface:
+  IP address:   X.X.8.254
+  Subnet:       /24
+  Gateway:      X.X.8.1
+  DNS:          127.0.0.1 / 1.1.1.1</pre></div>
+    </div>
+        </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠</span>
+      <div>Replace <code>X.X.X</code> with the client's actual subnet — e.g. <code>192.168.1</code> or <code>10.0.0</code>. Confirmed during pre-install and documented on the install worksheet.</div>
+    </div>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">Client LAN Subnet</span>
+        <input class="capture-input" id="cap_subnet" placeholder="e.g. 192.168.1.0/24" oninput="syncCapture('cap_subnet','s_subnet')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_subnet">⇄</span>
+      </div>
+      <div class="capture-row">
+        <span class="capture-label">NUC Static IP</span>
+        <input class="capture-input" id="cap_nuc_ip" placeholder="e.g. 192.168.1.254" oninput="syncCapture('cap_nuc_ip','s_nuc_ip')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_nuc_ip">⇄</span>
+      </div>
+      <div class="capture-row">
+        <span class="capture-label">Router Gateway</span>
+        <input class="capture-input" id="cap_router_gw" placeholder="e.g. 192.168.1.1" oninput="syncCapture('cap_router_gw','s_router_gw')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_router_gw">⇄</span>
+      </div>
+    </div>
+
+    <ol class="instructions" id="checks-3b" start="4">
+      <li data-step="3"><input type="checkbox" class="sub-check" onchange="handleCheck(this,3)"><span class="inst-num">4</span><div>After saving, HAOS reconnects at the new static address. Navigate to <code>http://X.X.X.254:8123</code> to confirm.</div></li>
+    </ol>
+
+    <p class="subsection">HAOS General Settings</p>
+
+    <div class="nav-path">Settings <span>›</span> System <span>›</span> Home</div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">General Settings</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Home name:       [Client last name] Home   (e.g. Smith Home)
+Country:         United States
+Currency:        USD
+Unit system:     Imperial
+Language:        English
+Time zone:       America/Chicago
+Internal URL:    http://[NUC-LAN-IP]:8123
+External URL:    [DEFERRED — set on-site after Tailscale]
+Analytics:       OFF
+Error reporting: OFF</pre></div>
+    </div>
+
+    <ol class="instructions" id="checks-3c" start="5">
+      <li data-step="3"><input type="checkbox" class="sub-check" onchange="handleCheck(this,3)"><span class="inst-num">5</span><div>Set the home name, timezone, and other general settings here. The home address and map location were set during the first-time setup wizard — verify they are correct. If the address needs correcting, update it here. Set elevation in feet — look up on <a href="https://www.google.com/maps" target="_blank" class="ext-link">Google Maps ↗</a> if unknown (right-click location → "What's here").</div></li>
+    </ol>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">Home Name</span>
+        <input class="capture-input" id="cap_home_name" placeholder="e.g. Smith Home" oninput="syncCapture('cap_home_name','s_home_name')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_home_name">⇄</span>
+      </div>
+      <div class="capture-row">
+        <span class="capture-label">Elevation (ft)</span>
+        <input class="capture-input" id="cap_elevation" placeholder="e.g. 892" oninput="syncCapture('cap_elevation','s_elevation')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_elevation">⇄</span>
+      </div>
+    </div>
+    <ol class="instructions" id="checks-3d" start="6">
+      <li data-step="3"><input type="checkbox" class="sub-check" onchange="handleCheck(this,3)"><span class="inst-num">6</span><div>Confirm HAOS is accessible from the shop network at the static IP before moving on.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 4 ── -->
+  <section class="step-section" id="step-4">
+    <div class="step-header">
+      <span class="step-badge">STEP 04</span>
+      <h2 class="step-title">User Accounts</h2>
+      <button class="step-complete-btn" id="btn-4" onclick="toggleStep(4)">Mark Complete</button>
+    </div>
+
+    <p>All accounts — HAOS users, DFHAA, MQTT service user, and any client household accounts — are created here in one pass. Do not leave any for later.</p>
+
+    <div class="nav-path">Settings <span>›</span> People <span>›</span> Users</div>
+
+    <ol class="instructions" id="checks-4">
+      <li data-step="4"><input type="checkbox" class="sub-check" onchange="handleCheck(this,4)"><span class="inst-num">1</span><div>Verify the primary client account from onboarding: user ID is first name lowercase, role is Administrator.</div></li>
+      <li data-step="4"><input type="checkbox" class="sub-check" onchange="handleCheck(this,4)"><span class="inst-num">2</span><div>Create the DFHAA account. Click <strong>Add User</strong>:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">DFHAA Account</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Display name:  Dark Forest Admin
+User ID:       dfhaa
+Role:          Administrator
+Password:      [reconstruct from DFHA internal formula — never write down]
+
+DFHAA password formula:
+  DF + [Last4] + ! + [Last2 of install year]
+  Example (Smith, 2026):  DFSmit!26
+  Never write this on the ownership sheet.</pre></div>
+    </div>
+
+    <ol class="instructions" id="checks-4b" start="3">
+      <li data-step="4"><input type="checkbox" class="sub-check" onchange="handleCheck(this,4)"><span class="inst-num">3</span><div>Create the MQTT service user. This is the account Mosquitto and Zigbee2MQTT will authenticate with. Replace <code>[Last4]</code> with the first 4 of the client last name, capital first letter (e.g. <code>Smit</code> for Smith):</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">MQTT Service Account</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Display name:  MQTT Admin
+User ID:       mqtt_admin
+Role:          User  (not Administrator — service account only)
+Password:      MQTT[Last4]   (e.g. MQTTSmit)</pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>The mqtt_admin account is a standard HAOS user account — Mosquitto uses HAOS user accounts for authentication, not its own separate logins list. Creating it here as a User role is correct. Do not create it as Administrator.</div>
+    </div>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">MQTT Password</span>
+        <input class="capture-input" id="cap_mqtt_pass" placeholder="MQTT[Last4] e.g. MQTTSmit" oninput="syncCapture('cap_mqtt_pass','s_mqtt_pass')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_mqtt_pass">⇄</span>
+      </div>
+      <div class="capture-hint">Syncs to Client Record. Used in Step 7 (Mosquitto) and Step 8 (Zigbee2MQTT).</div>
+    </div>
+
+    <ol class="instructions" id="checks-4c" start="4">
+      <li data-step="4"><input type="checkbox" class="sub-check" onchange="handleCheck(this,4)"><span class="inst-num">4</span><div>Create additional adult household accounts per pre-install checklist. User ID = first name lowercase. Role = Admin or User per client preference.</div></li>
+      <li data-step="4"><input type="checkbox" class="sub-check" onchange="handleCheck(this,4)"><span class="inst-num">5</span><div>Create child/kiosk accounts if applicable. Role = User. No access to settings or security — custom dashboard assigned later.</div></li>
+      <li data-step="4"><input type="checkbox" class="sub-check" onchange="handleCheck(this,4)"><span class="inst-num">6</span><div>Enable Advanced Mode for the dfhaa account. Log out, log in as dfhaa, then go to your profile and toggle Advanced Mode on.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 5 ── -->
+  <section class="step-section" id="step-5">
+    <div class="step-header">
+      <span class="step-badge">STEP 05</span>
+      <h2 class="step-title">Backup Configuration</h2>
+      <button class="step-complete-btn" id="btn-5" onclick="toggleStep(5)">Mark Complete</button>
+    </div>
+
+    <p>Configure backups before installing any add-ons. If anything goes wrong during setup you want a clean restore point.</p>
+
+    <div class="nav-path">Settings <span>›</span> System <span>›</span> Storage</div>
+
+    <ol class="instructions" id="checks-5">
+      <li data-step="5"><input type="checkbox" class="sub-check" onchange="handleCheck(this,5)"><span class="inst-num">1</span><div>Confirm the 32GB mini USB drive is visible under Storage. If it does not appear, unplug and reseat it.</div></li>
+      <li data-step="5"><input type="checkbox" class="sub-check" onchange="handleCheck(this,5)"><span class="inst-num">2</span><div>Go to <strong>Settings › System › Backups</strong>. Set backup location to the USB drive. Set schedule to weekly.</div></li>
+      <li data-step="5"><input type="checkbox" class="sub-check" onchange="handleCheck(this,5)"><span class="inst-num">3</span><div>Install the backup retention automation. Go to <strong>Settings › Automations › Create Automation</strong>, switch to <strong>Edit in YAML</strong>, and paste:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Backup Retention Automation — YAML</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>alias: Backup Retention - Keep 16 Most Recent
+description: Runs after each automated backup, removes backups beyond 16 copies
+trigger:
+  - platform: event
+    event_type: backup_successful
+action:
+  - service: backup.delete
+    data:
+      keep_last: 16
+mode: single</pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>A full HAOS backup for a standard residential install runs ~200–500MB. Sixteen backups uses at most 8GB on a 32GB drive — no storage concern.</div>
+    </div>
+
+    <ol class="instructions" id="checks-5b" start="4">
+      <li data-step="5"><input type="checkbox" class="sub-check" onchange="handleCheck(this,5)"><span class="inst-num">4</span><div>Take the first manual backup now. Navigate to <strong>Settings › System › Backups › Create Backup</strong>. Select <em>Full backup</em>. Wait for it to complete. Confirm it appears in the backup list and is written to the USB drive.</div></li>
+    </ol>
+
+    <p class="subsection">Capture the Backup Encryption Key</p>
+    <p>HAOS encrypts all backups. The encryption key is required to restore from a backup — without it, encrypted backups are unrecoverable. Capture and store it now.</p>
+
+    <ol class="instructions" id="checks-5c" start="5">
+      <li data-step="5"><input type="checkbox" class="sub-check" onchange="handleCheck(this,5)"><span class="inst-num">5</span><div>Navigate to <strong>Settings › System › Backups › Manage Encryption Key</strong>. Copy the full key.</div></li>
+    </ol>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">Backup Enc. Key</span>
+        <input class="capture-input" id="cap_backup_key" placeholder="Paste full key here" oninput="syncCapture('cap_backup_key','s_backup_key')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_backup_key">⇄</span>
+      </div>
+      <div class="capture-hint">Syncs to Client Record automatically. Also needs to go on the USB drive and ownership sheet — see steps below.</div>
+    </div>
+    <ol class="instructions" id="checks-5d" start="6">
+      <li data-step="5"><input type="checkbox" class="sub-check" onchange="handleCheck(this,5)"><span class="inst-num">6</span><div>Save the key to a plain text file named <code>backup_key.txt</code> and copy it to the 32GB mini USB drive in the rear port of the NUC. This file travels with the hardware.</div></li>
+      <li data-step="5"><input type="checkbox" class="sub-check" onchange="handleCheck(this,5)"><span class="inst-num">7</span><div>Record the key in the DFHA customer portal record for this client. It will be included in the ownership sheet at the end of the install — the Client Record (⬡ button) captures it automatically once you fill in the field above.</div></li>
+    </ol>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠</span>
+      <div>Without this key, encrypted backups cannot be restored. If the NUC dies and you do not have the key, the client's configuration is unrecoverable. Treat it like a password.</div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div><strong>Manual backup shortcut for later steps:</strong> Settings › System › Backups › Create Backup → Full backup. After each major section, label the backup with a short descriptor (e.g. <code>post-mosquitto</code>, <code>post-adguard</code>).</div>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 6 ── -->
+  <section class="step-section" id="step-6">
+    <div class="step-header">
+      <span class="step-badge">STEP 06</span>
+      <h2 class="step-title">HACS — Home Assistant Community Store</h2>
+      <button class="step-complete-btn" id="btn-6" onclick="toggleStep(6)">Mark Complete</button>
+    </div>
+
+    <p>HACS is the community add-on and frontend repository. Install it early — it is required for Kiosk Mode and several other components used in every DFHA install. HACS is installed via its own dedicated add-on — no SSH required.</p>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>HACS requires a GitHub account to activate. Use the DFHA GitHub account — do not create a new one per client install.</div>
+    </div>
+
+    <p class="subsection">Add the HACS Add-on Repository</p>
+
+    <div class="nav-path">Settings <span>›</span> Apps <span>›</span> Install App button <span>›</span> ⋮ <span>›</span> Repositories</div>
+
+    <ol class="instructions" id="checks-6">
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">1</span><div>Go to <strong>Settings › Apps</strong>. Click the <strong>Install App</strong> button (bottom-right of the page). Then click the three-dot menu <strong>⋮</strong> in the top-right of the store and select <strong>Repositories</strong>.</div></li>
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">2</span><div>Add the HACS add-on repository:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">HACS Add-on Repository URL</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>https://github.com/hacs/addons</pre></div>
+    </div>
+
+    <p class="subsection">Install and Activate HACS</p>
+
+    <ol class="instructions" id="checks-6b" start="3">
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">3</span><div>Close the repositories dialog. Find <strong>HACS</strong> (or <strong>Get HACS</strong>) in the add-on store and install it.</div></li>
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">4</span><div>Start the HACS add-on. Open the <strong>Log</strong> tab — it will display a GitHub device activation code and a link. Follow the link, log in with the DFHA GitHub account, and enter the code shown in the log.</div></li>
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">5</span><div>After authorization, go to <strong>Settings › Devices &amp; Services › Add Integration</strong> and search for HACS. Add it. Confirm HACS appears in the sidebar.</div></li>
+    </ol>
+
+    <p class="subsection">Add the Zigbee2MQTT Add-on Repository</p>
+    <p>Zigbee2MQTT is not in the official HAOS add-on store — it lives in its own community repository. Add the repository now so it is available in Step 8.</p>
+
+    <ol class="instructions" id="checks-6c" start="6">
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">6</span><div>Go to <strong>Settings › Apps</strong>. Click <strong>Install App</strong>, then the three-dot menu <strong>⋮</strong> → <strong>Repositories</strong>. Add:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Zigbee2MQTT Add-on Repository</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>https://github.com/zigbee2mqtt/hassio-zigbee2mqtt</pre></div>
+    </div>
+
+    <ol class="instructions" id="checks-6d" start="7">
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">7</span><div>Close the repositories dialog. Zigbee2MQTT now appears in the add-on store and is ready for Step 8.</div></li>
+      <li data-step="6"><input type="checkbox" class="sub-check" onchange="handleCheck(this,6)"><span class="inst-num">8</span><div>Take a manual backup. Label it <code>post-hacs</code>.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 7 ── -->
+  <section class="step-section" id="step-7">
+    <div class="step-header">
+      <span class="step-badge">STEP 07</span>
+      <h2 class="step-title">Mosquitto MQTT Broker</h2>
+      <button class="step-complete-btn" id="btn-7" onclick="toggleStep(7)">Mark Complete</button>
+    </div>
+
+    <p>Mosquitto is the MQTT broker — the message bus that Zigbee2MQTT and other services use to communicate with HAOS. It must be running and connected before Zigbee2MQTT is configured. The mqtt_admin account was created in Step 4. All MQTT configuration is done in this step.</p>
+
+    <p class="subsection">Install and Start Mosquitto</p>
+
+    <div class="nav-path">Settings <span>›</span> Apps <span>›</span> + Install app <span>›</span> Search "Mosquitto broker"</div>
+
+    <ol class="instructions" id="checks-7">
+      <li data-step="7"><input type="checkbox" class="sub-check" onchange="handleCheck(this,7)"><span class="inst-num">1</span><div>Install the <strong>Mosquitto broker</strong> add-on. Do not start it yet.</div></li>
+      <li data-step="7"><input type="checkbox" class="sub-check" onchange="handleCheck(this,7)"><span class="inst-num">2</span><div>Go to the <strong>Configuration</strong> tab. The default configuration is shown below — <strong>do not paste anything into the YAML editor</strong>. The logins section in the config tab is for legacy local-only accounts. Because you created mqtt_admin as a standard HAOS user in Step 4, Mosquitto will authenticate it automatically. Leave the configuration at its defaults:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Mosquitto Configuration — leave at defaults</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>logins: []
+customize:
+  active: false
+  folder: mosquitto
+certfile: fullchain.pem
+keyfile: privkey.pem
+require_certificate: false</pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>Mosquitto uses HAOS user accounts for authentication automatically. The mqtt_admin account you created in Step 4 is available to Mosquitto without any additional configuration in the add-on.</div>
+    </div>
+
+    <ol class="instructions" id="checks-7b" start="3">
+      <li data-step="7"><input type="checkbox" class="sub-check" onchange="handleCheck(this,7)"><span class="inst-num">3</span><div>Start the add-on. Check the <strong>Log</strong> tab — confirm it shows started with no errors. Set <strong>Start on boot</strong> and <strong>Watchdog</strong> both ON.</div></li>
+    </ol>
+
+    <p class="subsection">Connect the MQTT Integration</p>
+
+    <div class="nav-path">Settings <span>›</span> Devices &amp; Services <span>›</span> Add Integration <span>›</span> MQTT</div>
+
+    <ol class="instructions" id="checks-7c" start="4">
+      <li data-step="7"><input type="checkbox" class="sub-check" onchange="handleCheck(this,7)"><span class="inst-num">4</span><div>After starting Mosquitto, HAOS will show it as a discovered integration at the top of Devices &amp; Services. Click <strong>Configure</strong> on the Mosquitto broker tile — or manually add the MQTT integration and fill in:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">MQTT Integration — Broker Settings</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Broker:    core-mosquitto
+Port:      1883
+Username:  mqtt_admin
+Password:  MQTT[Last4]    (e.g. MQTTSmit — set in Step 4)</pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div><code>core-mosquitto</code> is the internal HAOS hostname for the Mosquitto add-on. Always use this instead of an IP address — it resolves correctly regardless of network changes.</div>
+    </div>
+
+    <ol class="instructions" id="checks-7d" start="5">
+      <li data-step="7"><input type="checkbox" class="sub-check" onchange="handleCheck(this,7)"><span class="inst-num">5</span><div>Confirm the MQTT integration shows as connected in Devices &amp; Services.</div></li>
+      <li data-step="7"><input type="checkbox" class="sub-check" onchange="handleCheck(this,7)"><span class="inst-num">6</span><div>The MQTT integration Configure dialog will show <code>__**password_not_changed**__</code> in the password field. This is normal — it is the supervisor's internal service token, not a broken credential. Do not try to change it. Z2M authenticates separately using the mqtt_admin account in the Mosquitto logins, which is correct.</div></li>
+      <li data-step="7"><input type="checkbox" class="sub-check" onchange="handleCheck(this,7)"><span class="inst-num">7</span><div>Take a manual backup. Label it <code>post-mosquitto</code>.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 8 ── -->
+  <section class="step-section" id="step-8">
+    <div class="step-header">
+      <span class="step-badge">STEP 08</span>
+      <h2 class="step-title">Zigbee2MQTT</h2>
+      <button class="step-complete-btn" id="btn-8" onclick="toggleStep(8)">Mark Complete</button>
+    </div>
+
+    <p>Z2M configuration happens in two stages: basic settings (serial port and MQTT) go in the add-on Configuration tab before first start, then the Zigbee network settings (PAN ID, network key) are generated by the onboarding wizard when you first open the web UI. Do not skip ahead — the wizard only runs on first launch before any Zigbee network exists.</p>
+
+    <p class="subsection">Stage 1 — Install and identify USB path</p>
+
+    <div class="nav-path">Settings <span>›</span> Apps <span>›</span> + Install app <span>›</span> Search "Zigbee2MQTT"</div>
+
+    <ol class="instructions" id="checks-8">
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">1</span><div>Install the Zigbee2MQTT add-on. <strong>Do not start it yet.</strong></div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">2</span><div>Confirm the USB path for the Zigbee dongle:</div></li>
+    </ol>
+
+    <div class="nav-path">Settings <span>›</span> System <span>›</span> Hardware</div>
+
+    <p>The dongle typically appears as <code>/dev/ttyUSB0</code>. Confirm the exact path before proceeding.</p>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">USB Path</span>
+        <input class="capture-input" id="cap_usb_path" placeholder="/dev/ttyUSB0" oninput="syncCapture('cap_usb_path','s_z2m_usb_path')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_usb_path">⇄</span>
+      </div>
+      <div class="capture-hint">You will enter this in the Configuration tab in the next step.</div>
+    </div>
+
+    <p class="subsection">Stage 1 — Configure the add-on (before starting)</p>
+
+    <p>Go to the Zigbee2MQTT add-on → <strong>Configuration</strong> tab. This tab handles serial port and MQTT only. The Zigbee network settings are handled by the web UI wizard in Stage 2.</p>
+
+    <ol class="instructions" id="checks-8a" start="3">
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">3</span><div>In the Configuration tab, enter the serial port path you confirmed above. The adapter type will be auto-detected — leave it blank or set to auto unless detection fails.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">4</span><div>Enter the MQTT connection details. The password was set in Step 4 and is shown below:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">MQTT Settings — enter in Configuration tab</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Server:    mqtt://core-mosquitto
+User:      mqtt_admin
+Password:  MQTT[Last4]</pre></div>
+    </div>
+
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">MQTT Password</span>
+        <span style="font-family:var(--mono);font-size:13px;color:var(--green);padding:5px 9px;" id="display_mqtt_pass_z2m">— enter in Step 4 first —</span>
+      </div>
+      <div class="capture-hint">This value is carried forward from Step 4 — do not create a new password here.</div>
+    </div>
+
+    <ol class="instructions" id="checks-8a2" start="5">
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">5</span><div>Save the Configuration tab. Do not start the add-on yet.</div></li>
+    </ol>
+
+    <p class="subsection">Stage 2 — Start and run the onboarding wizard</p>
+
+    <p>The Z2M onboarding wizard runs automatically the first time the web UI is opened on a fresh install. It generates the Zigbee network credentials — PAN ID, Extended PAN ID, and network key — and writes them to the coordinator. You cannot set these manually before this step.</p>
+
+    <ol class="instructions" id="checks-8b" start="6">
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">6</span><div>Start the Zigbee2MQTT add-on from the Info tab.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">7</span><div>Once started, click <strong>Open Web UI</strong> on the add-on Info tab. The onboarding wizard will load. Do not navigate to port 8099 directly — access Z2M through the Open Web UI button or the Ingress button.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">8</span><div>Work through the wizard. It will auto-detect the dongle, confirm the serial port, and generate the Zigbee network credentials automatically. Accept the generated values — do not change them.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">9</span><div>After the wizard completes, go to <strong>Settings › About</strong> in the Z2M web UI and record the generated network credentials below:</div></li>
+    </ol>
+
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">PAN ID</span>
+        <input class="capture-input" id="cap_pan_id" placeholder="e.g. 32687" oninput="syncCapture('cap_pan_id','s_pan_id')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_pan_id">⇄</span>
+      </div>
+      <div class="capture-row">
+        <span class="capture-label">Extended PAN ID</span>
+        <input class="capture-input" id="cap_ext_pan_id" placeholder="e.g. [42, 95, 193, 148, 200, 62, 10, 85]" oninput="syncCapture('cap_ext_pan_id','s_ext_pan_id')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_ext_pan_id">⇄</span>
+      </div>
+      <div class="capture-row">
+        <span class="capture-label">Network Key</span>
+        <input class="capture-input" id="cap_zb_key" placeholder="[12, 45, 3, ...]" oninput="syncCapture('cap_zb_key','s_zb_key')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_zb_key">⇄</span>
+      </div>
+      <div class="capture-hint">DFHA internal records only — none of these go on the ownership sheet.</div>
+    </div>
+
+    <p class="subsection">Verify and finish</p>
+
+    <ol class="instructions" id="checks-8c" start="10">
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">10</span><div>Check the <strong>Log</strong> tab in the add-on — confirm <code>Zigbee2MQTT started!</code> with no errors. If MQTT credentials are wrong the log will show a connection failure — fix them in the Configuration tab, save, and restart.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">11</span><div>Set <strong>Start on boot</strong> and <strong>Watchdog</strong> both ON.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">12</span><div>Check and update coordinator firmware. In the Z2M web UI go to <strong>Settings › Tools › Update coordinator firmware</strong> — Z2M fetches and flashes the correct firmware automatically. Confirm version under <strong>Settings › About</strong> afterward.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">13</span><div>Turn off <strong>Show in sidebar</strong> on the add-on Info tab. Z2M should not appear in the client sidebar. You access it via the <strong>Open Web UI</strong> button on the add-on page — that continues to work with sidebar off.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">14</span><div>Test permit join. In the Z2M web UI enable permit join for 60 seconds. Pair a test device — confirm it appears in Z2M and creates entities in HAOS. Name it correctly, remove it, then disable permit join.</div></li>
+      <li data-step="8"><input type="checkbox" class="sub-check" onchange="handleCheck(this,8)"><span class="inst-num">15</span><div>Take a manual backup. Label it <code>post-z2m</code>.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 9 ── -->
+  <section class="step-section" id="step-9">
+    <div class="step-header">
+      <span class="step-badge">STEP 09</span>
+      <h2 class="step-title">Tailscale <span class="deferred">Deferred to On-Site</span></h2>
+      <button class="step-complete-btn" id="btn-9" onclick="toggleStep(9)">Mark Complete</button>
+    </div>
+
+    <p>Authentication is completed on-site with the client. Shop prep is install-only.</p>
+
+    <div class="nav-path">Settings <span>›</span> Apps <span>›</span> + Install app <span>›</span> Search "Tailscale"</div>
+
+    <ol class="instructions" id="checks-9">
+      <li data-step="9"><input type="checkbox" class="sub-check" onchange="handleCheck(this,9)"><span class="inst-num">1</span><div>Install the Tailscale add-on. Start it — it will show as not authenticated. That is correct at this stage.</div></li>
+      <li data-step="9"><input type="checkbox" class="sub-check" onchange="handleCheck(this,9)"><span class="inst-num">2</span><div>Set auto-start ON.</div></li>
+    </ol>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div><strong>On-site:</strong> Client creates a free account at <a href="https://tailscale.com" target="_blank" class="ext-link">tailscale.com ↗</a>. You authenticate the NUC via the add-on auth URL. Request shared device access for the dfhaa account. Set the resulting Tailscale URL as the HAOS external URL in Settings › System › General.</div>
+    </div>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">Tailscale URL</span>
+        <input class="capture-input" id="cap_tailscale_url" placeholder="https://[device].ts.net — fill in on-site" oninput="syncCapture('cap_tailscale_url','s_tailscale_url')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_tailscale_url">⇄</span>
+      </div>
+      <div class="capture-hint">Complete on-site after client creates Tailscale account and NUC is authenticated.</div>
+    </div>
+  </section>
+
+
+  <!-- ── On-Site Note: Kiosk DHCP ── -->
+  <section class="step-section" id="step-9b">
+    <div class="step-header">
+      <span class="step-badge" style="color:var(--amber);border-color:var(--amber);background:var(--amber-dim);">ON-SITE</span>
+      <h2 class="step-title">Kiosk DHCP Reservation <span class="deferred">If kiosk in this install — do during router config</span></h2>
+    </div>
+
+    <p>If a kiosk tablet is part of this install, the DHCP reservation is made during the same session as all other router changes — DHCP carveout, VLAN setup, DNS. Summary for the router session:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Kiosk IP Reservations — bind tablet MAC to reserved IP in router</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>WITH VLAN (IoT VLAN):
+  Primary kiosk   → X.X.8.240
+  Second kiosk    → X.X.8.241
+  Third kiosk     → X.X.8.242
+
+WITHOUT VLAN (Customer LAN):
+  Primary kiosk   → X.X.X.235
+  Second kiosk    → X.X.X.236
+  Third kiosk     → X.X.X.237
+
+MAC address: Settings › About tablet › Status › Wi-Fi MAC address
+  (noted during shop prep in Step 2 of Kiosk Setup Guide — on install worksheet)
+
+After setting reservation: tablet forgets and reconnects WiFi to confirm correct IP.
+Document reserved IP and MAC on ownership sheet.</pre></div>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 10 ── -->
+  <section class="step-section" id="step-10">
+    <div class="step-header">
+      <span class="step-badge">STEP 10</span>
+      <h2 class="step-title">AdGuard Home</h2>
+      <button class="step-complete-btn" id="btn-10" onclick="toggleStep(10)">Mark Complete</button>
+    </div>
+
+    <div class="nav-path">Settings <span>›</span> Apps <span>›</span> + Install app <span>›</span> Search "AdGuard Home"</div>
+
+    <ol class="instructions" id="checks-10">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">1</span><div>Install AdGuard Home. Start it. Set auto-start and watchdog ON.</div></li>
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">2</span><div>Open the AdGuard web UI directly — there is no setup wizard; the UI opens to the login screen on first launch:</div></li>
+    </ol>
+
+    <div class="nav-path">http://[NUC-LAN-IP]:3000</div>
+
+    <p class="subsection">Set Admin Credentials</p>
+
+    <ol class="instructions" id="checks-10b" start="3">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">3</span><div>On first load, AdGuard will prompt you to create an admin account before showing the dashboard. Set credentials:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">AdGuard Admin Credentials</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Username:  adguard_admin
+Password:  Adguard@[First4]</pre></div>
+    </div>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">AdGuard Password</span>
+        <input class="capture-input" id="cap_ag_pass" placeholder="Adguard@[First4]" oninput="syncCapture('cap_ag_pass','s_ag_pass')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_ag_pass">⇄</span>
+      </div>
+      <div class="capture-hint">Enter the actual password — e.g. Adguard@Smit</div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>If AdGuard skips the credential prompt and goes straight to the dashboard, the credentials were set during a previous session. Verify them at <strong>Settings › General Settings → Authentication</strong> section, or reset by stopping the add-on, deleting the AdGuard data folder, and restarting.</div>
+    </div>
+
+    <p class="subsection">DNS Upstream Servers</p>
+
+    <ol class="instructions" id="checks-10c" start="4">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">4</span><div>Go to Settings › DNS Settings in AdGuard. Set upstream DNS servers:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Upstream DNS</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Primary upstream:    1.1.1.1
+Secondary upstream:  9.9.9.9
+Bootstrap DNS:       1.1.1.1:53</pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>The bootstrap DNS default is <code>1.1.1.1:53</code> — this is correct and expected. The bootstrap server resolves upstream DNS hostnames at startup. Since we use IP-based upstreams (1.1.1.1 and 9.9.9.9), the bootstrap has no practical effect but should be left at this value.</div>
+    </div>
+
+    <p class="subsection">Private Reverse DNS</p>
+
+    <ol class="instructions" id="checks-10d" start="5">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">5</span><div>Still in DNS Settings, scroll to the <strong>Private reverse DNS servers</strong> section. Enable it and add the client router's LAN gateway IP:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Private Reverse DNS</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Enable: ON
+Server: X.X.X.1    <span class="code-comment"># Client router LAN IP — replace X.X.X with actual subnet</span></pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>Reverse DNS resolves IP addresses to device hostnames in the AdGuard query log. Without it, every log entry shows a raw IP — with it, the client sees <code>kitchen-tablet</code> or <code>ring-doorbell</code>. This makes AdGuard far more useful for clients who want to administrate their own network.</div>
+    </div>
+
+    <p class="subsection">Blocklists</p>
+
+    <ol class="instructions" id="checks-10e" start="6">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">6</span><div>Go to <strong>Filters › DNS Blocklists</strong>. The AdGuard DNS filter (built-in) should already be active — confirm it is enabled and keep it. Then click <strong>Add Blocklist → Add a custom list</strong> for each of the three additional lists below:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">DFHA Standard Blocklists — paste each URL separately</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre><span class="code-comment"># 1. Steven Black Unified Hosts (ads + malware)</span>
+https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+
+<span class="code-comment"># 2. Hagezi DNS Blocklist — Normal tier (actively maintained, ~650k entries)</span>
+https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/multi.txt
+
+<span class="code-comment"># 3. OISD Basic (everyday ads and tracking)</span>
+https://basic.oisd.nl/
+
+<span class="code-comment"># Default list — already active, keep enabled:</span>
+<span class="code-comment"># AdGuard DNS filter (built-in)</span></pre></div>
+    </div>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>Add each list using <strong>Add a custom list</strong> by pasting the URL directly — do not use the "Choose from a list of known companies" selector. The custom URL method keeps the list source explicit and auditable.</div>
+    </div>
+
+    <ol class="instructions" id="checks-10f" start="7">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">7</span><div>Click <strong>Update</strong> on each list. Confirm all four lists show a blocked domain count greater than zero.</div></li>
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">8</span><div>Test blocking — visit <code>doubleclick.net</code> in a browser. Check the Query Log to confirm it was blocked.</div></li>
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">9</span><div>Add the AdGuard Home HAOS integration:</div></li>
+    </ol>
+
+    <div class="nav-path">Settings <span>›</span> Devices &amp; Services <span>›</span> Add Integration <span>›</span> AdGuard Home</div>
+
+    <ol class="instructions" id="checks-10g" start="10">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">10</span><div>Do <strong>NOT</strong> add AdGuard to the HAOS sidebar. Accessible at <code>http://[NUC-LAN-IP]:3000</code> for backend use. Document this URL on the ownership sheet. DNS change to the client router is done on-site.</div></li>
+    </ol>
+    <div class="capture-block">
+      <div class="capture-row">
+        <span class="capture-label">AdGuard URL</span>
+        <input class="capture-input" id="cap_adguard_url" placeholder="http://192.168.1.254:3000" oninput="syncCapture('cap_adguard_url','s_adguard_url')" onblur="saveStorageToLocal()">
+        <span class="capture-sync-icon" id="sync_cap_adguard_url">⇄</span>
+      </div>
+    </div>
+    <ol class="instructions" id="checks-10h" start="11">
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">11</span><div>Document the AdGuard Home password on the ownership sheet.</div></li>
+      <li data-step="10"><input type="checkbox" class="sub-check" onchange="handleCheck(this,10)"><span class="inst-num">12</span><div>Take a manual backup. Label it <code>post-adguard</code>.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 11 ── -->
+  <section class="step-section" id="step-11">
+    <div class="step-header">
+      <span class="step-badge">STEP 11</span>
+      <h2 class="step-title">Add-ons &amp; Tools</h2>
+      <button class="step-complete-btn" id="btn-11" onclick="toggleStep(11)">Mark Complete</button>
+    </div>
+
+    <p class="subsection">File Editor</p>
+    <ol class="instructions" id="checks-11">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">1</span><div>Go to <strong>Settings › Apps › + Install app</strong>. Install File Editor. Set to <strong>auto-start</strong>. Do NOT add to client sidebar.</div></li>
+    </ol>
+
+    <p class="subsection">Studio Code Server</p>
+    <ol class="instructions" id="checks-11b">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">1</span><div>Install Studio Code Server via <strong>Settings › Apps › + Install app</strong>. Set to <strong>MANUAL START ONLY</strong> — do not auto-start. Do NOT add to client sidebar.</div></li>
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">2</span><div>Start it once to install the YAML extension. In the Code Server UI, open Extensions and search for:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">YAML Extension</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>Home Assistant Config Helper
+Publisher: keesschollaart81</pre></div>
+    </div>
+
+    <ol class="instructions" id="checks-11c" start="3">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">3</span><div>Confirm entity autocomplete works — open <code>configuration.yaml</code>, type <code>sensor.</code> and confirm a dropdown appears.</div></li>
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">4</span><div>Stop Studio Code Server after confirming. It is started manually only when config editing is needed.</div></li>
+    </ol>
+
+    <p class="subsection">SSH Add-on</p>
+    <ol class="instructions" id="checks-11d">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">1</span><div>Install <strong>Terminal &amp; SSH</strong> via <strong>Settings › Apps › + Install app</strong>. This is the standard SSH add-on — do not install "Advanced SSH &amp; Web Terminal" (it requires additional configuration to run and has caused connection issues).</div></li>
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">2</span><div>Go to the <strong>Configuration</strong> tab. Set a password — the add-on will not start without either a password or an authorized SSH key configured:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Terminal &amp; SSH — Configuration</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>password: [DFHA internal SSH password — never on ownership sheet]
+authorized_keys: []
+username: root</pre></div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠</span>
+      <div>The SSH add-on will immediately crash on start if no password or key is set in the Configuration tab before starting. Set the password first, save, then start.</div>
+    </div>
+
+    <ol class="instructions" id="checks-11e" start="3">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">3</span><div>Start the add-on. Confirm it runs without errors. Set auto-start ON. Do NOT add to client sidebar.</div></li>
+    </ol>
+
+    <p class="subsection">NUT — Network UPS Tools <span class="deferred">Only if UPS in this install</span></p>
+    <ol class="instructions" id="checks-11e">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">1</span><div>Install NUT via <strong>Settings › Apps › + Install app</strong>. Under Configuration, set:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">NUT Configuration — APC Back-UPS 600VA (USB)</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>devices:
+  - name: apc_ups
+    driver: usbhid-ups
+    port: auto
+    config:
+      - vendorid = 051d     <span class="code-comment"># APC vendor ID</span>
+mode: netserver
+shutdown_command: ha power off</pre></div>
+    </div>
+
+    <ol class="instructions" id="checks-11f" start="2">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">2</span><div>Start NUT. Add the NUT integration pointed at localhost port 3493. Confirm the UPS status entity appears.</div></li>
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">3</span><div>Create the graceful shutdown automation:</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">UPS Graceful Shutdown Automation</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>alias: UPS - Graceful Shutdown on Critical Battery
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.apc_ups_battery_charge
+    below: 10
+action:
+  - service: hassio.host_shutdown
+mode: single</pre></div>
+    </div>
+
+    <ol class="instructions" id="checks-11g" start="4">
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">4</span><div>Set NUT to auto-start ON.</div></li>
+      <li data-step="11"><input type="checkbox" class="sub-check" onchange="handleCheck(this,11)"><span class="inst-num">5</span><div>Take a manual backup. Label it <code>post-addons</code>.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 12 ── -->
+  <section class="step-section" id="step-12">
+    <div class="step-header">
+      <span class="step-badge">STEP 12</span>
+      <h2 class="step-title">HAOS General Settings <span class="deferred">Completed in Step 3</span></h2>
+      <button class="step-complete-btn" id="btn-12" onclick="toggleStep(12)">Mark Complete</button>
+    </div>
+
+    <p>HAOS General Settings — home name, timezone, location, elevation, Internal URL — are configured in Step 3 immediately after setting the static IP. Mark this step complete if those fields were filled in during Step 3.</p>
+
+    <div class="callout note">
+      <span class="callout-icon">ℹ</span>
+      <div>External URL is deferred to on-site — set it after Tailscale is authenticated in Step 9. Navigate to <strong>Settings › System › General</strong> to fill it in.</div>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 13 ── -->
+  <section class="step-section" id="step-13">
+    <div class="step-header">
+      <span class="step-badge">STEP 13</span>
+      <h2 class="step-title">Standard Integrations</h2>
+      <button class="step-complete-btn" id="btn-13" onclick="toggleStep(13)">Mark Complete</button>
+    </div>
+
+    <div class="nav-path">Settings <span>›</span> Devices &amp; Services</div>
+
+    <ol class="instructions" id="checks-13">
+      <li data-step="13"><input type="checkbox" class="sub-check" onchange="handleCheck(this,13)"><span class="inst-num">1</span><div>Confirm the <strong>Sun</strong> integration is present and active — built-in, enabled automatically.</div></li>
+      <li data-step="13"><input type="checkbox" class="sub-check" onchange="handleCheck(this,13)"><span class="inst-num">2</span><div>Add <strong>Met.no</strong> weather integration. Uses the home location set in Step 12. Confirm the weather entity reports current conditions.</div></li>
+      <li data-step="13"><input type="checkbox" class="sub-check" onchange="handleCheck(this,13)"><span class="inst-num">3</span><div>Confirm <strong>Mobile App</strong> integration is present — built-in. Client phone is connected during the on-site walkthrough.</div></li>
+      <li data-step="13"><input type="checkbox" class="sub-check" onchange="handleCheck(this,13)"><span class="inst-num">4</span><div>If cameras are in this install, add the <strong>Reolink</strong> integration. Enter the camera IP (from IoT VLAN range), username, and password. Confirm the camera stream loads in HAOS.</div></li>
+      <li data-step="13"><input type="checkbox" class="sub-check" onchange="handleCheck(this,13)"><span class="inst-num">5</span><div>Take a manual backup. Label it <code>post-integrations</code>.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 14 ── -->
+  <section class="step-section" id="step-14">
+    <div class="step-header">
+      <span class="step-badge">STEP 14</span>
+      <h2 class="step-title">Dashboard Framework</h2>
+      <button class="step-complete-btn" id="btn-14" onclick="toggleStep(14)">Mark Complete</button>
+    </div>
+
+    <p>The dashboard framework is the skeleton every install shares. Room-specific cards are populated during device pre-pairing and on-site.</p>
+
+    <div class="nav-path">Settings <span>›</span> Dashboards</div>
+
+    <ol class="instructions" id="checks-14">
+      <li data-step="14"><input type="checkbox" class="sub-check" onchange="handleCheck(this,14)"><span class="inst-num">1</span><div>Delete or disable the default <strong>Overview</strong> dashboard.</div></li>
+      <li data-step="14"><input type="checkbox" class="sub-check" onchange="handleCheck(this,14)"><span class="inst-num">2</span><div>Create <code>dashboard_main</code>. Set as default dashboard for all non-admin accounts.</div></li>
+      <li data-step="14"><input type="checkbox" class="sub-check" onchange="handleCheck(this,14)"><span class="inst-num">3</span><div>Add five tabs: Home, Rooms, Security, Cameras, Settings. Set <strong>Cameras</strong> tab to hidden — un-hide on installs with cameras.</div></li>
+    </ol>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Home Tab — Required Cards</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>1.  Alert zone (conditional card stack) — top of page, hidden when no alerts
+2.  Persistent notification banner — water / CO / smoke only
+3.  Whole-home lights summary card
+4.  Door and lock status card
+5.  Presence summary card
+6.  Met.no weather card
+7.  All Lights Off button
+8.  All Outdoor Lights button (hidden until outdoor kit installed)</pre></div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Dashboard Names</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>dashboard_main             Primary client dashboard — default for all client accounts
+dashboard_admin            Admin dashboard — dfhaa account only, not visible to clients
+dashboard_kiosk_[location] Kiosk display — e.g. dashboard_kiosk_kitchen</pre></div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">dashboard_admin — Tab Structure</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>System Health  | All Devices | Zigbee Network | Logs | AdGuard
+
+System Health tab cards:
+  - Hub uptime
+  - Backup status
+  - Integration status
+  - Zigbee coordinator status
+  - Mosquitto status
+  - AdGuard status
+  - UPS battery level and status</pre></div>
+    </div>
+
+    <ol class="instructions" id="checks-14b" start="4">
+      <li data-step="14"><input type="checkbox" class="sub-check" onchange="handleCheck(this,14)"><span class="inst-num">4</span><div>Take a manual backup. Label it <code>post-dashboards</code>.</div></li>
+    </ol>
+  </section>
+
+
+  <!-- ── STEP 15 ── -->
+  <section class="step-section" id="step-15">
+    <div class="step-header">
+      <span class="step-badge">STEP 15</span>
+      <h2 class="step-title">Final Verification</h2>
+      <button class="step-complete-btn" id="btn-15" onclick="toggleStep(15)">Mark Complete</button>
+    </div>
+
+    <p>Before the NUC leaves the shop, run through the go/no-go check on the Backend Install Checklist — Section 12. Every item must be checked before the system is packed for transport.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-label">Things Most Often Missed</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <div class="code-body"><pre>☐  Zigbee dongle seated — confirm in HAOS Hardware, not just visually
+☐  Backup USB drive seated — backup confirmed written to it
+☐  backup_key.txt on USB drive — backup encryption key present
+☐  Backup encryption key captured in Client Record and saved to DFHA portal
+☐  HAOS hostname set — HA[LastFirstinitial] format confirmed (no underscores)
+☐  mqtt_admin user account created in HAOS Users — User role
+☐  Mosquitto, Z2M, AdGuard, File Editor, NUT — all auto-start ON
+☐  Studio Code Server — MANUAL start only (not auto-start)
+☐  Terminal &amp; SSH — password set, auto-start ON
+☐  Z2M frontend NOT in client sidebar
+☐  AdGuard NOT in client sidebar
+☐  SSH add-on NOT in client sidebar
+☐  Permit join DISABLED
+☐  Z2M log level set to WARN (not debug)
+☐  Ownership sheet printed — 2 copies
+☐  Quick reference card printed
+If kiosk in this install — shop verification:
+☐  Kiosk user account created in HAOS — User role (not admin)
+☐  Kiosk dashboard created and assigned as default for kiosk account
+☐  HACS Kiosk Mode installed — header and sidebar hidden for kiosk account
+☐  HA Companion app installed (Play Store full flavor) — logged in as kiosk account
+☐  Battery level sensor confirmed in HAOS — entity name on install worksheet
+☐  Fully Kiosk Browser installed from fully-kiosk.com — NOT Play Store
+☐  Fully Kiosk license entered and confirmed
+☐  Fully Kiosk start URL set — update to client NUC on-site
+☐  Battery charging automations built and tested — relay responds
+☐  Rabman mount printed and test-fitted
+☐  Relay pre-wired to Topgreener outlet — no buzzing</pre></div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠</span>
+      <div>Do not leave the shop without confirming the backup USB drive has a current backup written to it and <code>backup_key.txt</code> is present. These are the only recovery assets that travel with the NUC.</div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEXTCLOUD CONFIG — edit these before first use
+  // ─────────────────────────────────────────────────────────────────────────
+  const NEXTCLOUD_CONFIG = {
+    server:   'http://192.168.1.139:8080',   // Nextcloud server URL (no trailing slash)
+    username: '',                             // e.g. 'dfha_service'
+    password: '',                             // app password from Nextcloud security settings
+    basePath: '/DFHA/Clients/',              // base WebDAV path for client folders
+  };
+
+  const NC_CONFIGURED = () =>
+    NEXTCLOUD_CONFIG.username !== '' && NEXTCLOUD_CONFIG.password !== '';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Inline capture field sync
+  // Each inline field has a cap_xxx id that mirrors a storage panel s_xxx id.
+  // syncCapture keeps both in sync and updates the visual indicator.
+  // ─────────────────────────────────────────────────────────────────────────
+  const CAPTURE_MAP = {
+    'cap_dhcp_ip':        's_dhcp_ip',
+    'cap_client_uid':     's_client_uid',
+    'cap_client_display': 's_client_display',
+    'cap_client_temppass':'s_client_temppass',
+    'cap_backup_key':     's_backup_key',
+    'cap_subnet':         's_subnet',
+    'cap_nuc_ip':         's_nuc_ip',
+    'cap_router_gw':      's_router_gw',
+    'cap_hostname':       's_hostname',
+    'cap_mqtt_pass':      's_mqtt_pass',
+    'cap_usb_path':       's_z2m_usb_path',
+    'cap_pan_id':         's_pan_id',
+    'cap_ext_pan_id':     's_ext_pan_id',
+    'cap_zb_key':         's_zb_key',
+    'cap_ag_pass':        's_ag_pass',
+    'cap_adguard_url':    's_adguard_url',
+    'cap_tailscale_url':  's_tailscale_url',
+    'cap_home_name':      's_home_name',
+    'cap_elevation':      's_elevation',
+  };
+
+  function syncCapture(capId, storageId) {
+    const capEl = document.getElementById(capId);
+    const stEl  = document.getElementById(storageId);
+    const icon  = document.getElementById('sync_' + capId);
+    if (!capEl) return;
+    const val = capEl.value;
+    if (stEl) stEl.value = val;
+    capEl.classList.toggle('has-value', val.trim() !== '');
+    if (icon) { icon.classList.toggle('synced', val.trim() !== ''); }
+    // Populate the Z2M read-only MQTT password display whenever mqtt_pass changes
+    if (capId === 'cap_mqtt_pass' || storageId === 's_mqtt_pass') {
+      const disp = document.getElementById('display_mqtt_pass_z2m');
+      if (disp) disp.textContent = val.trim() || '— enter in Step 4 first —';
+    }
+    // Also sync the reverse direction label for s_nuc_ip when cap_dhcp_ip set
+    if (capId === 'cap_dhcp_ip') {
+      const nucIpEl = document.getElementById('cap_nuc_ip');
+      if (nucIpEl && !nucIpEl.value) {
+        // Auto-suggest the static IP based on DHCP address pattern
+        const parts = val.split('.');
+        if (parts.length === 4) {
+          const suggested = parts[0]+'.'+parts[1]+'.'+parts[2]+'.254';
+          nucIpEl.placeholder = 'e.g. ' + suggested + ' (suggested)';
+        }
+      }
+    }
+    // Auto-populate Nextcloud path from hostname if not yet set
+    if (capId === 'cap_hostname') {
+      const pathEl = document.getElementById('s_nc_path');
+      if (pathEl && (!pathEl.value || pathEl.value === '/DFHA/Clients//')) {
+        const ln = (document.getElementById('s_lastname')?.value || '').trim();
+        if (ln) pathEl.value = `/DFHA/Clients/${ln}/`;
+      }
+    }
+  }
+
+  // Restore capture fields from storage state
+  function restoreCaptureFields() {
+    Object.entries(CAPTURE_MAP).forEach(([capId, storageId]) => {
+      const stEl  = document.getElementById(storageId);
+      const capEl = document.getElementById(capId);
+      const icon  = document.getElementById('sync_' + capId);
+      if (stEl && capEl && stEl.value) {
+        capEl.value = stEl.value;
+        capEl.classList.add('has-value');
+        if (icon) icon.classList.add('synced');
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Step progress state
+  // ─────────────────────────────────────────────────────────────────────────
+  const TOTAL = 15;
+  const stepCounts = {};
+  for (let i = 1; i <= TOTAL; i++) stepCounts[i] = { total: 0, checked: 0 };
+
+  const manualComplete = new Set(
+    JSON.parse(localStorage.getItem('dfha_manual') || '[]')
+  );
+  let subState = JSON.parse(localStorage.getItem('dfha_subchecks') || '{}');
+
+  function saveState() {
+    localStorage.setItem('dfha_manual', JSON.stringify([...manualComplete]));
+    localStorage.setItem('dfha_subchecks', JSON.stringify(subState));
+  }
+
+  function indexSubChecks() {
+    document.querySelectorAll('.sub-check').forEach((cb, idx) => {
+      const li = cb.closest('li');
+      const stepNum = parseInt(li.dataset.step);
+      cb.dataset.idx = idx;
+      cb.dataset.stepNum = stepNum;
+      stepCounts[stepNum].total++;
+    });
+  }
+
+  function restoreSubChecks() {
+    document.querySelectorAll('.sub-check').forEach((cb) => {
+      const key = cb.dataset.idx;
+      if (subState[key]) {
+        cb.checked = true;
+        cb.closest('li').classList.add('checked-item');
+        stepCounts[cb.dataset.stepNum].checked++;
+      }
+    });
+  }
+
+  function handleCheck(cb, stepNum) {
+    const key = cb.dataset.idx;
+    const li = cb.closest('li');
+    if (cb.checked) {
+      subState[key] = true;
+      li.classList.add('checked-item');
+      stepCounts[stepNum].checked++;
+    } else {
+      delete subState[key];
+      li.classList.remove('checked-item');
+      stepCounts[stepNum].checked--;
+    }
+    saveState();
+    autoCompleteStep(stepNum);
+    updateProgress();
+  }
+
+  function autoCompleteStep(stepNum) {
+    const counts = stepCounts[stepNum];
+    if (counts.total > 0 && counts.checked >= counts.total) {
+      setStepDone(stepNum, true);
+    } else {
+      if (!manualComplete.has(stepNum)) setStepDone(stepNum, false);
+    }
+  }
+
+  function setStepDone(n, done) {
+    const btn = document.getElementById(`btn-${n}`);
+    const navItem = document.querySelector(`.nav-item[data-step="${n}"]`);
+    if (!btn) return;
+    if (done) {
+      btn.textContent = '✓ Complete';
+      btn.classList.add('done');
+      if (navItem) navItem.classList.add('completed');
+    } else {
+      btn.textContent = 'Mark Complete';
+      btn.classList.remove('done');
+      if (navItem) navItem.classList.remove('completed');
+    }
+  }
+
+  function toggleStep(n) {
+    if (manualComplete.has(n)) {
+      manualComplete.delete(n);
+      setStepDone(n, false);
+      autoCompleteStep(n);
+    } else {
+      manualComplete.add(n);
+      setStepDone(n, true);
+    }
+    saveState();
+    updateProgress();
+  }
+
+  function isStepDone(n) {
+    if (manualComplete.has(n)) return true;
+    const counts = stepCounts[n];
+    return counts.total > 0 && counts.checked >= counts.total;
+  }
+
+  function updateProgress() {
+    let done = 0;
+    // Populate Z2M read-only MQTT password display from saved storage
+  const _mqttPassDisp = document.getElementById('display_mqtt_pass_z2m');
+  if (_mqttPassDisp) {
+    try {
+      const _sd2 = JSON.parse(localStorage.getItem('dfha_storage') || '{}');
+      if (_sd2.s_mqtt_pass) _mqttPassDisp.textContent = _sd2.s_mqtt_pass;
+    } catch(e) {}
+  }
+
+  for (let i = 1; i <= TOTAL; i++) { if (isStepDone(i)) done++; }
+    const pct = (done / TOTAL) * 100;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-count').textContent = `${done} / ${TOTAL}`;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Reset
+  // ─────────────────────────────────────────────────────────────────────────
+  function doReset() {
+    // Clear progress state
+    manualComplete.clear();
+    subState = {};
+    localStorage.removeItem('dfha_manual');
+    localStorage.removeItem('dfha_subchecks');
+    localStorage.removeItem('dfha_storage');
+
+    // Uncheck all sub-step checkboxes
+    document.querySelectorAll('.sub-check').forEach(cb => {
+      cb.checked = false;
+      cb.closest('li').classList.remove('checked-item');
+    });
+
+    // Reset step counts
+    for (let i = 1; i <= TOTAL; i++) {
+      stepCounts[i].checked = 0;
+      setStepDone(i, false);
+    }
+
+    // Clear storage form
+    clearStorageForm();
+    clearCaptureFields();
+
+    updateProgress();
+    closeModal('reset-modal');
+  }
+
+  function clearCaptureFields() {
+    Object.keys(CAPTURE_MAP).forEach(capId => {
+      const el = document.getElementById(capId);
+      const icon = document.getElementById('sync_' + capId);
+      if (el) { el.value = ''; el.classList.remove('has-value'); }
+      if (icon) icon.classList.remove('synced');
+    });
+  }
+
+  function clearStorageForm() {
+    const ids = [
+      's_lastname','s_firstname','s_date','s_package','s_address',
+      's_subnet','s_router','s_nuc_ip','s_hostname','s_vlan','s_nuc_vlan_ip',
+      's_iot_ssid','s_iot_pass','s_tailscale_url','s_adguard_url',
+      's_backup_key','s_pan_id','s_ext_pan_id','s_zb_channel','s_zb_key',
+      's_mqtt_pass','s_ag_pass','s_z2m_pass',
+      's_nuc_serial','s_ram','s_ssd','s_second_slot','s_dongle','s_usb','s_ups','s_nas',
+      's_mqtt_notes','s_z2m_notes','s_ag_notes','s_haos_notes','s_other_notes','s_changelog',
+      's_nc_path',
+      's_dhcp_ip','s_client_uid','s_client_display','s_client_temppass',
+      's_router_gw','s_z2m_usb_path','s_home_name','s_elevation',
+    ];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else if (!['s_ram','s_ssd','s_dongle','s_usb','s_tech','s_zb_channel'].includes(id)) el.value = '';
+      }
+    });
+    // Reset tech default
+    const tech = document.getElementById('s_tech');
+    if (tech) tech.value = 'Ron Blackhurst';
+
+    // Reset dynamic rows to single blank row each
+    resetDynamicList('accounts-list', accountRowTemplate);
+    resetDynamicList('devices-list', deviceRowTemplate);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Copy buttons
+  // ─────────────────────────────────────────────────────────────────────────
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    const tmp = document.createElement('div');
+    tmp.innerHTML = pre.innerHTML;
+    const text = tmp.innerText || tmp.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Active nav on scroll
+  // ─────────────────────────────────────────────────────────────────────────
+  const sections = document.querySelectorAll('.step-section');
+  const navItemsAll = document.querySelectorAll('.nav-item[data-step]');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const step = entry.target.id.replace('step-', '');
+        navItemsAll.forEach(item => item.classList.toggle('active', item.dataset.step === step));
+      }
+    });
+  }, { threshold: 0.2, rootMargin: '-60px 0px -60% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Storage panel
+  // ─────────────────────────────────────────────────────────────────────────
+  function openStorage() {
+    document.getElementById('storage-panel').classList.add('open');
+    loadStorageFromLocal();
+    updateCustomerBar();
+    document.getElementById('nc-config-notice').style.display = NC_CONFIGURED() ? 'none' : '';
+  }
+
+  function closeStorage() {
+    document.getElementById('storage-panel').classList.remove('open');
+  }
+
+  function autoPath() {
+    const ln = (document.getElementById('s_lastname').value || '').trim();
+    const pathEl = document.getElementById('s_nc_path');
+    if (ln && (!pathEl.value || pathEl.value.startsWith('/DFHA/Clients/'))) {
+      pathEl.value = `/DFHA/Clients/${ln}/`;
+    }
+  }
+
+  // Dynamic row templates
+  function deviceRowTemplate() {
+    const d = document.createElement('div');
+    d.className = 'dev-row';
+    d.innerHTML = `
+      <input class="storage-input" placeholder="device_name">
+      <input class="storage-input" placeholder="Model">
+      <div style="display:flex;gap:4px;align-items:start">
+        <input class="storage-input" placeholder="Location / Notes" style="flex:1">
+        <button class="remove-row-btn" onclick="removeRow(this)" title="Remove">✕</button>
+      </div>`;
+    return d;
+  }
+
+  function accountRowTemplate() {
+    const d = document.createElement('div');
+    d.className = 'dev-row';
+    d.innerHTML = `
+      <input class="storage-input" placeholder="Name / username">
+      <select class="storage-select"><option>Admin</option><option>User</option></select>
+      <div style="display:flex;gap:4px;align-items:start">
+        <input class="storage-input" placeholder="Notes" style="flex:1">
+        <button class="remove-row-btn" onclick="removeRow(this)" title="Remove">✕</button>
+      </div>`;
+    return d;
+  }
+
+  function addRow(listId, templateFn) {
+    document.getElementById(listId).appendChild(templateFn());
+  }
+
+  function removeRow(btn) {
+    btn.closest('.dev-row').remove();
+  }
+
+  function resetDynamicList(listId, templateFn) {
+    const list = document.getElementById(listId);
+    list.innerHTML = '';
+    list.appendChild(templateFn());
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Local storage persistence for the form
+  // ─────────────────────────────────────────────────────────────────────────
+  function getStorageData() {
+    const ids = [
+      's_lastname','s_firstname','s_date','s_package','s_tech','s_address',
+      's_subnet','s_router','s_nuc_ip','s_hostname','s_vlan','s_nuc_vlan_ip',
+      's_iot_ssid','s_iot_pass','s_tailscale_url','s_adguard_url',
+      's_backup_key','s_pan_id','s_ext_pan_id','s_zb_channel','s_zb_key',
+      's_mqtt_pass','s_ag_pass','s_z2m_pass',
+      's_nuc_serial','s_ram','s_ssd','s_second_slot','s_dongle','s_usb','s_ups','s_nas',
+      's_mqtt_notes','s_z2m_notes','s_ag_notes','s_haos_notes','s_other_notes','s_changelog',
+      's_nc_path',
+      // Inline capture extras
+      's_dhcp_ip','s_client_uid','s_client_display','s_client_temppass',
+      's_router_gw','s_z2m_usb_path','s_home_name','s_elevation',
+    ];
+    const data = {};
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) data[id] = el.value;
+    });
+
+    // Dynamic rows
+    data.accounts = [];
+    document.querySelectorAll('#accounts-list .dev-row').forEach(row => {
+      const inputs = row.querySelectorAll('input, select');
+      if (inputs[0] && inputs[0].value) {
+        data.accounts.push({ name: inputs[0].value, role: inputs[1]?.value, notes: inputs[2]?.value });
+      }
+    });
+
+    data.devices = [];
+    document.querySelectorAll('#devices-list .dev-row').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      if (inputs[0] && inputs[0].value) {
+        data.devices.push({ name: inputs[0].value, model: inputs[1]?.value, notes: inputs[2]?.value });
+      }
+    });
+
+    return data;
+  }
+
+  function updateCustomerBar() {
+    try {
+      const d = JSON.parse(localStorage.getItem('dfha_storage') || '{}');
+      const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (val && String(val).trim()) {
+          el.textContent = String(val).trim();
+          el.classList.remove('empty');
+        } else {
+          el.textContent = '—';
+          el.classList.add('empty');
+        }
+      };
+      const last  = (d.s_lastname  || '').trim();
+      const first = (d.s_firstname || '').trim();
+      const last4 = last ? (last.slice(0,1).toUpperCase() + last.slice(1,4).toLowerCase()) : '';
+      set('cb_name',     first && last ? first + ' ' + last : (last || first));
+      set('cb_address',  d.s_address);
+      set('cb_hostname', d.s_hostname);
+      set('cb_nuc_ip',   d.s_nuc_ip);
+      set('cb_mqtt',     d.s_mqtt_pass);
+      set('cb_last4',    last4);
+      set('cb_date',     d.s_date);
+      document.querySelectorAll('.cfield-value').forEach(el => {
+        el.onclick = () => {
+          if (el.textContent === '—') return;
+          navigator.clipboard.writeText(el.textContent).then(() => {
+            const orig = el.style.color;
+            el.style.color = 'var(--green)';
+            setTimeout(() => el.style.color = orig, 700);
+          });
+        };
+      });
+    } catch(e) {}
+  }
+
+  function saveStorageToLocal() {
+    const data = getStorageData();
+    localStorage.setItem('dfha_storage', JSON.stringify(data));
+    updateCustomerBar();
+    // Brief visual confirm on the Save Draft button
+    const btns = document.querySelectorAll('.submit-btn.secondary');
+    btns.forEach(b => { if (b.textContent.includes('Save')) { b.textContent = '✓ Saved'; setTimeout(() => b.textContent = 'Save Draft', 1600); }});
+  }
+
+  function loadStorageFromLocal() {
+    const raw = localStorage.getItem('dfha_storage');
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      Object.keys(data).forEach(id => {
+        if (id === 'accounts' || id === 'devices') return;
+        const el = document.getElementById(id);
+        if (el && data[id] !== undefined) el.value = data[id];
+      });
+      // Restore dynamic rows
+      if (data.accounts && data.accounts.length) {
+        const list = document.getElementById('accounts-list');
+        list.innerHTML = '';
+        data.accounts.forEach(a => {
+          const row = accountRowTemplate();
+          row.querySelectorAll('input')[0].value = a.name || '';
+          const sel = row.querySelector('select'); if (sel) sel.value = a.role || 'Admin';
+          row.querySelectorAll('input')[1].value = a.notes || '';
+          list.appendChild(row);
+        });
+      }
+      if (data.devices && data.devices.length) {
+        const list = document.getElementById('devices-list');
+        list.innerHTML = '';
+        data.devices.forEach(d => {
+          const row = deviceRowTemplate();
+          const inputs = row.querySelectorAll('input');
+          inputs[0].value = d.name || '';
+          inputs[1].value = d.model || '';
+          inputs[2].value = d.notes || '';
+          list.appendChild(row);
+        });
+      }
+    } catch(e) { console.warn('Could not restore storage data', e); }
+    restoreCaptureFields();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Review modal
+  // ─────────────────────────────────────────────────────────────────────────
+  function v(val, fallback) { return (val && val.trim()) ? val.trim() : (fallback || ''); }
+
+  function openReviewModal() {
+    saveStorageToLocal();
+    const data = getStorageData();
+
+    // Build flags
+    const errors = [], warnings = [];
+    if (!v(data.s_lastname))    errors.push('Client last name is required');
+    if (!v(data.s_date))        errors.push('Install date is required');
+    if (!v(data.s_subnet))      errors.push('Client LAN subnet is required');
+    if (!v(data.s_backup_key))  errors.push('Backup encryption key is missing — must be captured before sending');
+    if (!v(data.s_nuc_ip))      warnings.push('NUC LAN IP not filled in');
+    if (!v(data.s_mqtt_pass))   warnings.push('Mosquitto password not recorded');
+    if (!v(data.s_ag_pass))     warnings.push('AdGuard password not recorded');
+    if (!v(data.s_z2m_pass))    warnings.push('Z2M password not recorded');
+    if (!v(data.s_pan_id))      warnings.push('Zigbee PAN ID not recorded');
+    if (!v(data.s_ext_pan_id))  warnings.push('Zigbee Extended PAN ID not recorded');
+    if (!v(data.s_zb_key))      warnings.push('Zigbee network key not recorded');
+    if (!data.devices || !data.devices.length) warnings.push('No devices recorded in hardware inventory');
+    if (!NC_CONFIGURED())       warnings.push('Nextcloud credentials not configured — upload will fail');
+
+    // Build HTML
+    let html = '';
+
+    if (errors.length) {
+      html += `<div class="flag-list">`;
+      errors.forEach(e => html += `<div class="flag-item error"><span class="flag-icon">✕</span>${e}</div>`);
+      html += `</div>`;
+    }
+    if (warnings.length) {
+      html += `<div class="flag-list">`;
+      warnings.forEach(w => html += `<div class="flag-item warning"><span class="flag-icon">⚠</span>${w}</div>`);
+      html += `</div>`;
+    }
+    if (!errors.length && !warnings.length) {
+      html += `<div class="flag-item ok" style="margin-bottom:12px"><span class="flag-icon">✓</span>All required fields complete — record is ready to send.</div>`;
+    }
+
+    html += `<div class="review-section" style="margin-top:14px">`;
+    html += `<div class="review-section-label">Client</div>`;
+    html += ri('Name', v(data.s_lastname) ? `${v(data.s_firstname)} ${v(data.s_lastname)}` : null);
+    html += ri('Date', data.s_date);
+    html += ri('Package', data.s_package);
+    html += ri('Address', data.s_address);
+    html += ri('Technician', data.s_tech);
+    html += `</div>`;
+
+    html += `<div class="review-section">`;
+    html += `<div class="review-section-label">Network</div>`;
+    html += ri('Subnet', data.s_subnet);
+    html += ri('NUC IP', data.s_nuc_ip);
+    html += ri('Hostname', data.s_hostname);
+    html += ri('VLAN', data.s_vlan);
+    html += ri('Tailscale URL', data.s_tailscale_url);
+    html += `</div>`;
+
+    html += `<div class="review-section">`;
+    html += `<div class="review-section-label">Credentials &amp; Keys</div>`;
+    html += ri('Backup Key', data.s_backup_key ? '●●●● (present)' : null, data.s_backup_key ? 'ok' : null);
+    html += ri('Zigbee PAN ID', data.s_pan_id);
+    html += ri('Zigbee Ext PAN ID', data.s_ext_pan_id);
+    html += ri('Zigbee Channel', data.s_zb_channel);
+    html += ri('Mosquitto', data.s_mqtt_pass);
+    html += ri('AdGuard', data.s_ag_pass);
+    html += ri('Z2M', data.s_z2m_pass);
+    html += `</div>`;
+
+    html += `<div class="review-section">`;
+    html += `<div class="review-section-label">Devices (${data.devices ? data.devices.length : 0} recorded)</div>`;
+    if (data.devices && data.devices.length) {
+      data.devices.slice(0,6).forEach(d => html += ri(d.model || '—', d.name));
+      if (data.devices.length > 6) html += `<div class="review-item"><span class="ri-val" style="color:var(--text-muted)">...and ${data.devices.length - 6} more</span></div>`;
+    }
+    html += `</div>`;
+
+    // NC path
+    const ncPath = v(data.s_nc_path) || `${NEXTCLOUD_CONFIG.basePath}${v(data.s_lastname) || 'Unknown'}/`;
+    html += `<div class="review-section">`;
+    html += `<div class="review-section-label">Upload Destination</div>`;
+    html += `<div class="nc-path-row"><label>Nextcloud path:</label><input class="nc-path-input" id="final-nc-path" value="${ncPath}"></div>`;
+    html += `<div id="upload-status-main" class="upload-status"></div>`;
+    html += `</div>`;
+
+    document.getElementById('review-modal-body').innerHTML = html;
+    document.getElementById('send-btn').disabled = errors.length > 0;
+    document.getElementById('send-btn').style.opacity = errors.length > 0 ? '0.4' : '1';
+
+    openModal('review-modal');
+  }
+
+  function ri(key, val, cls) {
+    const displayVal = (val && String(val).trim()) ? String(val).trim() : null;
+    return `<div class="review-item">
+      <span class="ri-key">${key}</span>
+      <span class="ri-val ${displayVal ? (cls || '') : 'missing'}">${displayVal || 'not filled in'}</span>
+    </div>`;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Nextcloud upload via WebDAV
+  // ─────────────────────────────────────────────────────────────────────────
+  function buildRecord() {
+    const data = getStorageData();
+    const ts = new Date().toISOString();
+    return { generated: ts, install: data };
+  }
+
+  function buildFileName(data) {
+    const ln = v(data.s_lastname, 'Unknown');
+    const dt = data.s_date ? data.s_date.replace(/-/g, '') : 'nodate';
+    return `DFHA_install_${ln}_${dt}.json`;
+  }
+
+  async function startUpload() {
+    if (!NC_CONFIGURED()) {
+      setUploadStatus('main', 'error', 'Nextcloud credentials not configured. Edit NEXTCLOUD_CONFIG in the source file.');
+      return;
+    }
+    const path = document.getElementById('final-nc-path').value.trim();
+    document.getElementById('send-btn').disabled = true;
+    setUploadStatus('main', 'working', 'Checking destination folder…');
+
+    try {
+      const exists = await checkFolderExists(path);
+      if (exists) {
+        // Pre-fill rename suggestion
+        const data = getStorageData();
+        const ln = v(data.s_lastname, 'Unknown');
+        const mo = data.s_date ? data.s_date.substring(0,7) : 'date';
+        document.getElementById('folder-rename-input').value = `${NEXTCLOUD_CONFIG.basePath}${ln}_${mo}/`;
+        closeModal('review-modal');
+        openModal('folder-modal');
+      } else {
+        await doUpload(false, path);
+      }
+    } catch(err) {
+      setUploadStatus('main', 'error', `Connection failed: ${err.message}`);
+      document.getElementById('send-btn').disabled = false;
+    }
+  }
+
+  async function checkFolderExists(path) {
+    const url = `${NEXTCLOUD_CONFIG.server}/remote.php/dav/files/${NEXTCLOUD_CONFIG.username}${path}`;
+    const headers = buildAuthHeaders();
+    try {
+      const res = await fetch(url, { method: 'PROPFIND', headers });
+      return res.status === 207; // Multi-status = exists
+    } catch { return false; }
+  }
+
+  async function ensureFolder(path) {
+    const url = `${NEXTCLOUD_CONFIG.server}/remote.php/dav/files/${NEXTCLOUD_CONFIG.username}${path}`;
+    await fetch(url, { method: 'MKCOL', headers: buildAuthHeaders() });
+  }
+
+  async function doUpload(overwrite, pathOverride) {
+    const data = getStorageData();
+    const record = buildRecord();
+    const fileName = buildFileName(data);
+    let targetPath = pathOverride || document.getElementById('final-nc-path')?.value?.trim()
+      || `${NEXTCLOUD_CONFIG.basePath}${v(data.s_lastname,'Unknown')}/`;
+
+    if (!targetPath.endsWith('/')) targetPath += '/';
+
+    setUploadStatus('folder', 'working', 'Creating folder…');
+    try {
+      await ensureFolder(targetPath);
+    } catch(e) { /* may already exist */ }
+
+    const fileUrl = `${NEXTCLOUD_CONFIG.server}/remote.php/dav/files/${NEXTCLOUD_CONFIG.username}${targetPath}${fileName}`;
+    const headers = { ...buildAuthHeaders(), 'Content-Type': 'application/json' };
+
+    setUploadStatus('folder', 'working', `Uploading ${fileName}…`);
+    try {
+      const res = await fetch(fileUrl, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(record, null, 2)
+      });
+      if (res.ok || res.status === 201 || res.status === 204) {
+        setUploadStatus('folder', 'success', `✓ Uploaded to ${targetPath}${fileName}`);
+        setUploadStatus('main', 'success', `✓ Sent — ${targetPath}${fileName}`);
+        setTimeout(() => closeModal('folder-modal'), 2500);
+      } else {
+        setUploadStatus('folder', 'error', `Upload failed — HTTP ${res.status}: ${res.statusText}`);
+        document.getElementById('send-btn').disabled = false;
+      }
+    } catch(err) {
+      setUploadStatus('folder', 'error', `Upload error: ${err.message}`);
+      document.getElementById('send-btn').disabled = false;
+    }
+  }
+
+  async function doUploadRenamed() {
+    const newPath = document.getElementById('folder-rename-input').value.trim();
+    if (!newPath) { setUploadStatus('folder', 'error', 'Enter a folder name first.'); return; }
+    await doUpload(false, newPath);
+  }
+
+  function buildAuthHeaders() {
+    const creds = btoa(`${NEXTCLOUD_CONFIG.username}:${NEXTCLOUD_CONFIG.password}`);
+    return { 'Authorization': `Basic ${creds}` };
+  }
+
+  function setUploadStatus(which, type, msg) {
+    const id = which === 'main' ? 'upload-status-main' : 'upload-status-folder';
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = `upload-status show ${type}`;
+    el.textContent = msg;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Modal helpers
+  // ─────────────────────────────────────────────────────────────────────────
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Job Planner bridge — pre-fill shared fields and import devices
+  // ─────────────────────────────────────────────────────────────────────────
+  function loadFromBridge() {
+    // Only auto-fill when there is no existing install record for this job
+    if (localStorage.getItem('dfha_storage')) return;
+    const raw = localStorage.getItem('dfha_client');
+    if (!raw) return;
+    try {
+      const b = JSON.parse(raw);
+      const sf = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.value = val; } };
+      sf('s_firstname', b.firstname);
+      sf('s_lastname',  b.lastname);
+      sf('s_date',      b.date);
+      sf('s_address',   b.addr);
+      sf('s_subnet',    b.subnet);
+      sf('s_router',    b.router);
+      if (b.vlan) { const el = document.getElementById('s_vlan'); if (el) el.value = b.vlan; }
+      // Pre-populate devices list from generated device names
+      if (b.generatedDevices && b.generatedDevices.length) {
+        const list = document.getElementById('devices-list');
+        list.innerHTML = '';
+        b.generatedDevices.forEach(d => {
+          const row = deviceRowTemplate();
+          const inputs = row.querySelectorAll('input');
+          inputs[0].value = d.name  || '';
+          inputs[1].value = d.model || '';
+          inputs[2].value = d.room  || '';
+          list.appendChild(row);
+        });
+      }
+      // Save to storage so it persists and the customer bar populates
+      saveStorageToLocal();
+      updateCustomerBar();
+    } catch(e) {}
+  }
+
+  function importDevicesFromPlanner() {
+    const raw = localStorage.getItem('dfha_client');
+    const statusEl = document.getElementById('import-devices-status');
+    const show = (msg, ok) => {
+      statusEl.style.display = 'block';
+      statusEl.style.background = ok ? 'var(--green-glow)' : 'rgba(192,80,74,0.1)';
+      statusEl.style.color = ok ? 'var(--green)' : '#d47a76';
+      statusEl.style.border = ok ? '1px solid var(--green-dim)' : '1px solid rgba(192,80,74,0.3)';
+      statusEl.textContent = msg;
+      setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+    };
+    if (!raw) { show('No Job Planner data found — complete intake in the planner first.', false); return; }
+    try {
+      const b = JSON.parse(raw);
+      if (!b.generatedDevices || !b.generatedDevices.length) {
+        show('No devices found — add rooms with kits in the Job Planner first.', false); return;
+      }
+      const existing = document.querySelectorAll('#devices-list .dev-row').length;
+      if (existing > 0 && !confirm(`Replace current device list with ${b.generatedDevices.length} devices from Job Planner?`)) return;
+      const list = document.getElementById('devices-list');
+      list.innerHTML = '';
+      b.generatedDevices.forEach(d => {
+        const row = deviceRowTemplate();
+        const inputs = row.querySelectorAll('input');
+        inputs[0].value = d.name  || '';
+        inputs[1].value = d.model || '';
+        inputs[2].value = d.room  || '';
+        list.appendChild(row);
+      });
+      saveStorageToLocal();
+      show(`✓ Imported ${b.generatedDevices.length} devices from Job Planner.`, true);
+    } catch(e) { show('Import failed — bad data in Job Planner.', false); }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Init
+  // ─────────────────────────────────────────────────────────────────────────
+  indexSubChecks();
+  restoreSubChecks();
+  loadFromBridge();
+  // Restore inline capture fields from saved storage
+  const _savedStorage = localStorage.getItem('dfha_storage');
+  if (_savedStorage) {
+    try {
+      const _sd = JSON.parse(_savedStorage);
+      Object.entries(CAPTURE_MAP).forEach(([capId, storageId]) => {
+        if (_sd[storageId]) {
+          const capEl = document.getElementById(capId);
+          const icon  = document.getElementById('sync_' + capId);
+          if (capEl) {
+            capEl.value = _sd[storageId];
+            capEl.classList.add('has-value');
+          }
+          if (icon) icon.classList.add('synced');
+        }
+      });
+    } catch(e) {}
+  }
+
+  for (let i = 1; i <= TOTAL; i++) {
+    if (manualComplete.has(i)) setStepDone(i, true);
+    else autoCompleteStep(i);
+  }
+  updateProgress();
+</script>
+
+
+</body>
+</html>

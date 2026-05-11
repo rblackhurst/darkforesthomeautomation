@@ -175,11 +175,14 @@
   /* ── Main content ── */
   .main {
     margin-left: 260px;
-    padding: 32px 40px 80px;
-    max-width: 900px;
     height: calc(100vh - 34px);
     overflow-y: auto;
     position: relative;
+  }
+
+  .main-inner {
+    padding: 32px 40px 80px;
+    max-width: 900px;
   }
 
   .page-header {
@@ -589,7 +592,8 @@
   @media (max-width: 768px) {
     html, body { overflow: auto; }
     .sidebar { position: static; height: auto; }
-    .main { margin-left: 0; padding: 20px 16px 60px; height: auto; overflow-y: visible; }
+    .main { margin-left: 0; height: auto; overflow-y: visible; }
+    .main-inner { padding: 20px 16px 60px; }
   }
 
   p { margin-bottom: 8px; font-size: 19px; color: var(--text); line-height: 1.65; }
@@ -1527,6 +1531,7 @@
 
 <!-- ── Main ─────────────────────────────────────────────────────────────── -->
 <main class="main">
+<div class="main-inner">
 
   <div class="page-header">
     <div class="page-eyebrow">Dark Forest Home Automation · Internal Reference</div>
@@ -1753,7 +1758,6 @@ IoT VLAN interface:
   Gateway:      X.X.8.1
   DNS:          127.0.0.1 / 1.1.1.1</pre></div>
     </div>
-        </div>
 
     <div class="callout warn">
       <span class="callout-icon">⚠</span>
@@ -2672,6 +2676,7 @@ If kiosk in this install — shop verification:
     </div>
   </section>
 
+</div><!-- /.main-inner -->
 </main>
 </div>
 

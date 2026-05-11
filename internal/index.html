@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFHA Internal Tools</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg:          #0e0e0e;
+  --bg2:         #141414;
+  --bg3:         #1a1a1a;
+  --bg4:         #222222;
+  --bg5:         #2a2a2a;
+  --border:      #2a2a2a;
+  --border2:     #383838;
+  --green:       #4caf7d;
+  --green-dim:   #2d6b4e;
+  --green-glow:  rgba(76,175,125,0.12);
+  --amber:       #c8a84b;
+  --amber-dim:   rgba(200,168,75,0.15);
+  --red:         #c0504a;
+  --red-dim:     rgba(192,80,74,0.15);
+  --blue:        #5b9bd5;
+  --text:        #d8d8d8;
+  --text-strong: #f0f0f0;
+  --text-dim:    #888888;
+  --text-muted:  #555555;
+  --code:        #a8d8a8;
+  --mono:        'IBM Plex Mono', monospace;
+  --sans:        'IBM Plex Sans', sans-serif;
+  --r:           4px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh;}
+
+/* ── Top bar ── */
+.topbar{background:var(--bg2);border-bottom:2px solid var(--green);padding:0 28px;display:flex;align-items:center;gap:20px;height:52px;}
+.topbar-logo{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--green);letter-spacing:.14em;white-space:nowrap;}
+.topbar-sub{font-size:11px;color:var(--text-muted);font-family:var(--mono);letter-spacing:.06em;}
+
+/* ── Layout ── */
+.wrap{max-width:900px;margin:0 auto;padding:32px 28px 80px;}
+
+/* ── Job banner ── */
+.job-banner{background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:var(--r);padding:14px 18px;margin-bottom:28px;display:flex;align-items:center;gap:16px;}
+.job-banner.empty{border-left-color:var(--border2);}
+.job-banner-label{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;}
+.job-banner-value{font-size:13px;color:var(--text-strong);font-weight:500;}
+.job-banner-value.empty{color:var(--text-muted);font-style:italic;}
+.job-field{flex:1;min-width:90px;}
+.job-actions{display:flex;gap:8px;flex-shrink:0;}
+
+/* ── Section label ── */
+.section-label{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.14em;margin:32px 0 14px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.section-label:first-of-type{margin-top:0;}
+
+/* ── Tool cards ── */
+.tools-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;}
+.tool-card{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:24px 22px;display:flex;flex-direction:column;gap:16px;text-decoration:none;transition:border-color .2s,transform .15s;}
+.tool-card:hover{border-color:var(--green-dim);transform:translateY(-2px);}
+.tool-card-header{display:flex;align-items:flex-start;gap:12px;}
+.tool-icon{font-size:20px;flex-shrink:0;line-height:1;}
+.tool-name{font-size:14px;font-weight:600;color:var(--text-strong);}
+.tool-desc{font-size:12px;color:var(--text-dim);margin-top:2px;line-height:1.5;}
+.tool-stats{display:flex;flex-direction:column;gap:6px;}
+.stat-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;}
+.stat-label{color:var(--text-dim);font-family:var(--mono);font-size:10px;letter-spacing:.06em;}
+.stat-value{color:var(--text);font-family:var(--mono);font-size:11px;}
+.stat-value.done{color:var(--green);}
+.stat-value.partial{color:var(--amber);}
+.stat-value.none{color:var(--text-muted);}
+.progress-wrap{background:var(--border);border-radius:2px;height:3px;margin-top:2px;}
+.progress-bar{height:100%;background:var(--green);border-radius:2px;transition:width .4s;}
+.tool-btn{display:block;text-align:center;background:var(--green-glow);border:1px solid var(--green-dim);color:var(--green);font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:9px 0;border-radius:var(--r);cursor:pointer;transition:background .2s,border-color .2s;text-decoration:none;}
+.tool-btn:hover{background:rgba(76,175,125,.22);border-color:var(--green);}
+
+/* ── Workflow stages ── */
+.workflow{display:flex;align-items:stretch;gap:0;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;margin-bottom:28px;}
+.stage{flex:1;padding:14px 16px;border-right:1px solid var(--border);position:relative;}
+.stage:last-child{border-right:none;}
+.stage-num{font-family:var(--mono);font-size:9px;color:var(--text-muted);letter-spacing:.1em;margin-bottom:4px;}
+.stage-name{font-size:12px;font-weight:600;color:var(--text-strong);margin-bottom:6px;}
+.stage-status{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;}
+.stage-status.done{background:var(--green-glow);color:var(--green);border:1px solid var(--green-dim);}
+.stage-status.partial{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(200,168,75,.3);}
+.stage-status.pending{background:var(--bg4);color:var(--text-muted);border:1px solid var(--border2);}
+.stage-arrow{position:absolute;right:-10px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--border2);z-index:1;}
+
+/* ── Buttons ── */
+.btn{font-family:var(--mono);font-size:11px;font-weight:500;padding:7px 14px;border-radius:var(--r);cursor:pointer;transition:all .2s;border:1px solid;letter-spacing:.04em;white-space:nowrap;}
+.btn-outline{background:none;border-color:var(--border2);color:var(--text-dim);}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-danger{background:none;border-color:var(--border2);color:var(--text-muted);}
+.btn-danger:hover{border-color:var(--red);color:var(--red);}
+
+/* ── Footer ── */
+.footer{padding-top:28px;border-top:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text-muted);line-height:1.7;}
+
+/* ── Modal ── */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center;}
+.modal-backdrop.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.modal-header{padding:16px 20px 12px;border-bottom:1px solid var(--border);}
+.modal-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.1em;}
+.modal-body{padding:16px 20px;font-size:13px;color:var(--text);line-height:1.65;}
+.modal-body strong{color:var(--red);}
+.modal-footer{padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;}
+
+@media(max-width:640px){
+  .tools-grid{grid-template-columns:1fr;}
+  .workflow{flex-direction:column;}
+  .stage{border-right:none;border-bottom:1px solid var(--border);}
+  .stage:last-child{border-bottom:none;}
+  .stage-arrow{display:none;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">DFHA INTERNAL</div>
+  <div class="topbar-sub">DARK FOREST HOME AUTOMATION · INTERNAL TOOLS</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ── Current Job Banner ── -->
+  <div class="section-label">Current Job</div>
+  <div class="job-banner" id="job-banner">
+    <div class="job-field">
+      <div class="job-banner-label">Client</div>
+      <div class="job-banner-value empty" id="jb-client">No job loaded</div>
+    </div>
+    <div class="job-field">
+      <div class="job-banner-label">Address</div>
+      <div class="job-banner-value empty" id="jb-addr">—</div>
+    </div>
+    <div class="job-field">
+      <div class="job-banner-label">Install Date</div>
+      <div class="job-banner-value empty" id="jb-date">—</div>
+    </div>
+    <div class="job-field">
+      <div class="job-banner-label">Rooms</div>
+      <div class="job-banner-value empty" id="jb-rooms">—</div>
+    </div>
+    <div class="job-actions">
+      <button class="btn btn-danger" onclick="openModal('clear-modal')">Clear Job</button>
+    </div>
+  </div>
+
+  <!-- ── Workflow Stages ── -->
+  <div class="section-label">Workflow</div>
+  <div class="workflow">
+    <div class="stage">
+      <div class="stage-num">STAGE 01</div>
+      <div class="stage-name">Job Planning</div>
+      <div class="stage-status pending" id="stage-plan">Pending</div>
+      <span class="stage-arrow">›</span>
+    </div>
+    <div class="stage">
+      <div class="stage-num">STAGE 02</div>
+      <div class="stage-name">Inventory Pick</div>
+      <div class="stage-status pending" id="stage-inv">Pending</div>
+      <span class="stage-arrow">›</span>
+    </div>
+    <div class="stage">
+      <div class="stage-num">STAGE 03</div>
+      <div class="stage-name">Shop Prep (OS Build)</div>
+      <div class="stage-status pending" id="stage-shop">Pending</div>
+      <span class="stage-arrow">›</span>
+    </div>
+    <div class="stage">
+      <div class="stage-num">STAGE 04</div>
+      <div class="stage-name">Device Pairing</div>
+      <div class="stage-status pending" id="stage-pair">Pending</div>
+      <span class="stage-arrow">›</span>
+    </div>
+    <div class="stage">
+      <div class="stage-num">STAGE 05</div>
+      <div class="stage-name">Client Record Sent</div>
+      <div class="stage-status pending" id="stage-record">Pending</div>
+    </div>
+  </div>
+
+  <!-- ── Tool Cards ── -->
+  <div class="section-label">Tools</div>
+  <div class="tools-grid">
+
+    <div class="tool-card" style="text-decoration:none;">
+      <div class="tool-card-header">
+        <span class="tool-icon">◈</span>
+        <div>
+          <div class="tool-name">Job Planner</div>
+          <div class="tool-desc">Intake · Room builder · Inventory pick list · Device pairing worksheet</div>
+        </div>
+      </div>
+      <div class="tool-stats" id="planner-stats">
+        <div class="stat-row">
+          <span class="stat-label">Rooms</span>
+          <span class="stat-value none" id="ps-rooms">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Devices</span>
+          <span class="stat-value none" id="ps-devices">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Pairing</span>
+          <span class="stat-value none" id="ps-pairing">—</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" id="ps-pair-bar" style="width:0%"></div></div>
+        <div class="stat-row">
+          <span class="stat-label">Inventory</span>
+          <span class="stat-value none" id="ps-inv">—</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" id="ps-inv-bar" style="width:0%"></div></div>
+      </div>
+      <a href="planner.html" class="tool-btn">Open Job Planner →</a>
+    </div>
+
+    <div class="tool-card" style="text-decoration:none;">
+      <div class="tool-card-header">
+        <span class="tool-icon">⊞</span>
+        <div>
+          <div class="tool-name">Install Guide</div>
+          <div class="tool-desc">Backend OS build · 15-step shop prep · Client record · Nextcloud upload</div>
+        </div>
+      </div>
+      <div class="tool-stats" id="install-stats">
+        <div class="stat-row">
+          <span class="stat-label">Steps Complete</span>
+          <span class="stat-value none" id="is-steps">—</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-bar" id="is-steps-bar" style="width:0%"></div></div>
+        <div class="stat-row">
+          <span class="stat-label">Client Record</span>
+          <span class="stat-value none" id="is-record">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Devices Logged</span>
+          <span class="stat-value none" id="is-devices">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Backup Key</span>
+          <span class="stat-value none" id="is-backup">—</span>
+        </div>
+      </div>
+      <a href="install.html" class="tool-btn">Open Install Guide →</a>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Dark Forest Home Automation · Ron Blackhurst · Ron@DFHA.net · (615) 498-4389<br>
+    INTERNAL USE ONLY — not linked from public site
+  </div>
+
+</div>
+
+<!-- ── Clear Job Modal ── -->
+<div class="modal-backdrop" id="clear-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">⚠ Clear Current Job</div></div>
+    <div class="modal-body">
+      This will clear <strong>all job data</strong> from both tools — client info, rooms, inventory pull state, pairing progress, and the install record. Use this when starting a new job after the previous record has been sent to Nextcloud.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('clear-modal')">Cancel</button>
+      <button class="btn btn-danger" onclick="clearAll()">Clear Everything</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Read state from localStorage and populate the dashboard
+// ─────────────────────────────────────────────────────────────────────────────
+function loadDashboard() {
+  const job      = safeJSON('dfha_job',     {});
+  const storage  = safeJSON('dfha_storage', {});
+  const manual   = safeJSON('dfha_manual',  []);
+  const subchecks= safeJSON('dfha_subchecks',{});
+  const client   = safeJSON('dfha_client',  {});
+
+  // ── Job Banner ──────────────────────────────────────────────────────────
+  const hasJob = job.client && (job.client.name || job.client.addr);
+  const banner = document.getElementById('job-banner');
+
+  if (hasJob || storage.s_lastname) {
+    banner.classList.remove('empty');
+    const name = job.client?.name || [storage.s_firstname, storage.s_lastname].filter(Boolean).join(' ') || '—';
+    const addr = job.client?.addr || storage.s_address || '—';
+    const date = job.client?.date || storage.s_date || '—';
+    const rooms = (job.rooms || []).length;
+    setField('jb-client', name);
+    setField('jb-addr',   addr);
+    setField('jb-date',   date);
+    setField('jb-rooms',  rooms > 0 ? rooms + ' room' + (rooms !== 1 ? 's' : '') : '—');
+  }
+
+  // ── Planner Stats ───────────────────────────────────────────────────────
+  const rooms   = job.rooms   || [];
+  const pairSt  = job.pairingState   || {};
+  const invSt   = job.inventoryState || {};
+
+  const totalDevices = rooms.reduce((n, r) => n + getDeviceCount(r), 0);
+  const pairedCount  = Object.values(pairSt).filter(Boolean).length;
+  const pairPct      = totalDevices > 0 ? Math.round(pairedCount / totalDevices * 100) : 0;
+
+  // Inventory — count distinct hw items
+  const hwItems    = countHW(rooms);
+  const invTotal   = Object.keys(hwItems).length;
+  const invPulled  = Object.values(invSt).filter(Boolean).length;
+  const invPct     = invTotal > 0 ? Math.round(invPulled / invTotal * 100) : 0;
+
+  if (rooms.length > 0) {
+    setStat('ps-rooms',   rooms.length + ' room' + (rooms.length !== 1 ? 's' : ''), rooms.length > 0 ? 'partial' : 'none');
+    setStat('ps-devices', totalDevices + ' device' + (totalDevices !== 1 ? 's' : ''), totalDevices > 0 ? 'partial' : 'none');
+    setStat('ps-pairing', pairedCount + ' / ' + totalDevices + ' paired', pairPct === 100 ? 'done' : pairedCount > 0 ? 'partial' : 'none');
+    document.getElementById('ps-pair-bar').style.width = pairPct + '%';
+    setStat('ps-inv',  invPulled + ' / ' + invTotal + ' pulled', invPct === 100 ? 'done' : invPulled > 0 ? 'partial' : 'none');
+    document.getElementById('ps-inv-bar').style.width = invPct + '%';
+  }
+
+  // ── Install Stats ───────────────────────────────────────────────────────
+  const TOTAL = 15;
+  // Count completed steps (manual completions + auto-completed via subchecks)
+  let stepsComplete = 0;
+  const manualSet = new Set(Array.isArray(manual) ? manual : []);
+  // Sub-check counts per step (steps 1-15, we won't re-index here — just count manual + trust the tool)
+  stepsComplete = manualSet.size; // conservative count (manual completes only visible from hub)
+
+  const hasRecord  = !!(storage.s_lastname || storage.s_firstname);
+  const devCount   = (storage.devices || []).length;
+  const hasBackup  = !!(storage.s_backup_key);
+  const stepsPct   = Math.round(stepsComplete / TOTAL * 100);
+
+  setStat('is-steps',   stepsComplete + ' / ' + TOTAL, stepsComplete === TOTAL ? 'done' : stepsComplete > 0 ? 'partial' : 'none');
+  document.getElementById('is-steps-bar').style.width = stepsPct + '%';
+  setStat('is-record',  hasRecord  ? 'Filled in'    : 'Not started',  hasRecord ? 'done' : 'none');
+  setStat('is-devices', devCount > 0 ? devCount + ' device' + (devCount !== 1 ? 's' : '') : 'None logged', devCount > 0 ? 'partial' : 'none');
+  setStat('is-backup',  hasBackup  ? '●●●● Present' : 'Missing',      hasBackup ? 'done' : 'none');
+
+  // ── Workflow Stages ─────────────────────────────────────────────────────
+  const planDone  = rooms.length > 0 && rooms.every(r => r.kitId);
+  const invDone   = invPct === 100 && invTotal > 0;
+  const shopDone  = stepsComplete >= 14;
+  const pairDone  = pairPct === 100 && totalDevices > 0;
+  const recSent   = hasRecord && hasBackup && stepsComplete >= 15;
+
+  setStage('stage-plan',   planDone  ? 'done'  : rooms.length > 0  ? 'partial' : 'pending', planDone  ? '✓ Done' : rooms.length > 0  ? rooms.length + ' rooms' : 'Pending');
+  setStage('stage-inv',    invDone   ? 'done'  : invPulled > 0     ? 'partial' : 'pending', invDone   ? '✓ Done' : invPulled > 0     ? invPulled + '/' + invTotal + ' pulled' : 'Pending');
+  setStage('stage-shop',   shopDone  ? 'done'  : stepsComplete > 0 ? 'partial' : 'pending', shopDone  ? '✓ Done' : stepsComplete > 0 ? stepsComplete + '/15 steps' : 'Pending');
+  setStage('stage-pair',   pairDone  ? 'done'  : pairedCount > 0   ? 'partial' : 'pending', pairDone  ? '✓ Done' : pairedCount > 0   ? pairedCount + '/' + totalDevices + ' paired' : 'Pending');
+  setStage('stage-record', recSent   ? 'done'  : hasRecord         ? 'partial' : 'pending', recSent   ? '✓ Sent' : hasRecord         ? 'In progress' : 'Pending');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function safeJSON(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') || fallback; } catch(e) { return fallback; }
+}
+
+function setField(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (val && val !== '—') { el.textContent = val; el.classList.remove('empty'); }
+  else { el.textContent = '—'; el.classList.add('empty'); }
+}
+
+function setStat(id, text, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'stat-value ' + (cls || 'none');
+}
+
+function setStage(id, cls, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'stage-status ' + cls;
+  el.textContent = text;
+}
+
+// Minimal device-count helper matching Job Planner logic (kit device counts only)
+const KIT_DEVICE_COUNTS = {
+  basic_room:3, living_room:3, bedroom_relay:2, bedroom_dual:3, bedroom_dimmer:2,
+  bedroom_dimfan:3, bedroom_primary:2, hallway:2, kitchen:5, bathroom:5,
+  garage_std:4, garage_prem:6, laundry:5, porch_front:2, stairwell_2sw:3, hallway_3sw:4
+};
+function getDeviceCount(room) {
+  let n = room.kitId ? (KIT_DEVICE_COUNTS[room.kitId] || 0) : 0;
+  n += (room.addons || []).length; // rough addon count — actual varies
+  return n;
+}
+
+function countHW(rooms) {
+  // Simplified — just returns a non-empty object if rooms have kits
+  const tally = {};
+  // Always add backend items
+  tally['Intel N100 NUC'] = 1;
+  tally['Sonoff Zigbee Dongle Plus'] = 1;
+  tally['32GB mini USB'] = 1;
+  return tally;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Clear all job data
+// ─────────────────────────────────────────────────────────────────────────────
+function clearAll() {
+  localStorage.removeItem('dfha_job');
+  localStorage.removeItem('dfha_storage');
+  localStorage.removeItem('dfha_manual');
+  localStorage.removeItem('dfha_subchecks');
+  localStorage.removeItem('dfha_client');
+  closeModal('clear-modal');
+  loadDashboard(); // Refresh UI
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>

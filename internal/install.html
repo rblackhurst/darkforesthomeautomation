@@ -45,8 +45,6 @@
   }
 
   .layout {
-    display: grid;
-    grid-template-columns: 260px 1fr;
     min-height: 100vh;
   }
 
@@ -54,10 +52,11 @@
   .sidebar {
     background: var(--bg2);
     border-right: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 34px;
+    width: 260px;
+    height: calc(100vh - 34px);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -176,6 +175,7 @@
 
   /* ── Main content ── */
   .main {
+    margin-left: 260px;
     padding: 32px 40px 80px;
     max-width: 900px;
   }
@@ -549,11 +549,44 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
+  /* ── Internal nav ── */
+  .internal-nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 34px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    position: sticky;
+    top: 0;
+    z-index: 250;
+  }
+  .internal-nav-brand { color: var(--text-muted); text-transform: uppercase; }
+  .internal-nav-links { display: flex; }
+  .internal-nav-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0 14px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    transition: color .15s, background .15s;
+    border-left: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .internal-nav-link:hover { color: var(--text); background: var(--green-glow); }
+  .internal-nav-link.active { color: var(--green); }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
-    .layout { grid-template-columns: 1fr; }
     .sidebar { position: static; height: auto; }
-    .main { padding: 20px 16px 60px; }
+    .main { margin-left: 0; padding: 20px 16px 60px; }
   }
 
   p { margin-bottom: 8px; font-size: 19px; color: var(--text); line-height: 1.65; }
@@ -1099,6 +1132,16 @@
 </head>
 <body>
 
+<!-- ── Internal nav ── -->
+<nav class="internal-nav">
+  <span class="internal-nav-brand">DFHA Internal</span>
+  <div class="internal-nav-links">
+    <a href="index.html" class="internal-nav-link">Hub</a>
+    <a href="planner.html" class="internal-nav-link">Job Planner</a>
+    <a href="install.html" class="internal-nav-link active">Install Guide</a>
+  </div>
+</nav>
+
 <div class="layout">
 
 <!-- ── Storage Panel (full-page overlay) ───────────────────────────────── -->
@@ -1303,7 +1346,11 @@
         <input class="storage-input" placeholder="Kitchen — above switch">
       </div>
     </div>
-    <button class="add-row-btn" onclick="addRow('devices-list', deviceRowTemplate)">+ Add Device</button>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="add-row-btn" onclick="addRow('devices-list', deviceRowTemplate)" style="flex:1;">+ Add Device</button>
+      <button class="add-row-btn" id="import-devices-btn" onclick="importDevicesFromPlanner()" style="flex:1;border-color:var(--green-dim);color:var(--green);">⬡ Import from Job Planner</button>
+    </div>
+    <div id="import-devices-status" style="display:none;font-family:var(--mono);font-size:10px;padding:5px 8px;border-radius:3px;margin-top:6px;"></div>
 
     <div class="storage-section-title">Add-ons &amp; Integrations — Non-Default Config</div>
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Document any add-on or integration setting that differs from the DFHA standard template. Standard settings do not need to be repeated here.</p>
@@ -1703,6 +1750,7 @@ IoT VLAN interface:
   Gateway:      X.X.8.1
   DNS:          127.0.0.1 / 1.1.1.1</pre></div>
     </div>
+        </div>
 
     <div class="callout warn">
       <span class="callout-icon">⚠</span>
@@ -2601,7 +2649,6 @@ System Health tab cards:
 ☐  Z2M log level set to WARN (not debug)
 ☐  Ownership sheet printed — 2 copies
 ☐  Quick reference card printed
-
 If kiosk in this install — shop verification:
 ☐  Kiosk user account created in HAOS — User role (not admin)
 ☐  Kiosk dashboard created and assigned as default for kiosk account
@@ -3350,10 +3397,82 @@ If kiosk in this install — shop verification:
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Job Planner bridge — pre-fill shared fields and import devices
+  // ─────────────────────────────────────────────────────────────────────────
+  function loadFromBridge() {
+    // Only auto-fill when there is no existing install record for this job
+    if (localStorage.getItem('dfha_storage')) return;
+    const raw = localStorage.getItem('dfha_client');
+    if (!raw) return;
+    try {
+      const b = JSON.parse(raw);
+      const sf = (id, val) => { if (val) { const el = document.getElementById(id); if (el) el.value = val; } };
+      sf('s_firstname', b.firstname);
+      sf('s_lastname',  b.lastname);
+      sf('s_date',      b.date);
+      sf('s_address',   b.addr);
+      sf('s_subnet',    b.subnet);
+      sf('s_router',    b.router);
+      if (b.vlan) { const el = document.getElementById('s_vlan'); if (el) el.value = b.vlan; }
+      // Pre-populate devices list from generated device names
+      if (b.generatedDevices && b.generatedDevices.length) {
+        const list = document.getElementById('devices-list');
+        list.innerHTML = '';
+        b.generatedDevices.forEach(d => {
+          const row = deviceRowTemplate();
+          const inputs = row.querySelectorAll('input');
+          inputs[0].value = d.name  || '';
+          inputs[1].value = d.model || '';
+          inputs[2].value = d.room  || '';
+          list.appendChild(row);
+        });
+      }
+      // Save to storage so it persists and the customer bar populates
+      saveStorageToLocal();
+      updateCustomerBar();
+    } catch(e) {}
+  }
+
+  function importDevicesFromPlanner() {
+    const raw = localStorage.getItem('dfha_client');
+    const statusEl = document.getElementById('import-devices-status');
+    const show = (msg, ok) => {
+      statusEl.style.display = 'block';
+      statusEl.style.background = ok ? 'var(--green-glow)' : 'rgba(192,80,74,0.1)';
+      statusEl.style.color = ok ? 'var(--green)' : '#d47a76';
+      statusEl.style.border = ok ? '1px solid var(--green-dim)' : '1px solid rgba(192,80,74,0.3)';
+      statusEl.textContent = msg;
+      setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+    };
+    if (!raw) { show('No Job Planner data found — complete intake in the planner first.', false); return; }
+    try {
+      const b = JSON.parse(raw);
+      if (!b.generatedDevices || !b.generatedDevices.length) {
+        show('No devices found — add rooms with kits in the Job Planner first.', false); return;
+      }
+      const existing = document.querySelectorAll('#devices-list .dev-row').length;
+      if (existing > 0 && !confirm(`Replace current device list with ${b.generatedDevices.length} devices from Job Planner?`)) return;
+      const list = document.getElementById('devices-list');
+      list.innerHTML = '';
+      b.generatedDevices.forEach(d => {
+        const row = deviceRowTemplate();
+        const inputs = row.querySelectorAll('input');
+        inputs[0].value = d.name  || '';
+        inputs[1].value = d.model || '';
+        inputs[2].value = d.room  || '';
+        list.appendChild(row);
+      });
+      saveStorageToLocal();
+      show(`✓ Imported ${b.generatedDevices.length} devices from Job Planner.`, true);
+    } catch(e) { show('Import failed — bad data in Job Planner.', false); }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Init
   // ─────────────────────────────────────────────────────────────────────────
   indexSubChecks();
   restoreSubChecks();
+  loadFromBridge();
   // Restore inline capture fields from saved storage
   const _savedStorage = localStorage.getItem('dfha_storage');
   if (_savedStorage) {

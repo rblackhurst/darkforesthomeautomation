@@ -2976,6 +2976,8 @@ If kiosk in this install — shop verification:
   const sections = document.querySelectorAll('.step-section');
   const navItemsAll = document.querySelectorAll('.nav-item[data-step]');
 
+  const mainEl = document.querySelector('.main');
+
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -2983,7 +2985,7 @@ If kiosk in this install — shop verification:
         navItemsAll.forEach(item => item.classList.toggle('active', item.dataset.step === step));
       }
     });
-  }, { threshold: 0.2, rootMargin: '-60px 0px -60% 0px' });
+  }, { root: mainEl, threshold: 0.1, rootMargin: '-60px 0px -60% 0px' });
 
   sections.forEach(s => observer.observe(s));
 

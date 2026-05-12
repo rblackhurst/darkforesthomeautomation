@@ -107,6 +107,15 @@ searchable fields, not keys.
 - **TroubleRequest** — customer-submitted; v1 just emails the team.
 - **CredentialBundle** — encrypted store of HA/Tailscale/etc. credentials for
   this install; visible in portal only after re-auth.
+- **CatalogDevice** — entry on the price sheet: device type, model, default
+  supplier, supplier SKU, purchase URL, default cost. Maintained in admin.
+  Future inventory app extends this row with on-hand quantity and location.
+- **PickSheet** — one per Job, generated from the sale + pre-install
+  checklist. Snapshot: re-generate by hand if upstream changes. Holds
+  `PickSheetLine` rows (FK to CatalogDevice, quantity, optional per-line
+  notes for substitutions), grouped by device type then quantity in the
+  rendered view. Lives in the flow **between sale and config** — generated
+  after pre-install walkthrough, before pairing/automation work begins.
 
 ---
 
@@ -141,7 +150,8 @@ waiting on software.
 |---|---|
 | 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified. **Remaining:** employee login + 2FA. |
 | 3–4 | ✅ Data model live in the `jobs` app (Customer, Job, four install records, walkthrough sign-off, audit log, service subscription, trouble request, credential bundle). Django admin wired up as internal CRUD on day one. |
-| 5–6 | Port existing `install.html` content into the BackendInstall form. Sales form + pre-install checklist. |
+| 5–6 | Port existing `install.html` content into the BackendInstall form. Sales form + pre-install checklist. CatalogDevice model + admin (price sheet). |
+| 6–7 | **PickSheet** generated from sale + pre-install: grouped by device type then quantity, with per-line supplier/SKU/URL pulled from CatalogDevice. Prints clean; re-generate to refresh. Sits between sale and config in the staff flow. |
 | 7–8 | PairingSheet, AutomationConfig, OnsiteInstall forms. Walkthrough sign-off (locks job, starts audit trail, triggers post-install email). |
 | 9–10 | Customer portal — invite email with setup code, customer signup w/ 2FA, view package + docs, trouble-request form. |
 | 11–12 | Stripe Billing (3 uptime tiers + DIY-package quote-request form). "Download my credentials" encrypted export. Polish. |
@@ -187,6 +197,14 @@ Things we've deferred or haven't decided yet. Add freely.
   stored — Backblaze B2 likely).
 - Whether the public DIY-package store needs its own separate app or can live
   as a section of the Django app behind a different theme.
+- Inventory app scope: on-hand quantity + location per CatalogDevice, reorder
+  thresholds, multiple stocking locations? Likely a separate app once the
+  pick sheet has been in use long enough to learn what we actually need.
+- Procurement flow: should "out of stock at pick time" push the buyer to a
+  generated procurement page (links to supplier carts pre-populated from
+  CatalogDevice rows), or just surface a shortage list to email manually?
+- Whether CatalogDevice needs price history (cost changes over time) or a
+  single current cost is good enough for v1.
 
 ---
 
@@ -194,6 +212,16 @@ Things we've deferred or haven't decided yet. Add freely.
 
 Newest first. Each entry: date, decision, rationale.
 
+- **2026-05-12** — Added **pick sheet** to the flow between sale and config.
+  Two new models in §5: `CatalogDevice` (price sheet: device type, model,
+  supplier, SKU, URL, cost) maintained in admin, and `PickSheet` per Job
+  with line items grouped by device type then quantity. Pick sheet is a
+  **snapshot** generated on demand from sale + pre-install — re-generate
+  manually if upstream changes (matches how a paper pick sheet behaves on
+  the warehouse floor). Catalog lives inside the Django app rather than an
+  external sheet so procurement fields and (later) inventory data can hang
+  off the same row. Slotted into Weeks 5–6 (catalog) and 6–7 (pick sheet).
+  Inventory app and procurement-page push deferred to §9.
 - **2026-05-12** — Data model landed as a single `jobs` Django app rather than
   splitting Customer/Job/billing/portal into separate apps. Everything in v1
   pivots around Job; one app keeps imports flat and the admin coherent. Can

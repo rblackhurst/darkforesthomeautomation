@@ -57,6 +57,23 @@ sending domain via Cloudflare.
 
 ---
 
+## 3a. Server Operations
+
+The Django app lives on a single Hetzner CX22 VPS (`dfha-app-01`, Helsinki).
+Three scripts manage its lifecycle, all at the repo root:
+
+| Script | When to run | What it does |
+|---|---|---|
+| `bootstrap.sh` | Once, on a fresh Ubuntu 24.04 box | Installs nginx + Postgres + Python + certbot, creates the `dfha` user and database, clones the repo, configures gunicorn + nginx + SSL, installs `dfha-deploy`. Idempotent. |
+| `harden.sh` | Once, after bootstrap | SSH key-only, root password locked, unattended security upgrades, fail2ban for SSH brute-force protection. |
+| `deploy.sh` | Every subsequent update (installed as `/usr/local/bin/dfha-deploy`) | `git pull` → `pip install -r requirements.txt` → `migrate` → `collectstatic` → `systemctl restart dfha`. Takes ~5 seconds. |
+
+**Recovery fallback if SSH is ever broken:** Hetzner web console at
+`console.hetzner.cloud` → server → **Console** button. Browser-based VNC
+straight into the running OS, no SSH involved.
+
+---
+
 ## 4. Auth & Roles
 
 - **Employees** (3–4 in foreseeable future): email + password + **TOTP 2FA**.
@@ -122,7 +139,7 @@ waiting on software.
 
 | Week | Milestone |
 |---|---|
-| 1–2 | Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare, Postmark wired, employee login + 2FA working. |
+| 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified. **Remaining:** employee login + 2FA. |
 | 3–4 | Data model (Customer, Job, four install records, audit log). Django admin usable as internal CRUD UI on day one. |
 | 5–6 | Port existing `install.html` content into the BackendInstall form. Sales form + pre-install checklist. |
 | 7–8 | PairingSheet, AutomationConfig, OnsiteInstall forms. Walkthrough sign-off (locks job, starts audit trail, triggers post-install email). |
@@ -177,6 +194,21 @@ Things we've deferred or haven't decided yet. Add freely.
 
 Newest first. Each entry: date, decision, rationale.
 
+- **2026-05-12** — Added `harden.sh` (SSH key-only, root password locked,
+  unattended-upgrades, fail2ban). Hetzner web console is the recovery
+  fallback if SSH ever breaks.
+- **2026-05-12** — Added `deploy.sh` (installed as `/usr/local/bin/dfha-deploy`)
+  so subsequent updates don't require running the full bootstrap. Eventually
+  a GitHub Action will run this on every push to `main`.
+- **2026-05-12** — Branch `claude/plan-dark-forest-architecture-qMxhN` merged
+  to `main`. Working in short-lived feature branches off `main` from here.
+- **2026-05-12** — Deployment pipeline live at
+  `https://app.darkforesthomeautomation.com`. `dfha-app-01` is a Hetzner CX22
+  in Helsinki (Falkenstein had no CX22 capacity at provisioning time).
+  Hello-world page confirms Hetzner → Cloudflare DNS → nginx → gunicorn →
+  Django → Postgres all work with a valid Let's Encrypt cert.
+- **2026-05-12** — Postmark sending domain verified (DKIM + Return-Path
+  records propagated through Cloudflare).
 - **2026-05-11** — Adopted Django + Hetzner + Cloudflare + Postmark + Stripe
   stack. Rejected Supabase (AWS-hosted), Firebase (Google), and pure
   Cloudflare D1 stack (less batteries-included for a forms-heavy app and a

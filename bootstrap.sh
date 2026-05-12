@@ -16,7 +16,7 @@ DOMAIN="app.darkforesthomeautomation.com"
 APP_USER="dfha"
 APP_HOME="/home/${APP_USER}"
 REPO_URL="https://github.com/rblackhurst/darkforesthomeautomation.git"
-REPO_BRANCH="${DFHA_BRANCH:-claude/plan-dark-forest-architecture-qMxhN}"
+REPO_BRANCH="${DFHA_BRANCH:-main}"
 REPO_DIR="${APP_HOME}/darkforesthomeautomation"
 APP_DIR="${REPO_DIR}/app"
 ENV_FILE="${APP_DIR}/.env"
@@ -205,10 +205,15 @@ else
   log "Certificate already exists; skipping issuance."
 fi
 
+# ─── Install dfha-deploy convenience command ────────────────────────────────
+log "Installing /usr/local/bin/dfha-deploy"
+install -m 0755 "${REPO_DIR}/deploy.sh" /usr/local/bin/dfha-deploy
+
 # ─── Done ───────────────────────────────────────────────────────────────────
 log "Bootstrap complete."
 echo
-echo "  → Visit: https://${DOMAIN}"
+echo "  → Visit:   https://${DOMAIN}"
 echo "  → Service: systemctl status dfha"
 echo "  → Logs:    journalctl -u dfha -f"
+echo "  → Deploy:  sudo dfha-deploy   (pulls latest, restarts gunicorn)"
 echo

@@ -4,6 +4,7 @@ from .models import (
     AuditLogEntry,
     AutomationConfig,
     BackendInstall,
+    BackendInstallCapture,
     BackendInstallItemState,
     ChecklistItem,
     ChecklistStep,
@@ -142,13 +143,13 @@ class ChecklistTemplateAdmin(admin.ModelAdmin):
 class ChecklistItemInline(admin.StackedInline):
     model = ChecklistItem
     extra = 0
-    fields = ("order", "body_md")
+    fields = ("order", "kind", "body_md", "capture_key", "capture_label", "capture_placeholder")
     ordering = ("order",)
 
 
 @admin.register(ChecklistStep)
 class ChecklistStepAdmin(admin.ModelAdmin):
-    list_display = ("template", "order", "title", "item_count")
+    list_display = ("template", "order", "title", "item_count", "check_count", "capture_count")
     list_filter = ("template",)
     search_fields = ("title", "intro_md")
     ordering = ("template", "order")
@@ -158,6 +159,14 @@ class ChecklistStepAdmin(admin.ModelAdmin):
     def item_count(self, obj):
         return obj.items.count()
 
+    @admin.display(description="Checks")
+    def check_count(self, obj):
+        return obj.items.filter(kind="check").count()
+
+    @admin.display(description="Captures")
+    def capture_count(self, obj):
+        return obj.items.filter(kind="capture").count()
+
 
 @admin.register(BackendInstallItemState)
 class BackendInstallItemStateAdmin(admin.ModelAdmin):
@@ -166,6 +175,18 @@ class BackendInstallItemStateAdmin(admin.ModelAdmin):
     search_fields = ("backend_install__job__invoice_number", "notes")
     raw_id_fields = ("backend_install", "item", "checked_by")
     readonly_fields = ("checked_at",)
+
+
+@admin.register(BackendInstallCapture)
+class BackendInstallCaptureAdmin(admin.ModelAdmin):
+    list_display = ("backend_install", "key", "value_preview", "updated_at")
+    search_fields = ("backend_install__job__invoice_number", "key", "value")
+    raw_id_fields = ("backend_install",)
+    readonly_fields = ("updated_at",)
+
+    @admin.display(description="Value")
+    def value_preview(self, obj):
+        return (obj.value[:60] + "…") if len(obj.value) > 60 else obj.value
 
 
 admin.site.site_header = "DFHA internal tools"

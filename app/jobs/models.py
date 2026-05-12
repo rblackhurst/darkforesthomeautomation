@@ -81,7 +81,15 @@ class InstallRecord(models.Model):
 
 class BackendInstall(InstallRecord):
     job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="backend_install")
-    progress = models.JSONField(default=dict, blank=True)
+    template = models.ForeignKey(
+        "ChecklistTemplate",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="backend_installs",
+        help_text="Snapshot reference: this BackendInstall renders against this exact "
+                  "template version, even if a newer version is published later.",
+    )
 
     def __str__(self):
         return f"BackendInstall for {self.job_id}"
@@ -217,3 +225,99 @@ class CredentialBundle(models.Model):
 
     def __str__(self):
         return f"Credentials for {self.job_id}"
+
+
+class ChecklistTemplate(models.Model):
+    # A versioned, named checklist (e.g. "backend-install" v1, v2 …).
+    # Each install record snapshots a specific template; revising the
+    # template later does not change what an in-progress install renders.
+    slug = models.SlugField(max_length=60)
+    version = models.PositiveIntegerField()
+    title = models.CharField(max_length=200)
+    changelog = models.TextField(
+        blank=True,
+        help_text="What changed in this version vs. the previous one.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["slug", "-version"]
+        constraints = [
+            models.UniqueConstraint(fields=["slug", "version"], name="unique_template_version"),
+        ]
+
+    def __str__(self):
+        return f"{self.title} (v{self.version})"
+
+    @classmethod
+    def current_for(cls, slug):
+        return cls.objects.filter(slug=slug).order_by("-version").first()
+
+
+class ChecklistStep(models.Model):
+    template = models.ForeignKey(
+        ChecklistTemplate, on_delete=models.CASCADE, related_name="steps",
+    )
+    order = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=200)
+    intro_md = models.TextField(
+        blank=True,
+        help_text="Optional Markdown intro shown above the items in this step.",
+    )
+
+    class Meta:
+        ordering = ["template", "order"]
+        constraints = [
+            models.UniqueConstraint(fields=["template", "order"], name="unique_step_order"),
+        ]
+
+    def __str__(self):
+        return f"{self.template.slug} v{self.template.version} · {self.order}. {self.title}"
+
+
+class ChecklistItem(models.Model):
+    step = models.ForeignKey(ChecklistStep, on_delete=models.CASCADE, related_name="items")
+    order = models.PositiveSmallIntegerField()
+    body_md = models.TextField(
+        help_text="Markdown body of the checklist item: instruction text, code blocks, links.",
+    )
+
+    class Meta:
+        ordering = ["step", "order"]
+        constraints = [
+            models.UniqueConstraint(fields=["step", "order"], name="unique_item_order"),
+        ]
+
+    def __str__(self):
+        snippet = (self.body_md[:60] + "…") if len(self.body_md) > 60 else self.body_md
+        return f"{self.step.order}.{self.order} {snippet}"
+
+
+class BackendInstallItemState(models.Model):
+    backend_install = models.ForeignKey(
+        BackendInstall, on_delete=models.CASCADE, related_name="item_states",
+    )
+    item = models.ForeignKey(ChecklistItem, on_delete=models.PROTECT, related_name="+")
+    checked = models.BooleanField(default=False)
+    checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    checked_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(
+        blank=True,
+        help_text="Per-item installer notes (e.g. 'used 16GB drive — none in stock').",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["backend_install", "item"], name="unique_backend_item_state",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.backend_install.job_id} · item {self.item_id} · {'✓' if self.checked else '·'}"

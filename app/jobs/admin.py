@@ -4,6 +4,10 @@ from .models import (
     AuditLogEntry,
     AutomationConfig,
     BackendInstall,
+    BackendInstallItemState,
+    ChecklistItem,
+    ChecklistStep,
+    ChecklistTemplate,
     CredentialBundle,
     Customer,
     Job,
@@ -111,6 +115,57 @@ class CredentialBundleAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return request.user.is_superuser
+
+
+class ChecklistStepInline(admin.TabularInline):
+    model = ChecklistStep
+    extra = 0
+    fields = ("order", "title")
+    show_change_link = True
+    ordering = ("order",)
+
+
+@admin.register(ChecklistTemplate)
+class ChecklistTemplateAdmin(admin.ModelAdmin):
+    list_display = ("title", "slug", "version", "step_count", "created_at")
+    list_filter = ("slug",)
+    search_fields = ("title", "slug")
+    ordering = ("slug", "-version")
+    inlines = [ChecklistStepInline]
+    readonly_fields = ("created_at",)
+
+    @admin.display(description="Steps")
+    def step_count(self, obj):
+        return obj.steps.count()
+
+
+class ChecklistItemInline(admin.StackedInline):
+    model = ChecklistItem
+    extra = 0
+    fields = ("order", "body_md")
+    ordering = ("order",)
+
+
+@admin.register(ChecklistStep)
+class ChecklistStepAdmin(admin.ModelAdmin):
+    list_display = ("template", "order", "title", "item_count")
+    list_filter = ("template",)
+    search_fields = ("title", "intro_md")
+    ordering = ("template", "order")
+    inlines = [ChecklistItemInline]
+
+    @admin.display(description="Items")
+    def item_count(self, obj):
+        return obj.items.count()
+
+
+@admin.register(BackendInstallItemState)
+class BackendInstallItemStateAdmin(admin.ModelAdmin):
+    list_display = ("backend_install", "item", "checked", "checked_by", "checked_at")
+    list_filter = ("checked",)
+    search_fields = ("backend_install__job__invoice_number", "notes")
+    raw_id_fields = ("backend_install", "item", "checked_by")
+    readonly_fields = ("checked_at",)
 
 
 admin.site.site_header = "DFHA internal tools"

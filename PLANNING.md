@@ -150,7 +150,7 @@ waiting on software.
 |---|---|
 | 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified. **Remaining:** employee login + 2FA. |
 | 3–4 | ✅ Data model live in the `jobs` app (Customer, Job, four install records, walkthrough sign-off, audit log, service subscription, trouble request, credential bundle). Django admin wired up as internal CRUD on day one. |
-| 5–6 | Port existing `install.html` content into the BackendInstall form. Sales form + pre-install checklist. CatalogDevice model + admin (price sheet). |
+| 5–6 | Port existing `install.html` content into the BackendInstall form (DB-backed, admin-editable checklist templates so content fixes don't need a code deploy). Sales form + pre-install checklist (reuses checklist template infra). CatalogDevice model + admin (price sheet). |
 | 6–7 | **PickSheet** generated from sale + pre-install: grouped by device type then quantity, with per-line supplier/SKU/URL pulled from CatalogDevice. Prints clean; re-generate to refresh. Sits between sale and config in the staff flow. |
 | 7–8 | PairingSheet, AutomationConfig, OnsiteInstall forms. Walkthrough sign-off (locks job, starts audit trail, triggers post-install email). |
 | 9–10 | Customer portal — invite email with setup code, customer signup w/ 2FA, view package + docs, trouble-request form. |
@@ -212,6 +212,21 @@ Things we've deferred or haven't decided yet. Add freely.
 
 Newest first. Each entry: date, decision, rationale.
 
+- **2026-05-12** — Picked **DB-backed checklist templates** for porting
+  `install.html` into the `BackendInstall` form. New models in the `jobs`
+  app: `ChecklistTemplate` (slug + integer version, e.g. `backend-install`
+  v1, v2 …), `ChecklistStep` (ordered, optional Markdown intro),
+  `ChecklistItem` (Markdown body — supports the code blocks/tables/links
+  install.html already uses), and `BackendInstallItemState` (per-job,
+  per-item: checked, by, when, plus per-item installer notes). `BackendInstall`
+  has a `template` FK that **snapshots** the version it started against —
+  publishing a new template version doesn't disturb in-progress jobs.
+  Trade-off vs. defining steps in Python: more upfront porting work,
+  but content fixes become admin edits with no code deploy, which is the
+  whole point. The template + step + item models are generic; the
+  pre-install checklist (Weeks 5–6) and other install records can reuse
+  them by adding their own `…ItemState` model. Migration removes the
+  unused `BackendInstall.progress` JSON field — replaced by item-state rows.
 - **2026-05-12** — Added **pick sheet** to the flow between sale and config.
   Two new models in §5: `CatalogDevice` (price sheet: device type, model,
   supplier, SKU, URL, cost) maintained in admin, and `PickSheet` per Job

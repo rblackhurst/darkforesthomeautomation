@@ -12,6 +12,13 @@ See `../PLANNING.md` for product direction, stack, and build order.
 
 ## Run locally
 
+**Python version:** use **3.12 or 3.13**. Python 3.14 is incompatible with
+Django 5.1 (admin "add" pages crash on a `copy.copy()` change in 3.14).
+Prod runs the Python that ships with Ubuntu 24.04, so 3.12 is the closest
+match to production.
+
+### macOS / Linux
+
 ```bash
 cd app
 python3 -m venv .venv
@@ -19,6 +26,21 @@ python3 -m venv .venv
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py runserver
 ```
+
+### Windows
+
+```
+cd app
+py -3.13 -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python manage.py migrate
+.venv\Scripts\python manage.py runserver
+```
+
+`py -0` lists which Python versions are installed. If you only have 3.14,
+install 3.13 (or 3.12) from https://www.python.org/downloads/ — it sits
+alongside 3.14, doesn't replace it. If you've already created a `.venv`
+against the wrong Python, delete the `.venv` folder and recreate it.
 
 Then visit http://127.0.0.1:8000/.
 
@@ -44,11 +66,20 @@ app/
 
 ## Internal CRUD (Django admin)
 
-After `migrate`, create a superuser and visit `/admin/`:
+After `migrate`, create a superuser and visit `/admin/`.
+
+macOS / Linux:
 
 ```bash
 .venv/bin/python manage.py createsuperuser
 .venv/bin/python manage.py runserver
+```
+
+Windows:
+
+```
+.venv\Scripts\python manage.py createsuperuser
+.venv\Scripts\python manage.py runserver
 ```
 
 The admin is the day-one CRUD UI for staff: add a Customer, then a Job

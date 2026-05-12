@@ -26,4 +26,9 @@ urlpatterns = [
         views.backend_install_save_capture,
         name="backend_install_save_capture",
     ),
+    path(
+        "jobs/<str:invoice_number>/backend-install/reset/",
+        views.backend_install_reset,
+        name="backend_install_reset",
+    ),
 ]

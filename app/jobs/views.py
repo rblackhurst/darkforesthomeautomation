@@ -3,8 +3,10 @@ import secrets
 import string
 
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.timezone import now
 from django.views.decorators.http import require_POST
 
@@ -265,3 +267,108 @@ def backend_install_reset(request, invoice_number):
         bi.save(update_fields=["template"])
 
     return JsonResponse({"reset": True})
+
+
+# ── Installer home / pipeline view ──────────────────────────────────────
+
+# Stages shown as expanded sections, in the order a job progresses.
+ACTIVE_STAGES = [
+    Job.Status.SOLD,
+    Job.Status.PRE_INSTALL,
+    Job.Status.BACKEND,
+    Job.Status.PAIRING,
+    Job.Status.AUTOMATION,
+    Job.Status.ONSITE,
+    Job.Status.WALKTHROUGH,
+]
+ARCHIVE_STAGES = [Job.Status.COMPLETE, Job.Status.CANCELLED]
+
+
+def _next_action(job):
+    # The primary action button on a card. Only BACKEND has a real form
+    # right now; everything else links to the job in admin until those
+    # forms ship (Weeks 6-10).
+    if job.status == Job.Status.BACKEND:
+        return (
+            reverse("jobs:backend_install_render", args=[job.invoice_number]),
+            "Open backend install",
+        )
+    return (
+        reverse("admin:jobs_job_change", args=[job.invoice_number]),
+        "Open in admin",
+    )
+
+
+def _progress_summary(job, backend_check_totals):
+    # Quick progress text shown on each card based on the stage's active
+    # record. Only backend install reports a check count today.
+    if job.status != Job.Status.BACKEND:
+        return None
+    try:
+        bi = job.backend_install
+    except BackendInstall.DoesNotExist:
+        return None
+    if not bi.template_id:
+        return None
+    total = backend_check_totals.get(bi.template_id, 0)
+    if not total:
+        return None
+    done = bi.item_states.filter(checked=True).count()
+    return {"label": "Backend", "done": done, "total": total}
+
+
+def _card(job, backend_check_totals):
+    url, label = _next_action(job)
+    return {
+        "job": job,
+        "next_url": url,
+        "next_label": label,
+        "progress": _progress_summary(job, backend_check_totals),
+    }
+
+
+@login_required
+@staff_required
+def home_dashboard(request):
+    jobs = (
+        Job.objects
+        .select_related("customer")
+        .prefetch_related("backend_install")
+        .order_by("install_date", "-created_at")
+    )
+
+    # Pre-compute total check count per ChecklistTemplate so each card's
+    # progress doesn't fire its own COUNT query.
+    backend_check_totals = dict(
+        ChecklistItem.objects
+        .filter(kind="check")
+        .values_list("step__template_id")
+        .annotate(n=Count("id"))
+        .values_list("step__template_id", "n")
+    )
+
+    grouped = {s.value: [] for s in ACTIVE_STAGES}
+    archive = []
+    for job in jobs:
+        card = _card(job, backend_check_totals)
+        if job.status in {s.value for s in ARCHIVE_STAGES}:
+            archive.append(card)
+        elif job.status in grouped:
+            grouped[job.status].append(card)
+        # Any unrecognized status: skip — shouldn't happen.
+
+    stages = [
+        {
+            "key": s.value,
+            "label": s.label,
+            "cards": grouped[s.value],
+        }
+        for s in ACTIVE_STAGES
+    ]
+
+    return render(request, "jobs/home.html", {
+        "stages": stages,
+        "archive": archive,
+        "total_active": sum(len(s["cards"]) for s in stages),
+        "total_archive": len(archive),
+    })

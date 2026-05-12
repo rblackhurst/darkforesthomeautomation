@@ -17,6 +17,7 @@ from .models import (
     ServiceSubscription,
     TroubleRequest,
     WalkthroughSignoff,
+    _fmt_order,
 )
 
 
@@ -126,6 +127,18 @@ class ChecklistStepInline(admin.TabularInline):
     ordering = ("order",)
 
 
+def _renumber(queryset):
+    # Re-sort the queryset by (order, id) and rewrite `order` to clean
+    # sequential integers 1..N. Lets the user enter a fractional value
+    # (e.g. 2.5) to insert between existing rows and get integers back
+    # on save.
+    rows = list(queryset.order_by("order", "id"))
+    for idx, row in enumerate(rows, start=1):
+        if row.order != idx:
+            row.order = idx
+            row.save(update_fields=["order"])
+
+
 @admin.register(ChecklistTemplate)
 class ChecklistTemplateAdmin(admin.ModelAdmin):
     list_display = ("title", "slug", "version", "step_count", "created_at")
@@ -134,6 +147,10 @@ class ChecklistTemplateAdmin(admin.ModelAdmin):
     ordering = ("slug", "-version")
     inlines = [ChecklistStepInline]
     readonly_fields = ("created_at",)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        _renumber(form.instance.steps)
 
     @admin.display(description="Steps")
     def step_count(self, obj):
@@ -149,11 +166,19 @@ class ChecklistItemInline(admin.StackedInline):
 
 @admin.register(ChecklistStep)
 class ChecklistStepAdmin(admin.ModelAdmin):
-    list_display = ("template", "order", "title", "item_count", "check_count", "capture_count")
+    list_display = ("template", "display_order", "title", "item_count", "check_count", "capture_count")
     list_filter = ("template",)
     search_fields = ("title", "intro_md")
     ordering = ("template", "order")
     inlines = [ChecklistItemInline]
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        _renumber(form.instance.items)
+
+    @admin.display(description="Order", ordering="order")
+    def display_order(self, obj):
+        return _fmt_order(obj.order)
 
     @admin.display(description="Items")
     def item_count(self, obj):

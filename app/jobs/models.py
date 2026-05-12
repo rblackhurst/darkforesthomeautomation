@@ -2,6 +2,16 @@ from django.conf import settings
 from django.db import models
 
 
+def _fmt_order(value):
+    # Render a Decimal sort-order as a plain int when it has no fractional
+    # part, so admin labels show "3" instead of "3.000".
+    if value is None:
+        return ""
+    if value == value.to_integral_value():
+        return str(int(value))
+    return str(value.normalize())
+
+
 class Customer(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -258,7 +268,14 @@ class ChecklistStep(models.Model):
     template = models.ForeignKey(
         ChecklistTemplate, on_delete=models.CASCADE, related_name="steps",
     )
-    order = models.PositiveSmallIntegerField()
+    order = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        help_text="Sort order within the template. To insert a new step "
+                  "between existing ones, use a fractional value (e.g. 2.5 "
+                  "to land between 2 and 3); on save the admin renumbers "
+                  "every step to clean sequential integers.",
+    )
     title = models.CharField(max_length=200)
     intro_md = models.TextField(
         blank=True,
@@ -266,13 +283,10 @@ class ChecklistStep(models.Model):
     )
 
     class Meta:
-        ordering = ["template", "order"]
-        constraints = [
-            models.UniqueConstraint(fields=["template", "order"], name="unique_step_order"),
-        ]
+        ordering = ["template", "order", "id"]
 
     def __str__(self):
-        return f"{self.template.slug} v{self.template.version} · {self.order}. {self.title}"
+        return f"{self.template.slug} v{self.template.version} · {_fmt_order(self.order)}. {self.title}"
 
 
 class ChecklistItem(models.Model):
@@ -286,7 +300,14 @@ class ChecklistItem(models.Model):
         CAPTURE = "capture", "Capture input"
 
     step = models.ForeignKey(ChecklistStep, on_delete=models.CASCADE, related_name="items")
-    order = models.PositiveSmallIntegerField()
+    order = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        help_text="Sort order within the step. To insert a new item "
+                  "between existing ones, use a fractional value (e.g. 2.5 "
+                  "to land between 2 and 3); on save the admin renumbers "
+                  "every item to clean sequential integers.",
+    )
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.CHECK)
     body_md = models.TextField(
         blank=True,
@@ -312,15 +333,12 @@ class ChecklistItem(models.Model):
     )
 
     class Meta:
-        ordering = ["step", "order"]
-        constraints = [
-            models.UniqueConstraint(fields=["step", "order"], name="unique_item_order"),
-        ]
+        ordering = ["step", "order", "id"]
 
     def __str__(self):
         snippet = (self.body_md[:60] + "…") if len(self.body_md) > 60 else self.body_md
         label = self.capture_label or snippet or f"[{self.kind}]"
-        return f"{self.step.order}.{self.order} ({self.kind}) {label}"
+        return f"{_fmt_order(self.step.order)}.{_fmt_order(self.order)} ({self.kind}) {label}"
 
 
 class BackendInstallItemState(models.Model):

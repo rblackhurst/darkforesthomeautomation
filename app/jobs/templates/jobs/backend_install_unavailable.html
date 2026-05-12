@@ -1,0 +1,15 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Backend install — unavailable</title>
+  <link rel="stylesheet" href="{% static 'jobs/backend_install.css' %}">
+</head>
+<body>
+<main>
+  <h1>No backend-install template published yet</h1>
+  <p>An admin needs to publish a <code>backend-install</code> checklist template before this view will render.</p>
+  <p><a href="{% url 'admin:jobs_job_change' job.invoice_number %}">← Back to job {{ job.invoice_number }}</a></p>
+</main>
+</body>
+</html>

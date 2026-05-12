@@ -33,9 +33,24 @@ app/
 │   ├── urls.py
 │   ├── wsgi.py          # Production entry point (gunicorn)
 │   └── asgi.py
+├── jobs/                # Data model + admin (Customer, Job, install records,
+│   │                    # walkthrough sign-off, audit log, service
+│   │                    # subscriptions, trouble requests, credentials)
+│   ├── models.py
+│   ├── admin.py
+│   └── migrations/
 └── README.md            # this file
 ```
 
-Apps for Customer, Job, install records, etc. will live as sibling
-directories alongside `dfha/` once we start the data model (Week 3 of the
-build order).
+## Internal CRUD (Django admin)
+
+After `migrate`, create a superuser and visit `/admin/`:
+
+```bash
+.venv/bin/python manage.py createsuperuser
+.venv/bin/python manage.py runserver
+```
+
+The admin is the day-one CRUD UI for staff: add a Customer, then a Job
+(invoice number is the PK), and the four install records + walkthrough +
+subscription appear as inlines on the Job page.

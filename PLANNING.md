@@ -140,7 +140,7 @@ waiting on software.
 | Week | Milestone |
 |---|---|
 | 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified. **Remaining:** employee login + 2FA. |
-| 3–4 | Data model (Customer, Job, four install records, audit log). Django admin usable as internal CRUD UI on day one. |
+| 3–4 | ✅ Data model live in the `jobs` app (Customer, Job, four install records, walkthrough sign-off, audit log, service subscription, trouble request, credential bundle). Django admin wired up as internal CRUD on day one. |
 | 5–6 | Port existing `install.html` content into the BackendInstall form. Sales form + pre-install checklist. |
 | 7–8 | PairingSheet, AutomationConfig, OnsiteInstall forms. Walkthrough sign-off (locks job, starts audit trail, triggers post-install email). |
 | 9–10 | Customer portal — invite email with setup code, customer signup w/ 2FA, view package + docs, trouble-request form. |
@@ -194,6 +194,14 @@ Things we've deferred or haven't decided yet. Add freely.
 
 Newest first. Each entry: date, decision, rationale.
 
+- **2026-05-12** — Data model landed as a single `jobs` Django app rather than
+  splitting Customer/Job/billing/portal into separate apps. Everything in v1
+  pivots around Job; one app keeps imports flat and the admin coherent. Can
+  split later if (e.g.) the customer portal grows its own surface area.
+  `Job.invoice_number` is a `CharField` PK so alphanumeric invoice IDs work.
+  `CredentialBundle.payload` is plaintext JSON for now — the admin gates it
+  behind `is_superuser`; encryption + one-time encrypted export ship in
+  Weeks 11–12 (§6).
 - **2026-05-12** — Added `harden.sh` (SSH key-only, root password locked,
   unattended-upgrades, fail2ban). Hetzner web console is the recovery
   fallback if SSH ever breaks.

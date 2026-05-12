@@ -2,6 +2,16 @@ from django.conf import settings
 from django.db import models
 
 
+def _fmt_order(value):
+    # Render a Decimal sort-order as a plain int when it has no fractional
+    # part, so admin labels show "3" instead of "3.000".
+    if value is None:
+        return ""
+    if value == value.to_integral_value():
+        return str(int(value))
+    return str(value.normalize())
+
+
 class Customer(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -258,7 +268,14 @@ class ChecklistStep(models.Model):
     template = models.ForeignKey(
         ChecklistTemplate, on_delete=models.CASCADE, related_name="steps",
     )
-    order = models.PositiveSmallIntegerField()
+    order = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        help_text="Sort order within the template. To insert a new step "
+                  "between existing ones, use a fractional value (e.g. 2.5 "
+                  "to land between 2 and 3); on save the admin renumbers "
+                  "every step to clean sequential integers.",
+    )
     title = models.CharField(max_length=200)
     intro_md = models.TextField(
         blank=True,
@@ -266,31 +283,62 @@ class ChecklistStep(models.Model):
     )
 
     class Meta:
-        ordering = ["template", "order"]
-        constraints = [
-            models.UniqueConstraint(fields=["template", "order"], name="unique_step_order"),
-        ]
+        ordering = ["template", "order", "id"]
 
     def __str__(self):
-        return f"{self.template.slug} v{self.template.version} · {self.order}. {self.title}"
+        return f"{self.template.slug} v{self.template.version} · {_fmt_order(self.order)}. {self.title}"
 
 
 class ChecklistItem(models.Model):
+    # An ordered element inside a step. Kind drives how it renders:
+    #   check   — checkbox + body (installer ticks it off)
+    #   content — freeform body, no checkbox (prose, code blocks, callouts, nav paths)
+    #   capture — labeled form input that records per-install data
+    class Kind(models.TextChoices):
+        CHECK = "check", "Checkbox item"
+        CONTENT = "content", "Content block"
+        CAPTURE = "capture", "Capture input"
+
     step = models.ForeignKey(ChecklistStep, on_delete=models.CASCADE, related_name="items")
-    order = models.PositiveSmallIntegerField()
+    order = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        help_text="Sort order within the step. To insert a new item "
+                  "between existing ones, use a fractional value (e.g. 2.5 "
+                  "to land between 2 and 3); on save the admin renumbers "
+                  "every item to clean sequential integers.",
+    )
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.CHECK)
     body_md = models.TextField(
-        help_text="Markdown body of the checklist item: instruction text, code blocks, links.",
+        blank=True,
+        help_text="Markdown/HTML body. For check items: the instruction. "
+                  "For content items: the rendered block (prose, code, callout, nav path). "
+                  "For capture items: optional helper text shown next to the input.",
+    )
+    capture_key = models.SlugField(
+        max_length=60,
+        blank=True,
+        help_text="Slug key for capture items (e.g. 'hostname', 'nuc_static_ip'). "
+                  "Per-install values are stored in BackendInstallCapture keyed by this slug.",
+    )
+    capture_label = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Label shown next to the capture input (e.g. 'HAOS Hostname').",
+    )
+    capture_placeholder = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Placeholder text for the capture input (e.g. 'e.g. HASmitr').",
     )
 
     class Meta:
-        ordering = ["step", "order"]
-        constraints = [
-            models.UniqueConstraint(fields=["step", "order"], name="unique_item_order"),
-        ]
+        ordering = ["step", "order", "id"]
 
     def __str__(self):
         snippet = (self.body_md[:60] + "…") if len(self.body_md) > 60 else self.body_md
-        return f"{self.step.order}.{self.order} {snippet}"
+        label = self.capture_label or snippet or f"[{self.kind}]"
+        return f"{_fmt_order(self.step.order)}.{_fmt_order(self.order)} ({self.kind}) {label}"
 
 
 class BackendInstallItemState(models.Model):
@@ -321,3 +369,27 @@ class BackendInstallItemState(models.Model):
 
     def __str__(self):
         return f"{self.backend_install.job_id} · item {self.item_id} · {'✓' if self.checked else '·'}"
+
+
+class BackendInstallCapture(models.Model):
+    # Per-install values for ChecklistItem kind=capture. Generic key/value
+    # so install.html can grow new capture fields without migrations.
+    # Once any of these values stabilize into "this is always a credential"
+    # or "this is always a network address," promote them to typed fields
+    # on BackendInstall or rows in CredentialBundle.
+    backend_install = models.ForeignKey(
+        BackendInstall, on_delete=models.CASCADE, related_name="captures",
+    )
+    key = models.SlugField(max_length=60)
+    value = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["backend_install", "key"], name="unique_backend_capture_key",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.backend_install.job_id} · {self.key}"

@@ -4,6 +4,7 @@ from .models import (
     AuditLogEntry,
     AutomationConfig,
     BackendInstall,
+    BackendInstallCapture,
     BackendInstallItemState,
     ChecklistItem,
     ChecklistStep,
@@ -16,6 +17,7 @@ from .models import (
     ServiceSubscription,
     TroubleRequest,
     WalkthroughSignoff,
+    _fmt_order,
 )
 
 
@@ -125,6 +127,18 @@ class ChecklistStepInline(admin.TabularInline):
     ordering = ("order",)
 
 
+def _renumber(queryset):
+    # Re-sort the queryset by (order, id) and rewrite `order` to clean
+    # sequential integers 1..N. Lets the user enter a fractional value
+    # (e.g. 2.5) to insert between existing rows and get integers back
+    # on save.
+    rows = list(queryset.order_by("order", "id"))
+    for idx, row in enumerate(rows, start=1):
+        if row.order != idx:
+            row.order = idx
+            row.save(update_fields=["order"])
+
+
 @admin.register(ChecklistTemplate)
 class ChecklistTemplateAdmin(admin.ModelAdmin):
     list_display = ("title", "slug", "version", "step_count", "created_at")
@@ -134,6 +148,10 @@ class ChecklistTemplateAdmin(admin.ModelAdmin):
     inlines = [ChecklistStepInline]
     readonly_fields = ("created_at",)
 
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        _renumber(form.instance.steps)
+
     @admin.display(description="Steps")
     def step_count(self, obj):
         return obj.steps.count()
@@ -142,21 +160,37 @@ class ChecklistTemplateAdmin(admin.ModelAdmin):
 class ChecklistItemInline(admin.StackedInline):
     model = ChecklistItem
     extra = 0
-    fields = ("order", "body_md")
+    fields = ("order", "kind", "body_md", "capture_key", "capture_label", "capture_placeholder")
     ordering = ("order",)
 
 
 @admin.register(ChecklistStep)
 class ChecklistStepAdmin(admin.ModelAdmin):
-    list_display = ("template", "order", "title", "item_count")
+    list_display = ("template", "display_order", "title", "item_count", "check_count", "capture_count")
     list_filter = ("template",)
     search_fields = ("title", "intro_md")
     ordering = ("template", "order")
     inlines = [ChecklistItemInline]
 
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        _renumber(form.instance.items)
+
+    @admin.display(description="Order", ordering="order")
+    def display_order(self, obj):
+        return _fmt_order(obj.order)
+
     @admin.display(description="Items")
     def item_count(self, obj):
         return obj.items.count()
+
+    @admin.display(description="Checks")
+    def check_count(self, obj):
+        return obj.items.filter(kind="check").count()
+
+    @admin.display(description="Captures")
+    def capture_count(self, obj):
+        return obj.items.filter(kind="capture").count()
 
 
 @admin.register(BackendInstallItemState)
@@ -166,6 +200,18 @@ class BackendInstallItemStateAdmin(admin.ModelAdmin):
     search_fields = ("backend_install__job__invoice_number", "notes")
     raw_id_fields = ("backend_install", "item", "checked_by")
     readonly_fields = ("checked_at",)
+
+
+@admin.register(BackendInstallCapture)
+class BackendInstallCaptureAdmin(admin.ModelAdmin):
+    list_display = ("backend_install", "key", "value_preview", "updated_at")
+    search_fields = ("backend_install__job__invoice_number", "key", "value")
+    raw_id_fields = ("backend_install",)
+    readonly_fields = ("updated_at",)
+
+    @admin.display(description="Value")
+    def value_preview(self, obj):
+        return (obj.value[:60] + "…") if len(obj.value) > 60 else obj.value
 
 
 admin.site.site_header = "DFHA internal tools"

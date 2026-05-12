@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models import (
     AuditLogEntry,
@@ -71,6 +73,7 @@ class JobAdmin(admin.ModelAdmin):
     search_fields = ("invoice_number", "customer__last_name", "customer__first_name")
     autocomplete_fields = ("customer",)
     date_hierarchy = "install_date"
+    readonly_fields = ("install_links",)
     inlines = [
         BackendInstallInline,
         PairingSheetInline,
@@ -79,6 +82,33 @@ class JobAdmin(admin.ModelAdmin):
         WalkthroughSignoffInline,
         ServiceSubscriptionInline,
     ]
+
+    fieldsets = (
+        (None, {
+            "fields": (
+                "invoice_number", "customer", "status",
+                "sold_on", "install_date",
+                "package_summary", "notes",
+            ),
+        }),
+        ("Install forms", {
+            "fields": ("install_links",),
+            "description": "Open a fillable form for this job.",
+        }),
+    )
+
+    @admin.display(description="Open")
+    def install_links(self, obj):
+        if not obj.pk:
+            return "Save the job first to enable form links."
+        url = reverse("jobs:backend_install_render", args=[obj.invoice_number])
+        return format_html(
+            '<a class="button" href="{}" target="_blank" rel="noopener" '
+            'style="display:inline-block;padding:6px 14px;background:#2d6b4e;'
+            'color:#fff;border-radius:4px;text-decoration:none;font-weight:500;">'
+            'Open backend install →</a>',
+            url,
+        )
 
 
 @admin.register(AuditLogEntry)

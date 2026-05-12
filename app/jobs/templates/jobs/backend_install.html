@@ -1,0 +1,79 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Backend install</title>
+  <link rel="stylesheet" href="{% static 'jobs/backend_install.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<header class="page-header">
+  <div class="crumb">
+    <a href="{% url 'admin:jobs_job_change' job.invoice_number %}">← Back to job {{ job.invoice_number }}</a>
+  </div>
+  <h1>{{ template.title }} <span class="version">v{{ template.version }}</span></h1>
+  <p class="customer-line">
+    <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+    · invoice {{ job.invoice_number }}
+    {% if job.install_date %} · scheduled {{ job.install_date|date:"M j, Y" }}{% endif %}
+  </p>
+</header>
+
+<main>
+{% for entry in steps %}
+  <section class="step" id="step-{{ entry.step.order|floatformat:"0" }}">
+    <header class="step-header">
+      <span class="step-badge">Step {{ entry.step.order|floatformat:"0" }}</span>
+      <h2>{{ entry.step.title }}</h2>
+      {% if entry.check_total %}
+        <span class="step-progress {% if entry.check_done == entry.check_total %}complete{% endif %}">{{ entry.check_done }} / {{ entry.check_total }}</span>
+      {% endif %}
+    </header>
+
+    {% if entry.step.intro_md %}
+      <div class="step-intro">{{ entry.step.intro_md|linebreaks }}</div>
+    {% endif %}
+
+    {% for it in entry.entries %}
+      {% if it.item.kind == "content" %}
+        <div class="content-block">{{ it.item.body_md|safe }}</div>
+
+      {% elif it.item.kind == "check" %}
+        <div class="check-item">
+          <label>
+            <input type="checkbox"
+                   data-action="toggle-check"
+                   data-item-id="{{ it.item.id }}"
+                   {% if it.checked %}checked{% endif %}>
+            <span class="check-body">{{ it.item.body_md|safe }}</span>
+          </label>
+          <details class="notes-toggle" {% if it.notes %}open{% endif %}>
+            <summary>Notes</summary>
+            <textarea data-action="save-notes"
+                      data-item-id="{{ it.item.id }}"
+                      placeholder="Optional notes for this step">{{ it.notes }}</textarea>
+          </details>
+        </div>
+
+      {% elif it.item.kind == "capture" %}
+        <div class="capture-row">
+          <label for="cap-{{ it.item.capture_key }}">{{ it.item.capture_label }}</label>
+          <input id="cap-{{ it.item.capture_key }}"
+                 type="text"
+                 value="{{ it.value }}"
+                 placeholder="{{ it.item.capture_placeholder }}"
+                 data-action="save-capture"
+                 data-capture-key="{{ it.item.capture_key }}">
+        </div>
+      {% endif %}
+    {% endfor %}
+  </section>
+{% endfor %}
+</main>
+
+<script>window.BI_BASE_URL = "{% url 'jobs:backend_install_render' job.invoice_number %}";</script>
+<script src="{% static 'jobs/backend_install.js' %}"></script>
+</body>
+</html>

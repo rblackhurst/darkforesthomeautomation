@@ -6,6 +6,7 @@ from . import views
 app_name = "jobs"
 
 urlpatterns = [
+    path("", views.home_dashboard, name="home"),
     path(
         "jobs/<str:invoice_number>/backend-install/",
         views.backend_install_render,

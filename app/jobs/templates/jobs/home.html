@@ -1,0 +1,104 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFHA · Active jobs</title>
+  <link rel="stylesheet" href="{% static 'jobs/home.css' %}">
+</head>
+<body>
+
+<header class="page-header">
+  <div class="page-header-row">
+    <h1>Active jobs</h1>
+    <div class="page-header-meta">
+      <span class="active-count">{{ total_active }} active</span>
+      <a href="{% url 'admin:jobs_job_add' %}" class="primary-btn">+ New job</a>
+    </div>
+  </div>
+  <input type="search" id="job-filter" placeholder="Filter by customer last name…" autocomplete="off" autofocus>
+</header>
+
+<main>
+  {% if total_active == 0 %}
+    <div class="empty-state">
+      <p>No active jobs yet.</p>
+      <p><a href="{% url 'admin:jobs_job_add' %}">Create one in the admin →</a></p>
+    </div>
+  {% endif %}
+
+  {% for stage in stages %}
+    {% if stage.cards %}
+      <section class="stage" data-stage="{{ stage.key }}">
+        <header class="stage-header">
+          <h2>{{ stage.label }}</h2>
+          <span class="stage-count">{{ stage.cards|length }}</span>
+        </header>
+
+        <div class="card-list">
+          {% for c in stage.cards %}
+            <article class="card" data-last-name="{{ c.job.customer.last_name|lower }}" data-first-name="{{ c.job.customer.first_name|lower }}">
+              <div class="card-main">
+                <div class="card-name">
+                  <strong>{{ c.job.customer.last_name }}, {{ c.job.customer.first_name }}</strong>
+                </div>
+                <div class="card-meta">
+                  <span class="invoice">#{{ c.job.invoice_number }}</span>
+                  {% if c.job.install_date %}
+                    <span class="install-date">install {{ c.job.install_date|date:"M j" }}</span>
+                  {% else %}
+                    <span class="install-date pending">no install date</span>
+                  {% endif %}
+                  {% if c.progress %}
+                    <span class="progress">
+                      {{ c.progress.label }}: {{ c.progress.done }} / {{ c.progress.total }}
+                      {% if c.progress.total and c.progress.done == c.progress.total %}<span class="progress-complete">✓</span>{% endif %}
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+              <a href="{{ c.next_url }}" class="card-action">{{ c.next_label }} →</a>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% else %}
+      <section class="stage stage-empty" data-stage="{{ stage.key }}">
+        <header class="stage-header">
+          <h2>{{ stage.label }}</h2>
+          <span class="stage-count">0</span>
+        </header>
+        <p class="stage-empty-msg">No jobs in this stage.</p>
+      </section>
+    {% endif %}
+  {% endfor %}
+
+  {% if archive %}
+    <details class="archive">
+      <summary>Archive — {{ total_archive }} completed / cancelled</summary>
+      <div class="card-list">
+        {% for c in archive %}
+          <article class="card archive-card" data-last-name="{{ c.job.customer.last_name|lower }}" data-first-name="{{ c.job.customer.first_name|lower }}">
+            <div class="card-main">
+              <div class="card-name">
+                <strong>{{ c.job.customer.last_name }}, {{ c.job.customer.first_name }}</strong>
+                <span class="archive-status">{{ c.job.get_status_display }}</span>
+              </div>
+              <div class="card-meta">
+                <span class="invoice">#{{ c.job.invoice_number }}</span>
+                {% if c.job.install_date %}<span class="install-date">installed {{ c.job.install_date|date:"M j, Y" }}</span>{% endif %}
+              </div>
+            </div>
+            <a href="{{ c.next_url }}" class="card-action">{{ c.next_label }} →</a>
+          </article>
+        {% endfor %}
+      </div>
+    </details>
+  {% endif %}
+
+  <div id="filter-empty" class="filter-empty" hidden>No jobs match that filter.</div>
+</main>
+
+<script src="{% static 'jobs/home.js' %}"></script>
+</body>
+</html>

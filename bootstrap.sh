@@ -32,9 +32,18 @@ die() { printf '\n\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
 # ─── Admin email for Let's Encrypt ──────────────────────────────────────────
 if [[ -z "${ADMIN_EMAIL:-}" ]]; then
-  read -rp "Email address for Let's Encrypt renewal notices: " ADMIN_EMAIL
+  # When invoked via `curl ... | bash`, stdin is the script itself, so a
+  # plain `read` would swallow the next line. Read from the controlling
+  # terminal explicitly.
+  if [[ -t 0 ]]; then
+    read -rp "Email address for Let's Encrypt renewal notices: " ADMIN_EMAIL
+  elif [[ -r /dev/tty ]]; then
+    read -rp "Email address for Let's Encrypt renewal notices: " ADMIN_EMAIL </dev/tty
+  else
+    die "ADMIN_EMAIL not set and no terminal available. Re-run with: ADMIN_EMAIL=you@example.com bash bootstrap.sh"
+  fi
 fi
-[[ "${ADMIN_EMAIL}" == *@* ]] || die "Invalid email."
+[[ "${ADMIN_EMAIL}" == *@* ]] || die "Invalid email: ${ADMIN_EMAIL}"
 
 # ─── System packages ────────────────────────────────────────────────────────
 log "Updating apt and installing system packages"

@@ -191,7 +191,7 @@ Things we've deferred or haven't decided yet. Add freely.
 
 - Final wording / styling of the post-install email and the in-portal
   "Download my credentials" warning copy.
-- Pricing for the three uptime service tiers.
+- ~~Pricing for the three uptime service tiers.~~ → Resolved — see `docs/internal/pricing.md`.
 - Whether the trouble-request form should accept photo attachments in v1.
 - Whether customer portal should show install photos (and if so, where they're
   stored — Backblaze B2 likely).
@@ -211,6 +211,23 @@ Things we've deferred or haven't decided yet. Add freely.
 ## 10. Decision Log
 
 Newest first. Each entry: date, decision, rationale.
+
+- **2026-05-13** — **Internal pricing reference** committed at
+  `docs/internal/pricing.md` (not for client distribution). Source: Session 6 /
+  April 2026 PDF. Covers backend setup ($499), UPS, all room kits (comfort +
+  safety + entry + outdoor), smart lock options, Connected Home bundle packages
+  (1/2/3 BR), per-room add-ons, monitoring plans (Basic $29/mo, Standard
+  $49/mo, Premium $79/mo), and full internal BOM costs. Monitoring tier mapping
+  for invoice number: 0=none, 1=Basic, 2=Standard, 3=Premium (set per Package
+  in admin via `monitoring_tier` field).
+
+- **2026-05-13** — **Invoice number auto-generation.** `invoice_number` (the URL
+  key / PK) is now a system-generated temp ID (`DRAFT-XXXXXXXXXXXX`) assigned at
+  sale creation — staff no longer type it. The customer-facing formatted code
+  (`display_invoice_number`) is generated at pre-install finalization and encodes:
+  YYMMDD + M (monitoring tier 0–9) + RR (room count 01–99) + AAA (à-la-carte
+  items 001–999) + SS (day sequence 01–99) = 14 chars. Example: `26051320300501`.
+  Payment quote email (Postmark) sent at finalization unless override flag is set.
 
 - **2026-05-13** — **Internal prep** is now a standalone page (`/jobs/<invoice>/internal-prep/`)
   rather than a checklist step. It shows the device list from the sale (with per-line

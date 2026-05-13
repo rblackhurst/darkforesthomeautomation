@@ -1,9 +1,14 @@
 import json
 import secrets
 import string
+import uuid
 from collections import defaultdict
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.mail import EmailMessage
 from django.db.models import Count, Max
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -359,6 +364,9 @@ def pre_install_checklist_render(request, invoice_number):
         for d in CatalogDevice.objects.filter(active=True)
     ]
 
+    total = _sale_total(job, job.payment_override_amount)
+    half = (total / 2).quantize(Decimal("0.01"))
+
     return render(request, "jobs/pre_install_checklist.html", {
         "job": job,
         "pre_install_checklist": pi,
@@ -369,6 +377,8 @@ def pre_install_checklist_render(request, invoice_number):
         "rooms": rooms,
         "room_types_json": json.dumps(room_types),
         "catalog_json": json.dumps(catalog_flat),
+        "sale_total": f"${total.quantize(Decimal('0.01'))}",
+        "sale_deposit": f"${half}",
     })
 
 
@@ -501,7 +511,6 @@ def _create_sale_lines(job, package_id, device_rows):
     if package_id:
         try:
             pkg = Package.objects.get(pk=package_id, active=True)
-            pkg_device_ids = set()
             for pd in pkg.devices.select_related("device"):
                 SaleLine.objects.create(
                     job=job,
@@ -509,14 +518,20 @@ def _create_sale_lines(job, package_id, device_rows):
                     quantity=pd.quantity,
                     unit_cost=pd.device.default_cost,
                     notes=f"From package: {pkg.name}",
+                    from_package=True,
                     sort_order=sort,
                 )
-                pkg_device_ids.add(pd.device_id)
                 sort += 1
-            # Auto-derive a package_summary for the job if it has none.
+            # Save package FK and summary on the job.
+            update_fields = []
+            if not job.package_id:
+                job.package = pkg
+                update_fields.append("package")
             if not job.package_summary:
                 job.package_summary = pkg.name
-                job.save(update_fields=["package_summary"])
+                update_fields.append("package_summary")
+            if update_fields:
+                job.save(update_fields=update_fields)
         except Package.DoesNotExist:
             pass
 
@@ -531,9 +546,98 @@ def _create_sale_lines(job, package_id, device_rows):
             quantity=row["quantity"],
             unit_cost=device.default_cost,
             notes=row.get("notes", ""),
+            from_package=False,
             sort_order=sort,
         )
         sort += 1
+
+
+def _draft_invoice_number():
+    """Unique internal identifier for a new job before the invoice is finalized."""
+    return f"DRAFT-{uuid.uuid4().hex[:12].upper()}"
+
+
+def _generate_display_invoice_number(job):
+    """
+    Build the formatted customer-facing invoice code:
+      YYMMDD + M(1) + RR(2) + AAA(3) + SS(2) = 14 chars
+
+    M   — monitoring tier from the selected package (0–9)
+    RR  — room count from the pre-install walkthrough (01–99)
+    AAA — number of à-la-carte (non-package) sale lines (001–999)
+    SS  — sequence of finalized jobs today (01–99)
+    """
+    today = date.today()
+    date_part = today.strftime("%y%m%d")
+
+    tier = 0
+    if job.package_id:
+        try:
+            tier = min(9, job.package.monitoring_tier)
+        except Exception:
+            pass
+
+    room_count = min(99, job.rooms.count())
+    adhoc_count = min(999, job.sale_lines.filter(from_package=False).count())
+
+    today_seq = Job.objects.filter(
+        finalized_at__date=today,
+        display_invoice_number__isnull=False,
+    ).count()
+    sequence = min(99, today_seq + 1)
+
+    return f"{date_part}{tier:01d}{room_count:02d}{adhoc_count:03d}{sequence:02d}"
+
+
+def _sale_total(job, override_amount=None):
+    """Return total sale amount as Decimal, using override if provided."""
+    if override_amount:
+        try:
+            return Decimal(str(override_amount))
+        except InvalidOperation:
+            pass
+    return sum(
+        (sl.unit_cost or Decimal("0")) * sl.quantity
+        for sl in job.sale_lines.all()
+    )
+
+
+def _send_payment_email(job, invoice_code, override_amount=None):
+    """Send the quote / payment options email to the customer."""
+    total = _sale_total(job, override_amount)
+    half = (total / 2).quantize(Decimal("0.01"))
+    total = total.quantize(Decimal("0.01"))
+
+    subject = f"Dark Forest Home Automation — Your quote (Invoice {invoice_code})"
+    body = (
+        f"Hi {job.customer.first_name},\n\n"
+        f"Thank you for choosing Dark Forest Home Automation! "
+        f"Here's a summary of your installation quote.\n\n"
+        f"Invoice: {invoice_code}\n\n"
+        f"Payment options\n"
+        f"───────────────────────────────────\n"
+        f"  50% deposit:    ${half}\n"
+        f"  Full payment:   ${total}\n"
+        f"  Other amount:   Reply to discuss — we're happy to work with you.\n"
+        f"───────────────────────────────────\n\n"
+        f"To confirm your booking, reply to this email with your preferred "
+        f"payment amount and we'll send payment instructions.\n\n"
+        f"A reminder of our core promise: all devices and accounts are registered "
+        f"in your name from day one. You own everything — credentials, hardware, "
+        f"and your Home Assistant instance.\n\n"
+        f"Questions? Just reply to this email.\n\n"
+        f"— Ron\n"
+        f"Dark Forest Home Automation\n"
+    )
+
+    email = EmailMessage(
+        subject=subject,
+        body=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[job.customer.email],
+        reply_to=[settings.DFHA_REPLY_TO_EMAIL],
+    )
+    email.send(fail_silently=False)
 
 
 @login_required
@@ -552,18 +656,21 @@ def sales_form(request):
                 email=d["email"],
                 phone=d.get("phone", ""),
             )
+            invoice_number = _draft_invoice_number()
             job = Job.objects.create(
-                invoice_number=d["invoice_number"],
+                invoice_number=invoice_number,
                 customer=customer,
                 status=Job.Status.SOLD,
                 sold_on=d["sold_on"],
                 install_date=d.get("install_date"),
                 notes=d.get("notes", ""),
+                custom_integrations=d.get("custom_integrations", ""),
+                custom_automations=d.get("custom_automations", ""),
             )
             _create_sale_lines(job, d.get("package_id"), d.get("devices_json") or [])
             return redirect(
                 "jobs:pre_install_checklist_render",
-                invoice_number=d["invoice_number"],
+                invoice_number=invoice_number,
             )
     else:
         form = SalesForm(initial={"sold_on": now().date()})
@@ -752,6 +859,107 @@ def pick_sheet_render(request, invoice_number):
         "by_type": dict(by_type),
         "total_lines": len(quantities),
     })
+
+
+# ── Pre-install: custom integrations / automations (AJAX) ────────────────────
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_save_job_text(request, invoice_number):
+    """AJAX: save custom_integrations or custom_automations on the Job."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    data = _load_json(request)
+    field = data.get("field")
+    if field not in ("custom_integrations", "custom_automations"):
+        return JsonResponse({"error": "Unknown field"}, status=400)
+    value = str(data.get("value", ""))
+    setattr(job, field, value)
+    job.save(update_fields=[field])
+    return JsonResponse({"ok": True})
+
+
+# ── Pre-install: finalize sale + generate invoice number ──────────────────────
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_finalize(request, invoice_number):
+    """
+    Finalize the sale: generate display_invoice_number, optionally send the
+    payment email, and mark the job as finalized.
+
+    POST body (JSON):
+      payment_override  bool   — skip the auto-email
+      override_amount   str    — custom total (empty = use SaleLine sum)
+    """
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+
+    if job.finalized_at:
+        return JsonResponse({
+            "ok": True,
+            "already_finalized": True,
+            "invoice_number": job.display_invoice_number,
+        })
+
+    data = _load_json(request)
+    payment_override = bool(data.get("payment_override", False))
+    override_amount_raw = str(data.get("override_amount", "")).strip()
+    override_amount = None
+    if override_amount_raw:
+        try:
+            override_amount = Decimal(override_amount_raw)
+            if override_amount <= 0:
+                override_amount = None
+        except InvalidOperation:
+            override_amount = None
+
+    display_inv = _generate_display_invoice_number(job)
+
+    email_sent = False
+    email_error = None
+    if not payment_override:
+        try:
+            _send_payment_email(job, display_inv, override_amount)
+            email_sent = True
+        except Exception as exc:
+            email_error = str(exc)
+
+    job.display_invoice_number = display_inv
+    job.finalized_at = now()
+    job.payment_override = payment_override
+    if override_amount is not None:
+        job.payment_override_amount = override_amount
+    job.save(update_fields=[
+        "display_invoice_number", "finalized_at",
+        "payment_override", "payment_override_amount",
+    ])
+
+    total = _sale_total(job, override_amount)
+    half = (total / 2).quantize(Decimal("0.01"))
+
+    return JsonResponse({
+        "ok": True,
+        "invoice_number": display_inv,
+        "email_sent": email_sent,
+        "email_error": email_error,
+        "total": str(total.quantize(Decimal("0.01"))),
+        "deposit": str(half),
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_payment_received(request, invoice_number):
+    """AJAX: toggle payment_received on the Job."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    data = _load_json(request)
+    received = bool(data.get("received", False))
+    job.payment_received = received
+    job.payment_received_at = now() if received else None
+    job.save(update_fields=["payment_received", "payment_received_at"])
+    return JsonResponse({"ok": True, "received": received})
 
 
 # ── Installer home / pipeline view ──────────────────────────────────────

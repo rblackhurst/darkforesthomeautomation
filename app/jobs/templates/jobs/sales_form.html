@@ -130,16 +130,31 @@
       </div>
     </section>
 
+    <!-- ── Custom integrations & automations ── -->
+    <section class="form-section">
+      <h2>Custom integrations &amp; automations</h2>
+      <p class="field-hint" style="margin-bottom:16px;">
+        Use this section to capture any existing devices or custom automation requests.
+        <strong>Note:</strong> most cloud-only devices (Google Nest, Ring, Ecobee, etc.) cannot be
+        integrated — we can investigate but cannot promise compatibility unless they are part of our
+        regular offering.
+      </p>
+      <div class="field {% if form.custom_integrations.errors %}has-error{% endif %}">
+        <label for="{{ form.custom_integrations.id_for_label }}">{{ form.custom_integrations.label }} <span class="optional">optional</span></label>
+        {{ form.custom_integrations }}
+        {% for err in form.custom_integrations.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+      <div class="field {% if form.custom_automations.errors %}has-error{% endif %}">
+        <label for="{{ form.custom_automations.id_for_label }}">{{ form.custom_automations.label }} <span class="optional">optional</span></label>
+        {{ form.custom_automations }}
+        {% for err in form.custom_automations.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+    </section>
+
     <!-- ── Job details ── -->
     <section class="form-section">
       <h2>Job details</h2>
-      <div class="field-row three-col">
-        <div class="field {% if form.invoice_number.errors %}has-error{% endif %}">
-          <label for="{{ form.invoice_number.id_for_label }}">{{ form.invoice_number.label }}</label>
-          {{ form.invoice_number }}
-          {% if form.invoice_number.help_text %}<span class="field-hint">{{ form.invoice_number.help_text }}</span>{% endif %}
-          {% for err in form.invoice_number.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
-        </div>
+      <div class="field-row two-col">
         <div class="field {% if form.sold_on.errors %}has-error{% endif %}">
           <label for="{{ form.sold_on.id_for_label }}">{{ form.sold_on.label }}</label>
           {{ form.sold_on }}
@@ -157,11 +172,14 @@
         {{ form.notes }}
         {% for err in form.notes.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
       </div>
+      <p class="field-hint" style="margin-top:12px;">
+        The invoice number is generated automatically when the pre-install walkthrough is finalized.
+      </p>
     </section>
 
     <div class="form-actions">
       <a href="{% url 'jobs:home' %}" class="cancel-btn">Cancel</a>
-      <button type="submit" class="submit-btn">Create job &amp; open pre-install checklist →</button>
+      <button type="submit" class="submit-btn">Start sale &amp; open pre-install checklist →</button>
     </div>
 
   </form>

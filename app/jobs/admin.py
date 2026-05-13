@@ -91,12 +91,12 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ("invoice_number", "customer", "status", "install_date", "is_locked")
-    list_filter = ("status", "install_date")
-    search_fields = ("invoice_number", "customer__last_name", "customer__first_name")
-    autocomplete_fields = ("customer",)
+    list_display = ("invoice_label_col", "customer", "status", "install_date", "finalized_at", "payment_received", "is_locked")
+    list_filter = ("status", "install_date", "payment_received", "payment_override")
+    search_fields = ("invoice_number", "display_invoice_number", "customer__last_name", "customer__first_name")
+    autocomplete_fields = ("customer", "package")
     date_hierarchy = "install_date"
-    readonly_fields = ("install_links",)
+    readonly_fields = ("invoice_number", "display_invoice_number", "finalized_at", "payment_received_at", "install_links")
     inlines = [
         SaleLineInline,
         PreInstallChecklistInline,
@@ -111,16 +111,25 @@ class JobAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             "fields": (
-                "invoice_number", "customer", "status",
+                "invoice_number", "display_invoice_number", "customer", "package", "status",
                 "sold_on", "install_date",
                 "package_summary", "notes",
+                "custom_integrations", "custom_automations",
             ),
+        }),
+        ("Payment", {
+            "fields": ("finalized_at", "payment_override", "payment_override_amount", "payment_received", "payment_received_at"),
+            "classes": ("collapse",),
         }),
         ("Install forms", {
             "fields": ("install_links",),
             "description": "Open a fillable form for this job.",
         }),
     )
+
+    @admin.display(description="Invoice", ordering="display_invoice_number")
+    def invoice_label_col(self, obj):
+        return obj.display_invoice_number or f"[draft {obj.invoice_number[-8:]}]"
 
     @admin.display(description="Open")
     def install_links(self, obj):
@@ -284,7 +293,7 @@ class PackageDeviceInline(admin.TabularInline):
 
 @admin.register(Package)
 class PackageAdmin(admin.ModelAdmin):
-    list_display = ("name", "base_price", "device_count", "active")
+    list_display = ("name", "base_price", "monitoring_tier", "device_count", "active")
     list_filter = ("active",)
     search_fields = ("name", "description")
     list_editable = ("active",)

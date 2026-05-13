@@ -48,11 +48,52 @@ class Job(models.Model):
 
     invoice_number = models.CharField(max_length=40, primary_key=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="jobs")
+    package = models.ForeignKey(
+        "Package",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="jobs",
+        help_text="Package selected at sale time — used for the monitoring-tier digit in the invoice number.",
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SOLD)
     sold_on = models.DateField(null=True, blank=True)
     install_date = models.DateField(null=True, blank=True)
     package_summary = models.TextField(blank=True)
     notes = models.TextField(blank=True)
+    # Custom integrations / automations captured at sale + pre-install
+    custom_integrations = models.TextField(
+        blank=True,
+        help_text="Existing devices the customer wants integrated (e.g. smart locks, cameras). "
+                  "Note: most cloud-only devices (Google Nest, etc.) cannot be integrated.",
+    )
+    custom_automations = models.TextField(
+        blank=True,
+        help_text="Custom automation requests beyond the standard package.",
+    )
+    # Finalization + payment
+    display_invoice_number = models.CharField(
+        max_length=30,
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="System-generated customer-facing invoice code (YYMMDD + tier + rooms + adhoc + seq). "
+                  "Set when the pre-install walkthrough is finalized.",
+    )
+    finalized_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the sale was finalized and the invoice number was generated.",
+    )
+    payment_override = models.BooleanField(
+        default=False,
+        help_text="Skip the automatic payment email — handle payment manually.",
+    )
+    payment_override_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Custom total override for testing / reduced-price installs.",
+    )
+    payment_received = models.BooleanField(default=False)
+    payment_received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,7 +105,13 @@ class Job(models.Model):
         ]
 
     def __str__(self):
-        return f"Job {self.invoice_number} — {self.customer}"
+        ref = self.display_invoice_number or self.invoice_number
+        return f"Job {ref} — {self.customer}"
+
+    @property
+    def invoice_label(self):
+        """Human-readable invoice reference for UI and emails."""
+        return self.display_invoice_number or "Pending"
 
     @property
     def is_locked(self):
@@ -504,6 +551,11 @@ class Package(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Base sale price for this package.",
     )
+    monitoring_tier = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Monitoring tier digit encoded in the invoice number (0–9). "
+                  "0 = no monitoring, 1 = basic, 2 = standard, 3 = premium, etc.",
+    )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -541,6 +593,10 @@ class SaleLine(models.Model):
     )
     notes = models.CharField(max_length=200, blank=True)
     confirmed_in_stock = models.BooleanField(default=False)
+    from_package = models.BooleanField(
+        default=False,
+        help_text="True if this line was pre-filled from the selected package.",
+    )
     sort_order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:

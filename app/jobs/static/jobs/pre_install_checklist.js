@@ -372,4 +372,123 @@
 
   refreshRoomBadge();
   refreshRoomDeviceSummary();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── Custom integrations / automations (AJAX blur-save) ──
+  // ─────────────────────────────────────────────────────────────────────────
+
+  document.querySelectorAll('textarea[data-action="save-job-text"]').forEach((el) => {
+    let original = el.value;
+    el.addEventListener("blur", async () => {
+      if (el.value === original) return;
+      const field = el.dataset.field;
+      const r = await fetch(window.JOB_TEXT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+        body: JSON.stringify({ field, value: el.value }),
+        credentials: "same-origin",
+      });
+      if (r && r.ok) original = el.value;
+      flash(el, r && r.ok);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── Finalize sale ──
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const finalizeBtn = document.getElementById("finalize-btn");
+  const overrideCheck = document.getElementById("finalize-override-check");
+  const overrideAmountWrap = document.getElementById("finalize-override-amount-wrap");
+  const overrideAmountInput = document.getElementById("finalize-override-amount");
+
+  if (overrideCheck) {
+    overrideCheck.addEventListener("change", () => {
+      overrideAmountWrap.hidden = !overrideCheck.checked;
+    });
+  }
+
+  if (finalizeBtn) {
+    finalizeBtn.addEventListener("click", async () => {
+      if (!window.confirm(
+        `Finalize this sale for ${CUSTOMER}?\n\n` +
+        `This will generate the invoice number and ${overrideCheck && overrideCheck.checked ? "skip the payment email." : "send a payment quote to the customer."}`
+      )) return;
+
+      finalizeBtn.disabled = true;
+      finalizeBtn.textContent = "Finalizing…";
+
+      const body = {
+        payment_override: !!(overrideCheck && overrideCheck.checked),
+        override_amount: (overrideAmountInput && overrideAmountInput.value.trim()) || "",
+      };
+
+      let data;
+      try {
+        const r = await fetch(window.FINALIZE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+          body: JSON.stringify(body),
+          credentials: "same-origin",
+        });
+        data = await r.json();
+      } catch (err) {
+        finalizeBtn.disabled = false;
+        finalizeBtn.textContent = "Finalize sale & generate invoice →";
+        alert("Network error — please try again.");
+        return;
+      }
+
+      if (!data.ok) {
+        finalizeBtn.disabled = false;
+        finalizeBtn.textContent = "Finalize sale & generate invoice →";
+        alert("Error: " + (data.error || "Unknown error"));
+        return;
+      }
+
+      _showFinalizeToast(data.invoice_number, data.email_sent, data.email_error);
+      setTimeout(() => window.location.reload(), 2200);
+    });
+  }
+
+  function _showFinalizeToast(invoiceNumber, emailSent, emailError) {
+    const msg = emailSent
+      ? "Payment quote sent to customer."
+      : emailError
+        ? `Email error: ${emailError}`
+        : "Email skipped (manual payment).";
+    const toast = document.createElement("div");
+    toast.className = "finalize-toast";
+    toast.innerHTML =
+      `<div>Sale finalized!</div>` +
+      `<div class="finalize-toast-inv">${escHtml(invoiceNumber)}</div>` +
+      `<div>${escHtml(msg)}</div>`;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+    setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 2000);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── Payment received toggle ──
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const paymentCheck = document.getElementById("payment-received-check");
+  if (paymentCheck) {
+    paymentCheck.addEventListener("change", async () => {
+      const r = await fetch(window.PAYMENT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+        body: JSON.stringify({ received: paymentCheck.checked }),
+        credentials: "same-origin",
+      });
+      if (!r || !r.ok) {
+        paymentCheck.checked = !paymentCheck.checked;
+        return;
+      }
+      const label = paymentCheck.nextElementSibling;
+      if (label) {
+        label.textContent = paymentCheck.checked ? "✓ Payment received" : "Payment received";
+      }
+    });
+  }
 })();

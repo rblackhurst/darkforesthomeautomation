@@ -2,8 +2,6 @@ import json
 
 from django import forms
 
-from .models import Job
-
 
 class SalesForm(forms.Form):
     # ── Customer ─────────────────────────────────────────────────────────
@@ -16,11 +14,6 @@ class SalesForm(forms.Form):
     )
 
     # ── Job ───────────────────────────────────────────────────────────────
-    invoice_number = forms.CharField(
-        max_length=40,
-        label="Invoice number",
-        help_text="Must be unique — this becomes the permanent job ID.",
-    )
     sold_on = forms.DateField(
         label="Sale date",
         widget=forms.DateInput(attrs={"type": "date"}),
@@ -38,6 +31,26 @@ class SalesForm(forms.Form):
             "Anything else to know before the install (access codes, pets, …)"}),
     )
 
+    # ── Custom integrations / automations ─────────────────────────────────
+    custom_integrations = forms.CharField(
+        required=False,
+        label="Custom integrations",
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder":
+            "List any existing devices the customer wants to integrate into Home Assistant "
+            "(e.g. existing smart locks, cameras, sensors). Note: most cloud-only devices "
+            "(Google Nest, Ring, Ecobee, Philips Hue cloud, etc.) cannot be integrated — "
+            "we can investigate but cannot promise compatibility unless they are part of "
+            "our regular offering."}),
+    )
+    custom_automations = forms.CharField(
+        required=False,
+        label="Custom automations",
+        widget=forms.Textarea(attrs={"rows": 3, "placeholder":
+            "Describe any custom automation workflows the customer has requested "
+            "beyond the standard package (e.g. 'lights off when last person leaves', "
+            "'water shutoff when leak sensor triggers')."}),
+    )
+
     # ── Package + devices (sent as JSON by the JS layer) ──────────────────
     package_id = forms.IntegerField(required=False, widget=forms.HiddenInput)
     devices_json = forms.CharField(
@@ -45,14 +58,6 @@ class SalesForm(forms.Form):
         widget=forms.HiddenInput,
         help_text="JSON array: [{device_id, quantity, notes}]",
     )
-
-    def clean_invoice_number(self):
-        val = self.cleaned_data["invoice_number"].strip()
-        if Job.objects.filter(invoice_number=val).exists():
-            raise forms.ValidationError(
-                f"Job #{val} already exists. Use a different invoice number."
-            )
-        return val
 
     def clean_devices_json(self):
         raw = self.cleaned_data.get("devices_json", "").strip()

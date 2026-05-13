@@ -17,7 +17,7 @@
       <div class="sidebar-eyebrow">Pre-install checklist</div>
       <div class="sidebar-customer">{{ job.customer.first_name }} {{ job.customer.last_name }}</div>
       <div class="sidebar-meta">
-        Invoice {{ job.invoice_number }}{% if job.install_date %} · {{ job.install_date|date:"M j" }}{% endif %}
+        {% if job.display_invoice_number %}Invoice {{ job.display_invoice_number }}{% else %}<em>Invoice pending</em>{% endif %}{% if job.install_date %} · {{ job.install_date|date:"M j" }}{% endif %}
       </div>
     </div>
 
@@ -43,6 +43,13 @@
         <span class="sidebar-step-title">Room walkthrough</span>
         <span class="sidebar-step-progress" id="room-count-badge">{{ rooms|length }} room{{ rooms|length|pluralize }}</span>
       </a>
+      <a class="sidebar-step {% if job.finalized_at %}complete{% endif %}" href="#finalize-sale" data-step-anchor="finalize-sale">
+        <span class="sidebar-step-num">✓</span>
+        <span class="sidebar-step-title">Finalize sale</span>
+        {% if job.display_invoice_number %}
+          <span class="sidebar-step-progress complete">{{ job.display_invoice_number }}</span>
+        {% endif %}
+      </a>
     </nav>
 
     <div class="sidebar-footer">
@@ -58,7 +65,7 @@
       <h1>{{ template.title }} <span class="version">v{{ template.version }}</span></h1>
       <p class="customer-line">
         <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
-        · invoice {{ job.invoice_number }}
+        · {% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}<em>invoice pending</em>{% endif %}
         {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
       </p>
     </header>
@@ -154,6 +161,91 @@
       </div>
     </section>
 
+    <!-- ── Custom integrations & automations ── -->
+    <section class="step" id="custom-integrations">
+      <header class="step-header">
+        <span class="step-badge">Notes</span>
+        <h2>Custom integrations &amp; automations</h2>
+      </header>
+      <p class="step-intro">
+        Capture any existing devices the customer wants integrated, or custom automation requests.
+        <strong>Note:</strong> most cloud-only devices (Google Nest, Ring, Ecobee, etc.) cannot be
+        integrated — we can investigate but cannot promise compatibility unless they are part of our
+        regular offering.
+      </p>
+      <div class="capture-row capture-row-tall">
+        <label for="custom-integrations-input">Custom integrations</label>
+        <textarea id="custom-integrations-input" rows="4"
+          data-action="save-job-text" data-field="custom_integrations"
+          placeholder="List any existing devices…">{{ job.custom_integrations }}</textarea>
+      </div>
+      <div class="capture-row capture-row-tall">
+        <label for="custom-automations-input">Custom automations</label>
+        <textarea id="custom-automations-input" rows="4"
+          data-action="save-job-text" data-field="custom_automations"
+          placeholder="Describe custom automation requests…">{{ job.custom_automations }}</textarea>
+      </div>
+    </section>
+
+    <!-- ── Finalize sale ── -->
+    <section class="step finalize-section" id="finalize-sale">
+      <header class="step-header">
+        <span class="step-badge">Finalize</span>
+        <h2>Finalize sale &amp; generate invoice</h2>
+      </header>
+
+      {% if job.finalized_at %}
+        <!-- Already finalized -->
+        <div class="finalize-done">
+          <div class="finalize-invoice-display">
+            Invoice <strong>{{ job.display_invoice_number }}</strong>
+          </div>
+          <div class="finalize-meta">
+            Finalized {{ job.finalized_at|date:"M j, Y g:i a" }}
+            {% if job.payment_override %}&nbsp;· <em>Email skipped (manual payment)</em>{% endif %}
+          </div>
+
+          <!-- Payment received -->
+          <div class="payment-received-row">
+            <label class="payment-toggle">
+              <input type="checkbox" id="payment-received-check" data-action="payment-received" {% if job.payment_received %}checked{% endif %}>
+              <span class="payment-toggle-label">
+                {% if job.payment_received %}
+                  ✓ Payment received{% if job.payment_received_at %} · {{ job.payment_received_at|date:"M j, Y g:i a" }}{% endif %}
+                {% else %}
+                  Payment received
+                {% endif %}
+              </span>
+            </label>
+          </div>
+        </div>
+
+      {% else %}
+        <!-- Not yet finalized -->
+        <p class="step-intro">
+          Complete the room walkthrough above, then finalize to generate the invoice number and send the payment quote to the customer.
+        </p>
+        <div class="finalize-summary" id="finalize-summary">
+          <div class="finalize-summary-row"><span>Estimated total</span><span id="finalize-total">{{ sale_total|default:"—" }}</span></div>
+          <div class="finalize-summary-row"><span>50% deposit</span><span id="finalize-deposit">{{ sale_deposit|default:"—" }}</span></div>
+        </div>
+        <div class="finalize-override-row">
+          <label class="finalize-override-toggle">
+            <input type="checkbox" id="finalize-override-check">
+            <span>Override — skip auto-email (handle payment manually)</span>
+          </label>
+          <div id="finalize-override-amount-wrap" class="finalize-override-amount" hidden>
+            <label for="finalize-override-amount">Custom total amount <span class="optional">optional</span></label>
+            <input type="number" id="finalize-override-amount" min="0" step="0.01" placeholder="e.g. 500.00">
+            <span class="field-hint">Leave blank to keep the calculated total; enter a value for a reduced price.</span>
+          </div>
+        </div>
+        <button type="button" id="finalize-btn" class="finalize-btn">
+          Finalize sale &amp; generate invoice →
+        </button>
+      {% endif %}
+    </section>
+
     <!-- internal prep CTA -->
     <div class="internal-prep-cta">
       <a href="{% url 'jobs:internal_prep_render' job.invoice_number %}" class="internal-prep-link">
@@ -187,10 +279,14 @@
 </div>
 
 <script>
-  window.PI_BASE_URL       = "{% url 'jobs:pre_install_checklist_render' job.invoice_number %}";
-  window.PI_CUSTOMER_LABEL = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
-  window.ROOM_TYPES        = {{ room_types_json|safe }};
-  window.CATALOG_DEVICES   = {{ catalog_json|safe }};
+  window.PI_BASE_URL        = "{% url 'jobs:pre_install_checklist_render' job.invoice_number %}";
+  window.PI_CUSTOMER_LABEL  = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
+  window.ROOM_TYPES         = {{ room_types_json|safe }};
+  window.CATALOG_DEVICES    = {{ catalog_json|safe }};
+  window.FINALIZE_URL       = "{% url 'jobs:pre_install_finalize' job.invoice_number %}";
+  window.JOB_TEXT_URL       = "{% url 'jobs:pre_install_save_job_text' job.invoice_number %}";
+  window.PAYMENT_URL        = "{% url 'jobs:pre_install_payment_received' job.invoice_number %}";
+  window.ALREADY_FINALIZED  = {{ job.finalized_at|yesno:"true,false" }};
 </script>
 <script src="{% static 'jobs/pre_install_checklist.js' %}"></script>
 </body>

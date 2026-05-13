@@ -43,7 +43,7 @@
                   <strong>{{ c.job.customer.last_name }}, {{ c.job.customer.first_name }}</strong>
                 </div>
                 <div class="card-meta">
-                  <span class="invoice">#{{ c.job.invoice_number }}</span>
+                  <span class="invoice">{% if c.job.display_invoice_number %}{{ c.job.display_invoice_number }}{% else %}<em>pending</em>{% endif %}</span>
                   {% if c.job.install_date %}
                     <span class="install-date">install {{ c.job.install_date|date:"M j" }}</span>
                   {% else %}
@@ -85,7 +85,7 @@
                 <span class="archive-status">{{ c.job.get_status_display }}</span>
               </div>
               <div class="card-meta">
-                <span class="invoice">#{{ c.job.invoice_number }}</span>
+                <span class="invoice">{% if c.job.display_invoice_number %}{{ c.job.display_invoice_number }}{% else %}<em>pending</em>{% endif %}</span>
                 {% if c.job.install_date %}<span class="install-date">installed {{ c.job.install_date|date:"M j, Y" }}</span>{% endif %}
               </div>
             </div>

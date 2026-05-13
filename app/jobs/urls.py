@@ -113,4 +113,21 @@ urlpatterns = [
         views.pick_sheet_render,
         name="pick_sheet_render",
     ),
+
+    # ── Pre-install: custom integrations / automations + finalization ────
+    path(
+        "jobs/<str:invoice_number>/pre-install/job-text/",
+        views.pre_install_save_job_text,
+        name="pre_install_save_job_text",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/finalize/",
+        views.pre_install_finalize,
+        name="pre_install_finalize",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/payment-received/",
+        views.pre_install_payment_received,
+        name="pre_install_payment_received",
+    ),
 ]

@@ -534,7 +534,35 @@ def _create_default_rooms(job, pkg):
             room_type=room_type,
             custom_name=entry.get("custom_name", ""),
             order=order,
+            from_package=True,
         )
+
+
+def _update_sale(job, new_package_id, device_rows):
+    """Replace sale lines and package-derived rooms for an existing job.
+
+    Called from the edit-sale form. Keeps manually-added rooms intact and only
+    replaces package-sourced sale lines / rooms when the package changes.
+    """
+    package_changed = job.package_id != (new_package_id or None)
+
+    if package_changed:
+        job.sale_lines.filter(from_package=True).delete()
+        job.rooms.filter(from_package=True).delete()
+        job.package = None
+        job.package_summary = ""
+        job.payment_override_amount = None
+        job.save(update_fields=["package", "package_summary", "payment_override_amount"])
+
+    # Always refresh à-la-carte lines so the latest quantities/notes are saved.
+    job.sale_lines.filter(from_package=False).delete()
+
+    # Re-use the same helper; it handles both package lines and à-la-carte.
+    # If the package didn't change, pass None so it skips re-creating package lines.
+    _create_sale_lines(job, new_package_id if package_changed else None, device_rows)
+
+    # If package unchanged but à-la-carte changed, payment_override_amount is already
+    # set from the original package application — no adjustment needed.
 
 
 def _create_sale_lines(job, package_id, device_rows):
@@ -732,6 +760,76 @@ def sales_form(request):
         "form": form,
         "packages_json": json.dumps(packages),
         "catalog_json": json.dumps(catalog),
+    })
+
+
+@login_required
+@staff_required
+def sales_form_edit(request, invoice_number):
+    """Edit sale details (customer, package, devices) for a non-finalized job."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+
+    if job.finalized_at:
+        return redirect("jobs:pre_install_checklist_render", invoice_number=invoice_number)
+
+    packages = _packages_json()
+    catalog = _catalog_json()
+
+    if request.method == "POST":
+        form = SalesForm(request.POST)
+        if form.is_valid():
+            d = form.cleaned_data
+            # Update customer record in place.
+            job.customer.first_name = d["first_name"]
+            job.customer.last_name = d["last_name"]
+            job.customer.email = d["email"]
+            job.customer.phone = d.get("phone", "")
+            job.customer.save()
+            # Update job fields.
+            job.sold_on = d["sold_on"]
+            job.install_date = d.get("install_date")
+            job.notes = d.get("notes", "")
+            job.custom_integrations = d.get("custom_integrations", "")
+            job.custom_automations = d.get("custom_automations", "")
+            job.service_plan_tier = d.get("service_plan_tier") or 0
+            job.save(update_fields=[
+                "sold_on", "install_date", "notes",
+                "custom_integrations", "custom_automations", "service_plan_tier",
+            ])
+            _update_sale(job, d.get("package_id"), d.get("devices_json") or [])
+            return redirect("jobs:pre_install_checklist_render", invoice_number=invoice_number)
+    else:
+        adhoc_lines = [
+            {"device_id": sl.device_id, "quantity": sl.quantity, "notes": sl.notes}
+            for sl in job.sale_lines.filter(from_package=False)
+        ]
+        form = SalesForm(initial={
+            "first_name": job.customer.first_name,
+            "last_name": job.customer.last_name,
+            "email": job.customer.email,
+            "phone": job.customer.phone,
+            "sold_on": job.sold_on,
+            "install_date": job.install_date,
+            "notes": job.notes,
+            "custom_integrations": job.custom_integrations,
+            "custom_automations": job.custom_automations,
+            "service_plan_tier": job.service_plan_tier,
+            "package_id": job.package_id or "",
+        })
+
+    adhoc_lines = [
+        {"device_id": sl.device_id, "quantity": sl.quantity, "notes": sl.notes}
+        for sl in job.sale_lines.filter(from_package=False)
+    ]
+
+    return render(request, "jobs/sales_form.html", {
+        "form": form,
+        "packages_json": json.dumps(packages),
+        "catalog_json": json.dumps(catalog),
+        "job": job,
+        "edit_mode": True,
+        "existing_package_id": job.package_id or "",
+        "existing_adhoc_json": json.dumps(adhoc_lines),
     })
 
 

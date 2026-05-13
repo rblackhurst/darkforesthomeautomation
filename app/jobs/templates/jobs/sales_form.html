@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DFHA · New sale</title>
+  <title>DFHA · {% if edit_mode %}Edit sale{% else %}New sale{% endif %}</title>
   <link rel="stylesheet" href="{% static 'jobs/sales_form.css' %}">
 </head>
 <body>
@@ -11,8 +11,13 @@
 <header class="page-header">
   <div class="header-row">
     <div>
-      <a class="back-link" href="{% url 'jobs:home' %}">← Dashboard</a>
-      <h1>New sale</h1>
+      {% if edit_mode %}
+        <a class="back-link" href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}">← Pre-install checklist</a>
+        <h1>Edit sale — {{ job.customer.first_name }} {{ job.customer.last_name }}</h1>
+      {% else %}
+        <a class="back-link" href="{% url 'jobs:home' %}">← Dashboard</a>
+        <h1>New sale</h1>
+      {% endif %}
     </div>
   </div>
 </header>
@@ -69,7 +74,7 @@
           <option value="">— No package / custom build —</option>
           {% comment %}Options rendered by JS from packages_json{% endcomment %}
         </select>
-        <span class="field-hint">Selecting a package pre-fills the device table below. You can still add or remove items.</span>
+        <span class="field-hint">Selecting a package pre-fills the device table below. You can still add or remove items.{% if edit_mode %} Changing the package will replace the existing package rooms in the walkthrough — manually added rooms are kept.{% endif %}</span>
       </div>
 
       <div id="package-preview" class="package-preview" hidden>
@@ -184,16 +189,23 @@
     </section>
 
     <div class="form-actions">
-      <a href="{% url 'jobs:home' %}" class="cancel-btn">Cancel</a>
-      <button type="submit" class="submit-btn">Start sale &amp; open pre-install checklist →</button>
+      {% if edit_mode %}
+        <a href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}" class="cancel-btn">Cancel</a>
+        <button type="submit" class="submit-btn">Save changes &amp; return to checklist →</button>
+      {% else %}
+        <a href="{% url 'jobs:home' %}" class="cancel-btn">Cancel</a>
+        <button type="submit" class="submit-btn">Start sale &amp; open pre-install checklist →</button>
+      {% endif %}
     </div>
 
   </form>
 </main>
 
 <script>
-  window.PACKAGES_DATA = {{ packages_json|safe }};
-  window.CATALOG_DATA  = {{ catalog_json|safe }};
+  window.PACKAGES_DATA        = {{ packages_json|safe }};
+  window.CATALOG_DATA         = {{ catalog_json|safe }};
+  window.EXISTING_PACKAGE_ID  = {{ existing_package_id|default:"null" }};
+  window.EXISTING_ADHOC_JSON  = {{ existing_adhoc_json|default:"[]"|safe }};
 </script>
 <script src="{% static 'jobs/sales_form.js' %}"></script>
 </body>

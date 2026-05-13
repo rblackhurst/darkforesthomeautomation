@@ -54,6 +54,9 @@
 
     <div class="sidebar-footer">
       <a class="sidebar-link sidebar-link-highlight" href="{% url 'jobs:internal_prep_render' job.invoice_number %}">Internal prep →</a>
+      {% if not job.finalized_at %}
+        <a class="sidebar-link" href="{% url 'jobs:sales_form_edit' job.invoice_number %}">Edit sale / package</a>
+      {% endif %}
       <a class="sidebar-link" href="{% url 'jobs:home' %}">← Dashboard</a>
       <a class="sidebar-link" href="{% url 'admin:jobs_job_change' job.invoice_number %}">Open job in admin</a>
       <button type="button" class="reset-btn" data-action="reset">Reset checklist</button>

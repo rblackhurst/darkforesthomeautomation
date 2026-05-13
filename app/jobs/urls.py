@@ -135,4 +135,9 @@ urlpatterns = [
         views.pre_install_toggle_invoice_sent,
         name="pre_install_toggle_invoice_sent",
     ),
+    path(
+        "jobs/<str:invoice_number>/edit-sale/",
+        views.sales_form_edit,
+        name="sales_form_edit",
+    ),
 ]

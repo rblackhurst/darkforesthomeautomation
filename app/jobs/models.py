@@ -681,6 +681,11 @@ class Room(models.Model):
                   "(e.g. 'Master', 'Kids', 'Grandma's').",
     )
     order = models.PositiveSmallIntegerField(default=0)
+    from_package = models.BooleanField(
+        default=False,
+        help_text="True if this room was auto-created from the package default_rooms list. "
+                  "Allows re-applying a package without losing manually-added rooms.",
+    )
 
     class Meta:
         ordering = ["order", "id"]

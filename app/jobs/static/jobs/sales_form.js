@@ -179,5 +179,25 @@
     });
   }
 
+  // ── Pre-populate when editing an existing sale ──
+  const existingPkgId = window.EXISTING_PACKAGE_ID;
+  const existingAdhoc = window.EXISTING_ADHOC_JSON || [];
+
+  if (existingPkgId) {
+    packageSelect.value = String(existingPkgId);
+    // Trigger the change handler to load package lines into `lines`.
+    packageSelect.dispatchEvent(new Event("change"));
+  }
+
+  // Append any à-la-carte lines that were saved on the job.
+  existingAdhoc.forEach((row) => {
+    lines.push({
+      device_id: row.device_id,
+      quantity: row.quantity,
+      notes: row.notes || "",
+      _fromPackage: false,
+    });
+  });
+
   refreshTable();
 })();

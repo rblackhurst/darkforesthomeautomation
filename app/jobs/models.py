@@ -493,3 +493,137 @@ class PreInstallCapture(models.Model):
 
     def __str__(self):
         return f"{self.pre_install_checklist.job_id} · {self.key}"
+
+
+# ── Packages & sale lines ─────────────────────────────────────────────────────
+
+class Package(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    base_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Base sale price for this package.",
+    )
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class PackageDevice(models.Model):
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name="devices")
+    device = models.ForeignKey(
+        CatalogDevice, on_delete=models.PROTECT, related_name="package_lines",
+    )
+    quantity = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        ordering = ["device__device_type", "device__model_name"]
+
+    def __str__(self):
+        return f"{self.package.name}: {self.quantity}× {self.device.model_name}"
+
+
+class SaleLine(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="sale_lines")
+    device = models.ForeignKey(
+        CatalogDevice, on_delete=models.PROTECT, related_name="sale_lines",
+    )
+    quantity = models.PositiveSmallIntegerField(default=1)
+    unit_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Snapshot of the device cost at time of sale.",
+    )
+    notes = models.CharField(max_length=200, blank=True)
+    confirmed_in_stock = models.BooleanField(default=False)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.job_id}: {self.quantity}× {self.device.model_name}"
+
+    @property
+    def line_total(self):
+        if self.unit_cost is not None:
+            return self.unit_cost * self.quantity
+        return None
+
+
+# ── Internal prep ─────────────────────────────────────────────────────────────
+
+class InternalPrep(models.Model):
+    job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="internal_prep")
+    github_username = models.CharField(max_length=100, blank=True)
+    github_created = models.BooleanField(default=False)
+    picklist_picked = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"InternalPrep for {self.job_id}"
+
+
+# ── Room walkthrough ──────────────────────────────────────────────────────────
+
+class Room(models.Model):
+    class RoomType(models.TextChoices):
+        LIVING_ROOM = "living_room", "Living room"
+        KITCHEN = "kitchen", "Kitchen"
+        DINING_ROOM = "dining_room", "Dining room"
+        BEDROOM = "bedroom", "Bedroom"
+        BATHROOM = "bathroom", "Bathroom"
+        OFFICE = "office", "Office"
+        GARAGE = "garage", "Garage"
+        BASEMENT = "basement", "Basement"
+        LAUNDRY = "laundry", "Laundry room"
+        HALLWAY = "hallway", "Hallway"
+        ENTRYWAY = "entryway", "Entryway"
+        OUTDOOR = "outdoor", "Backyard / outdoor"
+        OTHER = "other", "Other"
+
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="rooms")
+    room_type = models.CharField(max_length=20, choices=RoomType.choices)
+    custom_name = models.CharField(
+        max_length=100, blank=True,
+        help_text="Optional label to distinguish this room from others of the same type "
+                  "(e.g. 'Master', 'Kids', 'Grandma's').",
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    @property
+    def display_label(self):
+        base = self.get_room_type_display()
+        return f"{base} — {self.custom_name}" if self.custom_name else base
+
+    def __str__(self):
+        return f"{self.job_id}: {self.display_label}"
+
+
+class RoomDevice(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="devices")
+    device = models.ForeignKey(
+        CatalogDevice, on_delete=models.PROTECT, related_name="room_devices",
+    )
+    quantity = models.PositiveSmallIntegerField(default=1)
+    confirmed = models.BooleanField(
+        default=False,
+        help_text="Customer confirmed this device goes in this room.",
+    )
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.room}: {self.quantity}× {self.device.model_name}"

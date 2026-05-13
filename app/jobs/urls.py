@@ -62,4 +62,55 @@ urlpatterns = [
         views.pre_install_reset,
         name="pre_install_reset",
     ),
+
+    # ── Room walkthrough (AJAX, called from pre-install page) ────────────
+    path(
+        "jobs/<str:invoice_number>/pre-install/rooms/add/",
+        views.room_add,
+        name="room_add",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/delete/",
+        views.room_delete,
+        name="room_delete",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/devices/add/",
+        views.room_device_add,
+        name="room_device_add",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/devices/<int:rd_id>/delete/",
+        views.room_device_delete,
+        name="room_device_delete",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/devices/<int:rd_id>/confirm/",
+        views.room_device_confirm,
+        name="room_device_confirm",
+    ),
+
+    # ── Internal prep ────────────────────────────────────────────────────
+    path(
+        "jobs/<str:invoice_number>/internal-prep/",
+        views.internal_prep_render,
+        name="internal_prep_render",
+    ),
+    path(
+        "jobs/<str:invoice_number>/internal-prep/save/",
+        views.internal_prep_save_field,
+        name="internal_prep_save_field",
+    ),
+    path(
+        "jobs/<str:invoice_number>/internal-prep/devices/<int:sale_line_id>/confirm/",
+        views.internal_prep_confirm_device,
+        name="internal_prep_confirm_device",
+    ),
+
+    # ── Pick sheet ───────────────────────────────────────────────────────
+    path(
+        "jobs/<str:invoice_number>/pick-sheet/",
+        views.pick_sheet_render,
+        name="pick_sheet_render",
+    ),
 ]

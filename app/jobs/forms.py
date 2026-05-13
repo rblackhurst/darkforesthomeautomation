@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 
 from .models import Job
@@ -29,18 +31,19 @@ class SalesForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
         help_text="Leave blank if not scheduled yet.",
     )
-    package_summary = forms.CharField(
-        required=False,
-        label="Package summary",
-        widget=forms.Textarea(attrs={"rows": 4, "placeholder":
-            "e.g. Standard HA package — NUC + 6× Zigbee sensors + doorbell camera"}),
-        help_text="Brief description of what was sold. Editable later.",
-    )
     notes = forms.CharField(
         required=False,
         label="Internal notes",
         widget=forms.Textarea(attrs={"rows": 3, "placeholder":
             "Anything else to know before the install (access codes, pets, …)"}),
+    )
+
+    # ── Package + devices (sent as JSON by the JS layer) ──────────────────
+    package_id = forms.IntegerField(required=False, widget=forms.HiddenInput)
+    devices_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput,
+        help_text="JSON array: [{device_id, quantity, notes}]",
     )
 
     def clean_invoice_number(self):
@@ -50,3 +53,24 @@ class SalesForm(forms.Form):
                 f"Job #{val} already exists. Use a different invoice number."
             )
         return val
+
+    def clean_devices_json(self):
+        raw = self.cleaned_data.get("devices_json", "").strip()
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            raise forms.ValidationError("Device list is malformed.")
+        if not isinstance(data, list):
+            raise forms.ValidationError("Device list must be a JSON array.")
+        cleaned = []
+        for row in data:
+            try:
+                device_id = int(row["device_id"])
+                quantity = max(1, int(row.get("quantity", 1)))
+                notes = str(row.get("notes", ""))[:200]
+                cleaned.append({"device_id": device_id, "quantity": quantity, "notes": notes})
+            except (KeyError, ValueError, TypeError):
+                raise forms.ValidationError("One or more device rows are malformed.")
+        return cleaned

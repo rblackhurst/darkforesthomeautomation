@@ -1,9 +1,10 @@
 import json
 import secrets
 import string
+from collections import defaultdict
 
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Count
+from django.db.models import Count, Max
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -15,13 +16,19 @@ from .models import (
     BackendInstall,
     BackendInstallCapture,
     BackendInstallItemState,
+    CatalogDevice,
     ChecklistItem,
     ChecklistTemplate,
     Customer,
+    InternalPrep,
     Job,
+    Package,
     PreInstallCapture,
     PreInstallChecklist,
     PreInstallItemState,
+    Room,
+    RoomDevice,
+    SaleLine,
 )
 
 
@@ -344,6 +351,14 @@ def pre_install_checklist_render(request, invoice_number):
         job.save(update_fields=["status"])
 
     rendered_steps, total_checks, total_done = _render_checklist(pi)
+
+    rooms = list(job.rooms.prefetch_related("devices__device").all())
+    room_types = [{"value": c[0], "label": c[1]} for c in Room.RoomType.choices]
+    catalog_flat = [
+        {"device_id": d.id, "label": str(d)}
+        for d in CatalogDevice.objects.filter(active=True)
+    ]
+
     return render(request, "jobs/pre_install_checklist.html", {
         "job": job,
         "pre_install_checklist": pi,
@@ -351,6 +366,9 @@ def pre_install_checklist_render(request, invoice_number):
         "steps": rendered_steps,
         "total_checks": total_checks,
         "total_done": total_done,
+        "rooms": rooms,
+        "room_types_json": json.dumps(room_types),
+        "catalog_json": json.dumps(catalog_flat),
     })
 
 
@@ -441,9 +459,89 @@ def pre_install_reset(request, invoice_number):
 
 # ── Sales form ───────────────────────────────────────────────────────────
 
+def _packages_json():
+    """Return a JSON-serialisable structure of all active packages + their devices."""
+    result = []
+    for pkg in Package.objects.filter(active=True).prefetch_related("devices__device"):
+        result.append({
+            "id": pkg.id,
+            "name": pkg.name,
+            "description": pkg.description,
+            "base_price": str(pkg.base_price) if pkg.base_price is not None else None,
+            "devices": [
+                {
+                    "device_id": pd.device_id,
+                    "label": str(pd.device),
+                    "quantity": pd.quantity,
+                    "unit_cost": str(pd.device.default_cost) if pd.device.default_cost is not None else None,
+                }
+                for pd in pkg.devices.all()
+            ],
+        })
+    return result
+
+
+def _catalog_json():
+    """Return a JSON-serialisable list of all active catalog devices for à-la-carte selection."""
+    result = {}
+    for device in CatalogDevice.objects.filter(active=True):
+        dtype = device.get_device_type_display()
+        result.setdefault(dtype, []).append({
+            "device_id": device.id,
+            "label": device.model_name,
+            "unit_cost": str(device.default_cost) if device.default_cost is not None else None,
+        })
+    return result
+
+
+def _create_sale_lines(job, package_id, device_rows):
+    """Create SaleLine rows from a package expansion + à-la-carte rows."""
+    sort = 0
+
+    if package_id:
+        try:
+            pkg = Package.objects.get(pk=package_id, active=True)
+            pkg_device_ids = set()
+            for pd in pkg.devices.select_related("device"):
+                SaleLine.objects.create(
+                    job=job,
+                    device=pd.device,
+                    quantity=pd.quantity,
+                    unit_cost=pd.device.default_cost,
+                    notes=f"From package: {pkg.name}",
+                    sort_order=sort,
+                )
+                pkg_device_ids.add(pd.device_id)
+                sort += 1
+            # Auto-derive a package_summary for the job if it has none.
+            if not job.package_summary:
+                job.package_summary = pkg.name
+                job.save(update_fields=["package_summary"])
+        except Package.DoesNotExist:
+            pass
+
+    for row in device_rows:
+        try:
+            device = CatalogDevice.objects.get(pk=row["device_id"], active=True)
+        except CatalogDevice.DoesNotExist:
+            continue
+        SaleLine.objects.create(
+            job=job,
+            device=device,
+            quantity=row["quantity"],
+            unit_cost=device.default_cost,
+            notes=row.get("notes", ""),
+            sort_order=sort,
+        )
+        sort += 1
+
+
 @login_required
 @staff_required
 def sales_form(request):
+    packages = _packages_json()
+    catalog = _catalog_json()
+
     if request.method == "POST":
         form = SalesForm(request.POST)
         if form.is_valid():
@@ -454,15 +552,15 @@ def sales_form(request):
                 email=d["email"],
                 phone=d.get("phone", ""),
             )
-            Job.objects.create(
+            job = Job.objects.create(
                 invoice_number=d["invoice_number"],
                 customer=customer,
                 status=Job.Status.SOLD,
                 sold_on=d["sold_on"],
                 install_date=d.get("install_date"),
-                package_summary=d.get("package_summary", ""),
                 notes=d.get("notes", ""),
             )
+            _create_sale_lines(job, d.get("package_id"), d.get("devices_json") or [])
             return redirect(
                 "jobs:pre_install_checklist_render",
                 invoice_number=d["invoice_number"],
@@ -470,7 +568,190 @@ def sales_form(request):
     else:
         form = SalesForm(initial={"sold_on": now().date()})
 
-    return render(request, "jobs/sales_form.html", {"form": form})
+    return render(request, "jobs/sales_form.html", {
+        "form": form,
+        "packages_json": json.dumps(packages),
+        "catalog_json": json.dumps(catalog),
+    })
+
+
+# ── Internal prep ─────────────────────────────────────────────────────────────
+
+def _get_or_create_internal_prep(job):
+    ip, _ = InternalPrep.objects.get_or_create(job=job)
+    return ip
+
+
+@login_required
+@staff_required
+def internal_prep_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ip = _get_or_create_internal_prep(job)
+    sale_lines = list(job.sale_lines.select_related("device").all())
+    total_confirmed = sum(1 for sl in sale_lines if sl.confirmed_in_stock)
+    return render(request, "jobs/internal_prep.html", {
+        "job": job,
+        "internal_prep": ip,
+        "sale_lines": sale_lines,
+        "total_confirmed": total_confirmed,
+        "all_confirmed": len(sale_lines) > 0 and total_confirmed == len(sale_lines),
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def internal_prep_confirm_device(request, invoice_number, sale_line_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    sl = get_object_or_404(SaleLine, pk=sale_line_id, job=job)
+    sl.confirmed_in_stock = bool(_load_json(request).get("confirmed"))
+    sl.save(update_fields=["confirmed_in_stock"])
+    return JsonResponse({"confirmed": sl.confirmed_in_stock})
+
+
+@login_required
+@staff_required
+@require_POST
+def internal_prep_save_field(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ip = _get_or_create_internal_prep(job)
+    data = _load_json(request)
+    field = data.get("field")
+    value = data.get("value")
+
+    allowed = {"github_username", "github_created", "picklist_picked", "notes"}
+    if field not in allowed:
+        raise Http404("Unknown field")
+
+    if field in {"github_created", "picklist_picked"}:
+        setattr(ip, field, bool(value))
+    else:
+        setattr(ip, field, str(value)[:200] if field == "github_username" else str(value))
+    ip.save(update_fields=[field])
+    return JsonResponse({"saved": True})
+
+
+# ── Room walkthrough ──────────────────────────────────────────────────────────
+
+@login_required
+@staff_required
+@require_POST
+def room_add(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    data = _load_json(request)
+    room_type = data.get("room_type", "")
+    if room_type not in {c[0] for c in Room.RoomType.choices}:
+        return JsonResponse({"error": "Invalid room type"}, status=400)
+    custom_name = str(data.get("custom_name", ""))[:100]
+    next_order = (job.rooms.aggregate(m=Max("order"))["m"] or 0) + 1
+    room = Room.objects.create(job=job, room_type=room_type, custom_name=custom_name, order=next_order)
+    return JsonResponse({
+        "id": room.id,
+        "display_label": room.display_label,
+        "room_type": room.room_type,
+        "custom_name": room.custom_name,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def room_delete(request, invoice_number, room_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    room = get_object_or_404(Room, pk=room_id, job=job)
+    room.delete()
+    return JsonResponse({"deleted": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def room_device_add(request, invoice_number, room_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    room = get_object_or_404(Room, pk=room_id, job=job)
+    data = _load_json(request)
+    try:
+        device = CatalogDevice.objects.get(pk=data.get("device_id"), active=True)
+    except CatalogDevice.DoesNotExist:
+        return JsonResponse({"error": "Unknown device"}, status=400)
+    quantity = max(1, int(data.get("quantity", 1)))
+    rd = RoomDevice.objects.create(room=room, device=device, quantity=quantity)
+    return JsonResponse({
+        "id": rd.id,
+        "device_label": str(device),
+        "quantity": rd.quantity,
+        "confirmed": rd.confirmed,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def room_device_delete(request, invoice_number, room_id, rd_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    room = get_object_or_404(Room, pk=room_id, job=job)
+    rd = get_object_or_404(RoomDevice, pk=rd_id, room=room)
+    rd.delete()
+    return JsonResponse({"deleted": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def room_device_confirm(request, invoice_number, room_id, rd_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    room = get_object_or_404(Room, pk=room_id, job=job)
+    rd = get_object_or_404(RoomDevice, pk=rd_id, room=room)
+    rd.confirmed = bool(_load_json(request).get("confirmed"))
+    rd.save(update_fields=["confirmed"])
+    return JsonResponse({"confirmed": rd.confirmed})
+
+
+# ── Pick sheet ───────────────────────────────────────────────────────────────
+
+@login_required
+@staff_required
+def pick_sheet_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+
+    # Combine sale lines + confirmed room devices, deduplicating by device.
+    quantities: dict[int, dict] = {}
+
+    for sl in job.sale_lines.select_related("device").all():
+        did = sl.device_id
+        if did not in quantities:
+            quantities[did] = {
+                "device": sl.device,
+                "quantity": 0,
+                "source": [],
+            }
+        quantities[did]["quantity"] += sl.quantity
+        quantities[did]["source"].append("sale")
+
+    for room in job.rooms.prefetch_related("devices__device").all():
+        for rd in room.devices.filter(confirmed=True):
+            did = rd.device_id
+            if did not in quantities:
+                quantities[did] = {
+                    "device": rd.device,
+                    "quantity": 0,
+                    "source": [],
+                }
+            quantities[did]["quantity"] += rd.quantity
+            label = room.display_label
+            if label not in quantities[did]["source"]:
+                quantities[did]["source"].append(label)
+
+    # Group by device type.
+    by_type: dict[str, list] = defaultdict(list)
+    for entry in sorted(quantities.values(), key=lambda e: (e["device"].device_type, -e["quantity"])):
+        by_type[entry["device"].get_device_type_display()].append(entry)
+
+    return render(request, "jobs/pick_sheet.html", {
+        "job": job,
+        "by_type": dict(by_type),
+        "total_lines": len(quantities),
+    })
 
 
 # ── Installer home / pipeline view ──────────────────────────────────────

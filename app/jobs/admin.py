@@ -14,12 +14,18 @@ from .models import (
     ChecklistTemplate,
     CredentialBundle,
     Customer,
+    InternalPrep,
     Job,
     OnsiteInstall,
+    Package,
+    PackageDevice,
     PairingSheet,
     PreInstallCapture,
     PreInstallChecklist,
     PreInstallItemState,
+    Room,
+    RoomDevice,
+    SaleLine,
     ServiceSubscription,
     TroubleRequest,
     WalkthroughSignoff,
@@ -69,6 +75,13 @@ class ServiceSubscriptionInline(admin.StackedInline):
     can_delete = False
 
 
+class SaleLineInline(admin.TabularInline):
+    model = SaleLine
+    extra = 0
+    fields = ("device", "quantity", "unit_cost", "confirmed_in_stock", "notes", "sort_order")
+    ordering = ("sort_order", "id")
+
+
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
     list_display = ("last_name", "first_name", "email", "city", "state")
@@ -85,6 +98,7 @@ class JobAdmin(admin.ModelAdmin):
     date_hierarchy = "install_date"
     readonly_fields = ("install_links",)
     inlines = [
+        SaleLineInline,
         PreInstallChecklistInline,
         BackendInstallInline,
         PairingSheetInline,
@@ -261,6 +275,26 @@ class BackendInstallCaptureAdmin(admin.ModelAdmin):
         return (obj.value[:60] + "…") if len(obj.value) > 60 else obj.value
 
 
+class PackageDeviceInline(admin.TabularInline):
+    model = PackageDevice
+    extra = 1
+    fields = ("device", "quantity")
+    autocomplete_fields = ("device",)
+
+
+@admin.register(Package)
+class PackageAdmin(admin.ModelAdmin):
+    list_display = ("name", "base_price", "device_count", "active")
+    list_filter = ("active",)
+    search_fields = ("name", "description")
+    list_editable = ("active",)
+    inlines = [PackageDeviceInline]
+
+    @admin.display(description="Devices")
+    def device_count(self, obj):
+        return obj.devices.count()
+
+
 @admin.register(CatalogDevice)
 class CatalogDeviceAdmin(admin.ModelAdmin):
     list_display = ("device_type", "model_name", "supplier", "supplier_sku", "default_cost", "active")
@@ -268,6 +302,31 @@ class CatalogDeviceAdmin(admin.ModelAdmin):
     search_fields = ("model_name", "supplier", "supplier_sku", "notes")
     ordering = ("device_type", "model_name")
     list_editable = ("active",)
+
+
+@admin.register(InternalPrep)
+class InternalPrepAdmin(admin.ModelAdmin):
+    list_display = ("job", "github_username", "github_created", "picklist_picked", "updated_at")
+    search_fields = ("job__invoice_number", "github_username")
+    readonly_fields = ("created_at", "updated_at")
+
+
+class RoomDeviceInline(admin.TabularInline):
+    model = RoomDevice
+    extra = 0
+    fields = ("device", "quantity", "confirmed", "notes")
+
+
+@admin.register(Room)
+class RoomAdmin(admin.ModelAdmin):
+    list_display = ("job", "room_type", "custom_name", "device_count", "order")
+    list_filter = ("room_type",)
+    search_fields = ("job__invoice_number", "custom_name")
+    inlines = [RoomDeviceInline]
+
+    @admin.display(description="Devices")
+    def device_count(self, obj):
+        return obj.devices.count()
 
 
 @admin.register(PreInstallItemState)

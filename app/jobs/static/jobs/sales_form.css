@@ -199,6 +199,59 @@ main {
 .submit-btn:active { background: #1a4530; }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* ── Package preview ── */
+.package-preview {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin: 10px 0 16px;
+}
+.package-preview-name { font-size: 14px; font-weight: 600; color: var(--accent); }
+.package-preview-desc { font-size: 13px; color: var(--text-soft); margin-top: 3px; }
+
+/* ── Device table in sales form ── */
+.device-table-wrap { margin-top: 16px; }
+.device-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+.device-table th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.device-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 14.5px; }
+.device-table tr:last-child td { border-bottom: none; }
+.device-table .col-qty, .device-table .col-cost { width: 70px; text-align: right; }
+.device-table .col-notes { font-size: 12px; color: var(--text-muted); max-width: 180px; }
+.device-table .col-del { width: 40px; text-align: center; }
+.device-empty { text-align: center; color: var(--text-muted); font-size: 14px; padding: 18px 0; }
+.del-line-btn { background: none; border: none; color: var(--text-muted); font-size: 17px; cursor: pointer; padding: 0 4px; border-radius: 3px; }
+.del-line-btn:hover { color: var(--red); background: var(--red-bg); }
+
+.add-device-btn {
+  background: none;
+  border: 1px dashed var(--border-dark);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.12s;
+}
+.add-device-btn:hover { background: var(--accent-bg); border-color: var(--accent-dim); }
+
+/* ── Add device inline panel ── */
+.add-device-panel {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 10px;
+}
+.add-panel-actions { display: flex; gap: 10px; margin-top: 10px; }
+.confirm-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 600; padding: 9px 18px; cursor: pointer; }
+.confirm-btn:hover { background: #235a40; }
+.cancel-inline-btn { background: none; border: 1px solid var(--border-dark); color: var(--text-soft); border-radius: var(--radius); font-size: 14px; padding: 9px 16px; cursor: pointer; }
+.cancel-inline-btn:hover { background: var(--bg-muted); }
+
 /* ── Responsive ── */
 @media (max-width: 640px) {
   .field-row.two-col,

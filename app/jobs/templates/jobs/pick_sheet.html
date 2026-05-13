@@ -1,0 +1,108 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pick sheet · {{ job.invoice_number }} · {{ job.customer.last_name }}</title>
+  <style>
+    :root {
+      --accent: #2d6b4e;
+      --border: #e5e7eb;
+      --text: #111827;
+      --text-muted: #6b7280;
+      --bg-alt: #f9fafb;
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--sans); font-size: 14px; color: var(--text); background: #fff; padding: 32px 40px; }
+    .print-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 2px solid var(--text); }
+    .print-header h1 { font-size: 22px; font-weight: 700; }
+    .print-header .meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .print-actions { margin-bottom: 24px; display: flex; gap: 12px; }
+    .print-btn { background: var(--accent); color: #fff; border: none; border-radius: 5px; font-size: 14px; font-weight: 600; padding: 9px 18px; cursor: pointer; }
+    .back-link { color: var(--text-muted); font-size: 13px; text-decoration: none; line-height: 38px; }
+    .back-link:hover { color: var(--accent); }
+    @media print {
+      .print-actions { display: none; }
+      body { padding: 0; }
+    }
+    .type-section { margin-bottom: 24px; }
+    .type-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: var(--accent); padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    td { padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.4; }
+    tr:last-child td { border-bottom: none; }
+    .col-qty { width: 50px; text-align: center; font-weight: 700; font-size: 16px; }
+    .col-model { font-weight: 500; }
+    .col-supplier { font-size: 12px; color: var(--text-muted); font-family: var(--mono); }
+    .col-url { font-size: 12px; }
+    .col-url a { color: var(--accent); }
+    .col-source { font-size: 12px; color: var(--text-muted); }
+    .col-check { width: 60px; }
+    .check-box { width: 18px; height: 18px; border: 1.5px solid #999; border-radius: 3px; display: inline-block; }
+    .summary { margin-top: 32px; padding-top: 16px; border-top: 2px solid var(--text); font-size: 13px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<div class="print-actions">
+  <a class="back-link" href="{% url 'jobs:internal_prep_render' job.invoice_number %}">← Internal prep</a>
+  <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+</div>
+
+<div class="print-header">
+  <div>
+    <h1>Pick sheet — {{ job.invoice_number }}</h1>
+    <p class="meta">{{ job.customer.first_name }} {{ job.customer.last_name }}{% if job.install_date %} · Install {{ job.install_date|date:"M j, Y" }}{% endif %} · {{ total_lines }} line{{ total_lines|pluralize }}</p>
+  </div>
+  <div style="text-align:right;font-size:12px;color:var(--text-muted)">
+    DFHA<br>Generated {% now "M j, Y" %}
+  </div>
+</div>
+
+{% if by_type %}
+  {% for type_label, entries in by_type.items %}
+    <div class="type-section">
+      <div class="type-header">{{ type_label }}</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="col-qty">Qty</th>
+            <th>Model</th>
+            <th>Supplier / SKU</th>
+            <th>Purchase URL</th>
+            <th>Source</th>
+            <th class="col-check">✓</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries %}
+            <tr>
+              <td class="col-qty">{{ entry.quantity }}</td>
+              <td class="col-model">{{ entry.device.model_name }}</td>
+              <td class="col-supplier">
+                {% if entry.device.supplier %}{{ entry.device.supplier }}{% endif %}
+                {% if entry.device.supplier_sku %}<br>{{ entry.device.supplier_sku }}{% endif %}
+              </td>
+              <td class="col-url">
+                {% if entry.device.purchase_url %}<a href="{{ entry.device.purchase_url }}" target="_blank" rel="noopener">{{ entry.device.purchase_url|truncatechars:50 }}</a>{% else %}—{% endif %}
+              </td>
+              <td class="col-source">{{ entry.source|join:", " }}</td>
+              <td class="col-check"><span class="check-box"></span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+{% else %}
+  <p style="color:var(--text-muted);margin-top:32px;">No devices on this job yet. Add sale lines via the sales form or admin, and confirm room devices during the pre-install walkthrough.</p>
+{% endif %}
+
+<div class="summary">
+  <p>{{ job.customer.first_name }} {{ job.customer.last_name }} · Invoice {{ job.invoice_number }}{% if job.package_summary %} · {{ job.package_summary }}{% endif %}</p>
+</div>
+
+</body>
+</html>

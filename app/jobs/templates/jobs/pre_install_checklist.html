@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ job.customer.last_name }} · Pre-install checklist</title>
   <link rel="stylesheet" href="{% static 'jobs/backend_install.css' %}">
+  <link rel="stylesheet" href="{% static 'jobs/pre_install_extra.css' %}">
 </head>
 <body>
 {% csrf_token %}
@@ -37,12 +38,18 @@
           {% endif %}
         </a>
       {% endfor %}
+      <a class="sidebar-step" href="#room-walkthrough" data-step-anchor="room-walkthrough">
+        <span class="sidebar-step-num">→</span>
+        <span class="sidebar-step-title">Room walkthrough</span>
+        <span class="sidebar-step-progress" id="room-count-badge">{{ rooms|length }} room{{ rooms|length|pluralize }}</span>
+      </a>
     </nav>
 
     <div class="sidebar-footer">
+      <a class="sidebar-link sidebar-link-highlight" href="{% url 'jobs:internal_prep_render' job.invoice_number %}">Internal prep →</a>
       <a class="sidebar-link" href="{% url 'jobs:home' %}">← Dashboard</a>
       <a class="sidebar-link" href="{% url 'admin:jobs_job_change' job.invoice_number %}">Open job in admin</a>
-      <button type="button" class="reset-btn" data-action="reset">Reset progress</button>
+      <button type="button" class="reset-btn" data-action="reset">Reset checklist</button>
     </div>
   </aside>
 
@@ -73,45 +80,117 @@
         {% for it in entry.entries %}
           {% if it.item.kind == "content" %}
             <div class="content-block">{{ it.item.body_md|safe }}</div>
-
           {% elif it.item.kind == "check" %}
             <div class="check-item">
               <label>
-                <input type="checkbox"
-                       data-action="toggle-check"
-                       data-item-id="{{ it.item.id }}"
-                       {% if it.checked %}checked{% endif %}>
+                <input type="checkbox" data-action="toggle-check" data-item-id="{{ it.item.id }}" {% if it.checked %}checked{% endif %}>
                 <span class="check-body">{{ it.item.body_md|safe }}</span>
               </label>
               <details class="notes-toggle" {% if it.notes %}open{% endif %}>
                 <summary>Notes</summary>
-                <textarea data-action="save-notes"
-                          data-item-id="{{ it.item.id }}"
-                          placeholder="Optional notes for this step">{{ it.notes }}</textarea>
+                <textarea data-action="save-notes" data-item-id="{{ it.item.id }}" placeholder="Optional notes for this step">{{ it.notes }}</textarea>
               </details>
             </div>
-
           {% elif it.item.kind == "capture" %}
             <div class="capture-row">
               <label for="cap-{{ it.item.capture_key }}">{{ it.item.capture_label }}</label>
-              <input id="cap-{{ it.item.capture_key }}"
-                     type="text"
-                     value="{{ it.value }}"
-                     placeholder="{{ it.item.capture_placeholder }}"
-                     data-action="save-capture"
-                     data-capture-key="{{ it.item.capture_key }}">
+              <input id="cap-{{ it.item.capture_key }}" type="text" value="{{ it.value }}" placeholder="{{ it.item.capture_placeholder }}" data-action="save-capture" data-capture-key="{{ it.item.capture_key }}">
             </div>
           {% endif %}
         {% endfor %}
       </section>
     {% endfor %}
+
+    <!-- ── Room walkthrough ── -->
+    <section class="step room-walkthrough-section" id="room-walkthrough">
+      <header class="step-header">
+        <span class="step-badge">Walkthrough</span>
+        <h2>Room walkthrough &amp; device placement</h2>
+        <span class="step-progress" id="room-device-summary"></span>
+      </header>
+      <p class="step-intro">Walk through each room with the customer. Add rooms, assign devices, and check off anything the customer confirms. Confirmed devices roll into the pick sheet.</p>
+
+      <!-- Room list -->
+      <div id="room-list">
+        {% for room in rooms %}
+          <div class="room-card" data-room-id="{{ room.id }}">
+            <div class="room-card-header">
+              <span class="room-label">{{ room.display_label }}</span>
+              <button type="button" class="room-delete-btn" data-room-id="{{ room.id }}" title="Remove room">×</button>
+            </div>
+            <div class="room-devices" id="room-devices-{{ room.id }}">
+              {% for rd in room.devices.all %}
+                <div class="room-device-row {% if rd.confirmed %}confirmed{% endif %}" data-rd-id="{{ rd.id }}">
+                  <label class="rd-confirm-label">
+                    <input type="checkbox" class="rd-confirm" data-room-id="{{ room.id }}" data-rd-id="{{ rd.id }}" {% if rd.confirmed %}checked{% endif %}>
+                    <span class="rd-label">{{ rd.quantity }}× {{ rd.device }}</span>
+                  </label>
+                  <button type="button" class="rd-delete-btn" data-room-id="{{ room.id }}" data-rd-id="{{ rd.id }}" title="Remove">×</button>
+                </div>
+              {% empty %}
+                <p class="room-empty-msg">No devices added yet.</p>
+              {% endfor %}
+            </div>
+            <button type="button" class="add-rd-btn" data-room-id="{{ room.id }}">+ Add device</button>
+          </div>
+        {% empty %}
+          <p class="no-rooms-msg" id="no-rooms-msg">No rooms added yet. Use the button below to start the walkthrough.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Add room panel -->
+      <div class="add-room-panel">
+        <div class="field-row two-col" style="margin-bottom:0">
+          <div class="field" style="margin-bottom:0">
+            <select id="room-type-select">
+              <option value="">— Room type —</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <input id="room-custom-name" type="text" placeholder="Custom name (optional — e.g. Master, Kids, Grandma's)">
+          </div>
+        </div>
+        <button type="button" id="add-room-btn" class="add-room-btn">+ Add room</button>
+      </div>
+    </section>
+
+    <!-- internal prep CTA -->
+    <div class="internal-prep-cta">
+      <a href="{% url 'jobs:internal_prep_render' job.invoice_number %}" class="internal-prep-link">
+        Open internal prep (device orders, GitHub account, pick list) →
+      </a>
+    </div>
+
   </main>
 
 </div>
 
+<!-- Add room device modal -->
+<div id="rd-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h3>Add device to room</h3>
+    <div class="field">
+      <label>Device</label>
+      <select id="rd-device-select">
+        <option value="">— choose —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Quantity</label>
+      <input id="rd-qty" type="number" min="1" value="1">
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="rd-confirm-btn" class="confirm-btn">Add</button>
+      <button type="button" id="rd-cancel-btn" class="cancel-inline-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  window.PI_BASE_URL = "{% url 'jobs:pre_install_checklist_render' job.invoice_number %}";
+  window.PI_BASE_URL       = "{% url 'jobs:pre_install_checklist_render' job.invoice_number %}";
   window.PI_CUSTOMER_LABEL = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
+  window.ROOM_TYPES        = {{ room_types_json|safe }};
+  window.CATALOG_DEVICES   = {{ catalog_json|safe }};
 </script>
 <script src="{% static 'jobs/pre_install_checklist.js' %}"></script>
 </body>

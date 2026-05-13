@@ -212,6 +212,30 @@ Things we've deferred or haven't decided yet. Add freely.
 
 Newest first. Each entry: date, decision, rationale.
 
+- **2026-05-13** — **Internal prep** is now a standalone page (`/jobs/<invoice>/internal-prep/`)
+  rather than a checklist step. It shows the device list from the sale (with per-line
+  "confirmed in stock" checkboxes), a GitHub username field + "account created" toggle,
+  and a "picklist picked" checkbox. The pre-install checklist's Step 4 becomes a single
+  checkbox ("internal prep complete") that links to the dedicated page.
+
+- **2026-05-13** — **Room walkthrough** added to the pre-install checklist page as a
+  dynamic section below the checklist steps. Staff adds rooms by type (Bedroom, Kitchen,
+  etc.) with an optional custom name to distinguish multiples (e.g. "Master", "Kids").
+  Devices are assigned per room via a modal; customers confirm each one. Confirmed room
+  devices combine with sale-line devices on the pick sheet.
+
+- **2026-05-13** — **Package model** added for predefined device bundles (Starter,
+  Standard, Premium, etc.). `PackageDevice` holds the M2M relationship with quantities.
+  Selecting a package on the sales form pre-fills the device table; staff can add
+  à-la-carte devices on top. `SaleLine` is the per-job snapshot of what was sold
+  (device + quantity + cost snapshot + confirmed-in-stock flag).
+
+- **2026-05-13** — **Pick sheet** is now computed dynamically from `SaleLine` rows
+  (from the sale) plus confirmed `RoomDevice` rows (from the pre-install walkthrough),
+  grouped by device type then sorted by descending quantity. No stored snapshot —
+  "re-generate" means reload. Supplier/SKU/URL pulled live from `CatalogDevice`.
+  Printable via browser print dialog. URL: `/jobs/<invoice>/pick-sheet/`.
+
 - **2026-05-12** — Picked **DB-backed checklist templates** for porting
   `install.html` into the `BackendInstall` form. New models in the `jobs`
   app: `ChecklistTemplate` (slug + integer version, e.g. `backend-install`

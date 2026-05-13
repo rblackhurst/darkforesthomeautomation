@@ -194,6 +194,17 @@
         <h2>Finalize sale &amp; generate invoice</h2>
       </header>
 
+      <!-- Service plan (always editable; encodes into invoice number) -->
+      <div class="capture-row" id="service-plan-row">
+        <label for="service-plan-select">Service plan</label>
+        <select id="service-plan-select" data-action="save-job-text" data-field="service_plan_tier" {% if job.finalized_at %}disabled{% endif %}>
+          <option value="0" {% if job.service_plan_tier == 0 %}selected{% endif %}>None / not selected</option>
+          <option value="1" {% if job.service_plan_tier == 1 %}selected{% endif %}>Basic ($29/mo — uptime checks + low-battery alerts)</option>
+          <option value="2" {% if job.service_plan_tier == 2 %}selected{% endif %}>Standard ($49/mo — Basic + updates + automation tweaks)</option>
+          <option value="3" {% if job.service_plan_tier == 3 %}selected{% endif %}>Premium ($79/mo — Standard + priority response + annual visit)</option>
+        </select>
+      </div>
+
       {% if job.finalized_at %}
         <!-- Already finalized -->
         <div class="finalize-done">
@@ -226,6 +237,10 @@
           Complete the room walkthrough above, then finalize to generate the invoice number and send the payment quote to the customer.
         </p>
         <div class="finalize-summary" id="finalize-summary">
+          {% if package_discount %}
+            <div class="finalize-summary-row finalize-list-row"><span>À la carte value</span><span>${{ sale_line_sum }}</span></div>
+            <div class="finalize-summary-row finalize-discount-row"><span>Package discount</span><span>−${{ package_discount }}</span></div>
+          {% endif %}
           <div class="finalize-summary-row"><span>Estimated total</span><span id="finalize-total">{{ sale_total|default:"—" }}</span></div>
           <div class="finalize-summary-row"><span>50% deposit</span><span id="finalize-deposit">{{ sale_deposit|default:"—" }}</span></div>
         </div>

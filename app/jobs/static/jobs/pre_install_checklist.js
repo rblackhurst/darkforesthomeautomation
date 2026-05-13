@@ -393,6 +393,19 @@
     });
   });
 
+  document.querySelectorAll('select[data-action="save-job-text"]').forEach((el) => {
+    el.addEventListener("change", async () => {
+      const field = el.dataset.field;
+      const r = await fetch(window.JOB_TEXT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+        body: JSON.stringify({ field, value: el.value }),
+        credentials: "same-origin",
+      });
+      flash(el, r && r.ok);
+    });
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
   // ── Finalize sale ──
   // ─────────────────────────────────────────────────────────────────────────

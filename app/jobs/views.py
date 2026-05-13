@@ -364,8 +364,15 @@ def pre_install_checklist_render(request, invoice_number):
         for d in CatalogDevice.objects.filter(active=True)
     ]
 
-    total = _sale_total(job, job.payment_override_amount)
+    total = _sale_total(job)
+    line_sum = _sale_line_sum(job)
     half = (total / 2).quantize(Decimal("0.01"))
+    package_discount = (line_sum - total).quantize(Decimal("0.01")) if line_sum > total else Decimal("0")
+
+    service_plan_choices = [
+        {"value": v, "label": l}
+        for v, l in Job.ServicePlan.choices
+    ]
 
     return render(request, "jobs/pre_install_checklist.html", {
         "job": job,
@@ -379,6 +386,9 @@ def pre_install_checklist_render(request, invoice_number):
         "catalog_json": json.dumps(catalog_flat),
         "sale_total": f"${total.quantize(Decimal('0.01'))}",
         "sale_deposit": f"${half}",
+        "sale_line_sum": f"${line_sum.quantize(Decimal('0.01'))}",
+        "package_discount": f"${package_discount}" if package_discount else None,
+        "service_plan_choices_json": json.dumps(service_plan_choices),
     })
 
 
@@ -522,7 +532,7 @@ def _create_sale_lines(job, package_id, device_rows):
                     sort_order=sort,
                 )
                 sort += 1
-            # Save package FK and summary on the job.
+            # Save package FK, summary, and base price on the job.
             update_fields = []
             if not job.package_id:
                 job.package = pkg
@@ -530,6 +540,11 @@ def _create_sale_lines(job, package_id, device_rows):
             if not job.package_summary:
                 job.package_summary = pkg.name
                 update_fields.append("package_summary")
+            # Auto-apply the package price as the effective sale total so
+            # the bundle discount is reflected without a manual override.
+            if pkg.base_price and not job.payment_override_amount:
+                job.payment_override_amount = pkg.base_price
+                update_fields.append("payment_override_amount")
             if update_fields:
                 job.save(update_fields=update_fields)
         except Package.DoesNotExist:
@@ -562,7 +577,7 @@ def _generate_display_invoice_number(job):
     Build the formatted customer-facing invoice code:
       YYMMDD + M(1) + RR(2) + AAA(3) + SS(2) = 14 chars
 
-    M   — monitoring tier from the selected package (0–9)
+    M   — service plan tier on the job (0=none, 1=Basic, 2=Standard, 3=Premium)
     RR  — room count from the pre-install walkthrough (01–99)
     AAA — number of à-la-carte (non-package) sale lines (001–999)
     SS  — sequence of finalized jobs today (01–99)
@@ -570,12 +585,7 @@ def _generate_display_invoice_number(job):
     today = date.today()
     date_part = today.strftime("%y%m%d")
 
-    tier = 0
-    if job.package_id:
-        try:
-            tier = min(9, job.package.monitoring_tier)
-        except Exception:
-            pass
+    tier = min(9, job.service_plan_tier or 0)
 
     room_count = min(99, job.rooms.count())
     adhoc_count = min(999, job.sale_lines.filter(from_package=False).count())
@@ -589,13 +599,31 @@ def _generate_display_invoice_number(job):
     return f"{date_part}{tier:01d}{room_count:02d}{adhoc_count:03d}{sequence:02d}"
 
 
-def _sale_total(job, override_amount=None):
-    """Return total sale amount as Decimal, using override if provided."""
-    if override_amount:
+def _sale_total(job, manual_override=None):
+    """
+    Return the effective sale total as Decimal.
+
+    Priority:
+      1. manual_override — a one-time amount entered in the finalize form
+      2. job.payment_override_amount — persisted override (auto-set to
+         package.base_price when a package is applied; can be adjusted)
+      3. Sum of SaleLines (à la carte fallback)
+    """
+    if manual_override:
         try:
-            return Decimal(str(override_amount))
+            return Decimal(str(manual_override))
         except InvalidOperation:
             pass
+    if job.payment_override_amount:
+        return job.payment_override_amount
+    return sum(
+        (sl.unit_cost or Decimal("0")) * sl.quantity
+        for sl in job.sale_lines.all()
+    )
+
+
+def _sale_line_sum(job):
+    """Raw sum of SaleLine costs — used to display the à la carte value."""
     return sum(
         (sl.unit_cost or Decimal("0")) * sl.quantity
         for sl in job.sale_lines.all()
@@ -666,6 +694,7 @@ def sales_form(request):
                 notes=d.get("notes", ""),
                 custom_integrations=d.get("custom_integrations", ""),
                 custom_automations=d.get("custom_automations", ""),
+                service_plan_tier=d.get("service_plan_tier") or 0,
             )
             _create_sale_lines(job, d.get("package_id"), d.get("devices_json") or [])
             return redirect(
@@ -867,16 +896,30 @@ def pick_sheet_render(request, invoice_number):
 @staff_required
 @require_POST
 def pre_install_save_job_text(request, invoice_number):
-    """AJAX: save custom_integrations or custom_automations on the Job."""
+    """AJAX: save editable job fields from the pre-install checklist."""
     job = get_object_or_404(Job, invoice_number=invoice_number)
     data = _load_json(request)
     field = data.get("field")
-    if field not in ("custom_integrations", "custom_automations"):
-        return JsonResponse({"error": "Unknown field"}, status=400)
-    value = str(data.get("value", ""))
-    setattr(job, field, value)
-    job.save(update_fields=[field])
-    return JsonResponse({"ok": True})
+
+    TEXT_FIELDS = {"custom_integrations", "custom_automations"}
+    INT_FIELDS = {"service_plan_tier"}
+
+    if field in TEXT_FIELDS:
+        value = str(data.get("value", ""))
+        setattr(job, field, value)
+        job.save(update_fields=[field])
+        return JsonResponse({"ok": True})
+
+    if field in INT_FIELDS:
+        try:
+            value = int(data.get("value", 0))
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Invalid value"}, status=400)
+        setattr(job, field, value)
+        job.save(update_fields=[field])
+        return JsonResponse({"ok": True})
+
+    return JsonResponse({"error": "Unknown field"}, status=400)
 
 
 # ── Pre-install: finalize sale + generate invoice number ──────────────────────

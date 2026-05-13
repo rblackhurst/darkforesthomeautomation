@@ -154,6 +154,12 @@
     <!-- ── Job details ── -->
     <section class="form-section">
       <h2>Job details</h2>
+      <div class="field {% if form.service_plan_tier.errors %}has-error{% endif %}">
+        <label for="{{ form.service_plan_tier.id_for_label }}">{{ form.service_plan_tier.label }} <span class="optional">optional</span></label>
+        {{ form.service_plan_tier }}
+        {% if form.service_plan_tier.help_text %}<span class="field-hint">{{ form.service_plan_tier.help_text }}</span>{% endif %}
+        {% for err in form.service_plan_tier.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
       <div class="field-row two-col">
         <div class="field {% if form.sold_on.errors %}has-error{% endif %}">
           <label for="{{ form.sold_on.id_for_label }}">{{ form.sold_on.label }}</label>

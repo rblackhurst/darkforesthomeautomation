@@ -46,6 +46,12 @@ class Job(models.Model):
         COMPLETE = "complete", "Complete"
         CANCELLED = "cancelled", "Cancelled"
 
+    class ServicePlan(models.IntegerChoices):
+        NONE = 0, "None / not selected"
+        BASIC = 1, "Basic ($29/mo)"
+        STANDARD = 2, "Standard ($49/mo)"
+        PREMIUM = 3, "Premium ($79/mo)"
+
     invoice_number = models.CharField(max_length=40, primary_key=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="jobs")
     package = models.ForeignKey(
@@ -54,7 +60,14 @@ class Job(models.Model):
         null=True,
         blank=True,
         related_name="jobs",
-        help_text="Package selected at sale time — used for the monitoring-tier digit in the invoice number.",
+        help_text="Install package selected at sale time.",
+    )
+    service_plan_tier = models.PositiveSmallIntegerField(
+        choices=ServicePlan.choices,
+        default=ServicePlan.NONE,
+        help_text="Uptime service plan the customer signed up for "
+                  "(uptime checks, updates, battery kits, on-site visits). "
+                  "Encodes as the M digit in the invoice number.",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SOLD)
     sold_on = models.DateField(null=True, blank=True)
@@ -77,7 +90,8 @@ class Job(models.Model):
         null=True,
         blank=True,
         unique=True,
-        help_text="System-generated customer-facing invoice code (YYMMDD + tier + rooms + adhoc + seq). "
+        help_text="System-generated customer-facing invoice code "
+                  "(YYMMDD + service-plan-tier + rooms + adhoc + seq). "
                   "Set when the pre-install walkthrough is finalized.",
     )
     finalized_at = models.DateTimeField(

@@ -85,3 +85,20 @@ Windows:
 The admin is the day-one CRUD UI for staff: add a Customer, then a Job
 (invoice number is the PK), and the four install records + walkthrough +
 subscription appear as inlines on the Job page.
+
+## 2FA enrolment
+
+The admin and the installer home (`/`) both require TOTP two-factor
+authentication. After `createsuperuser`, enrol that user before logging in:
+
+```bash
+.venv/bin/python manage.py dfha_enroll_2fa <username>
+```
+
+The command prints an `otpauth://` URI and an ASCII QR. Scan it with an
+authenticator app (Aegis, 1Password, Google Authenticator). The user's next
+admin login will require their password plus a 6-digit code from the
+authenticator.
+
+Run the command again per staff user. Pass `--replace` to wipe an existing
+device and re-enrol (e.g. lost phone).

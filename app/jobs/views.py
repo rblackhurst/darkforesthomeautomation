@@ -2,13 +2,14 @@ import json
 import secrets
 import string
 
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.timezone import now
 from django.views.decorators.http import require_POST
+from django_otp.decorators import otp_required
 
 from .models import (
     BackendInstall,
@@ -113,7 +114,7 @@ def _get_or_init_backend_install(job):
     return bi
 
 
-@login_required
+@otp_required
 @staff_required
 def backend_install_render(request, invoice_number):
     job = get_object_or_404(Job, invoice_number=invoice_number)
@@ -191,7 +192,7 @@ def _checklist_item_for(bi, item_id, kind):
     )
 
 
-@login_required
+@otp_required
 @staff_required
 @require_POST
 def backend_install_toggle_check(request, invoice_number, item_id):
@@ -211,7 +212,7 @@ def backend_install_toggle_check(request, invoice_number, item_id):
     return JsonResponse({"checked": state.checked})
 
 
-@login_required
+@otp_required
 @staff_required
 @require_POST
 def backend_install_save_notes(request, invoice_number, item_id):
@@ -229,7 +230,7 @@ def backend_install_save_notes(request, invoice_number, item_id):
     return JsonResponse({"saved": True})
 
 
-@login_required
+@otp_required
 @staff_required
 @require_POST
 def backend_install_save_capture(request, invoice_number, key):
@@ -247,7 +248,7 @@ def backend_install_save_capture(request, invoice_number, key):
     return JsonResponse({"saved": True})
 
 
-@login_required
+@otp_required
 @staff_required
 @require_POST
 def backend_install_reset(request, invoice_number):
@@ -327,7 +328,7 @@ def _card(job, backend_check_totals):
     }
 
 
-@login_required
+@otp_required
 @staff_required
 def home_dashboard(request):
     jobs = (

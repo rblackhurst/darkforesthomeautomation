@@ -148,7 +148,7 @@ waiting on software.
 
 | Week | Milestone |
 |---|---|
-| 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified. **Remaining:** employee login + 2FA. |
+| 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified, staff login + TOTP 2FA enforced on admin and installer home. |
 | 3–4 | ✅ Data model live in the `jobs` app (Customer, Job, four install records, walkthrough sign-off, audit log, service subscription, trouble request, credential bundle). Django admin wired up as internal CRUD on day one. |
 | 5–6 | Port existing `install.html` content into the BackendInstall form (DB-backed, admin-editable checklist templates so content fixes don't need a code deploy). Sales form + pre-install checklist (reuses checklist template infra). CatalogDevice model + admin (price sheet). |
 | 6–7 | **PickSheet** generated from sale + pre-install: grouped by device type then quantity, with per-line supplier/SKU/URL pulled from CatalogDevice. Prints clean; re-generate to refresh. Sits between sale and config in the staff flow. |
@@ -212,6 +212,16 @@ Things we've deferred or haven't decided yet. Add freely.
 
 Newest first. Each entry: date, decision, rationale.
 
+- **2026-05-13** — Enforced **TOTP 2FA** on staff login. Used `django-otp`
+  with `OTPAdminSite` for the Django admin and `@otp_required` on the
+  installer-home views. No SMS, no phone-number requirements — authenticator
+  app only (Aegis, 1Password, Google Authenticator). New management command
+  `dfha_enroll_2fa <username>` prints an `otpauth://` URI and ASCII QR for
+  initial bootstrap; it must be run on the server for each staff user before
+  their first post-deploy login. Trade-off vs. `django-two-factor-auth`:
+  smaller surface area (3 apps + 1 middleware vs. a full setup-wizard
+  framework), and admin login already exists as the single staff entry
+  point — no need for a separate `/account/login/` flow.
 - **2026-05-12** — Picked **DB-backed checklist templates** for porting
   `install.html` into the `BackendInstall` form. New models in the `jobs`
   app: `ChecklistTemplate` (slug + integer version, e.g. `backend-install`

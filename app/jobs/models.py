@@ -447,11 +447,14 @@ class CatalogDevice(models.Model):
         NUC = "nuc", "NUC / Server"
         SWITCH = "switch", "Network switch"
         ACCESS_POINT = "ap", "Access point"
+        RELAY = "relay", "Smart relay"
+        PLUG = "plug", "Smart plug"
         SENSOR = "sensor", "Sensor"
         CAMERA = "camera", "Camera"
         LOCK = "lock", "Smart lock"
         THERMOSTAT = "thermostat", "Thermostat"
         HUB = "hub", "Hub / bridge"
+        KIT = "kit", "Room / install kit"
         OTHER = "other", "Other"
 
     device_type = models.CharField(max_length=20, choices=DeviceType.choices)

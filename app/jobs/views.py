@@ -355,6 +355,12 @@ def pre_install_checklist_render(request, invoice_number):
         job.status = Job.Status.PRE_INSTALL
         job.save(update_fields=["status"])
 
+    # Pre-fill the package_summary capture from the package description if blank.
+    if job.package and not pi.captures.filter(key="package_summary").exists():
+        desc = job.package.description
+        prefill = f"{job.package.name} — {desc}" if desc else job.package.name
+        pi.captures.create(key="package_summary", value=prefill)
+
     rendered_steps, total_checks, total_done = _render_checklist(pi)
 
     rooms = list(job.rooms.prefetch_related("devices__device").all())
@@ -514,6 +520,23 @@ def _catalog_json():
     return result
 
 
+def _create_default_rooms(job, pkg):
+    """Auto-create Room rows from Package.default_rooms when a package is sold."""
+    if not pkg.default_rooms:
+        return
+    valid_types = {c[0] for c in Room.RoomType.choices}
+    for order, entry in enumerate(pkg.default_rooms):
+        room_type = entry.get("room_type", "other")
+        if room_type not in valid_types:
+            room_type = "other"
+        Room.objects.create(
+            job=job,
+            room_type=room_type,
+            custom_name=entry.get("custom_name", ""),
+            order=order,
+        )
+
+
 def _create_sale_lines(job, package_id, device_rows):
     """Create SaleLine rows from a package expansion + à-la-carte rows."""
     sort = 0
@@ -547,6 +570,7 @@ def _create_sale_lines(job, package_id, device_rows):
                 update_fields.append("payment_override_amount")
             if update_fields:
                 job.save(update_fields=update_fields)
+            _create_default_rooms(job, pkg)
         except Package.DoesNotExist:
             pass
 
@@ -1003,6 +1027,21 @@ def pre_install_payment_received(request, invoice_number):
     job.payment_received_at = now() if received else None
     job.save(update_fields=["payment_received", "payment_received_at"])
     return JsonResponse({"ok": True, "received": received})
+
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_toggle_invoice_sent(request, invoice_number):
+    """AJAX: toggle invoice_sent on the PreInstallChecklist."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    pi = _get_or_init_pre_install(job)
+    data = _load_json(request)
+    sent = bool(data.get("sent", False))
+    pi.invoice_sent = sent
+    pi.invoice_sent_at = now() if sent else None
+    pi.save(update_fields=["invoice_sent", "invoice_sent_at"])
+    return JsonResponse({"ok": True, "sent": sent})
 
 
 # ── Installer home / pipeline view ──────────────────────────────────────

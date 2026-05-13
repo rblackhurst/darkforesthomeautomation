@@ -232,6 +232,7 @@
         </div>
 
       {% else %}
+
         <!-- Not yet finalized -->
         <p class="step-intro">
           Complete the room walkthrough above, then finalize to generate the invoice number and send the payment quote to the customer.
@@ -259,6 +260,20 @@
           Finalize sale &amp; generate invoice →
         </button>
       {% endif %}
+
+      <!-- Invoice sent — last confirmation step, always shown -->
+      <div class="payment-received-row" style="margin-top:16px;">
+        <label class="payment-toggle">
+          <input type="checkbox" id="invoice-sent-check" data-action="invoice-sent" {% if pre_install_checklist.invoice_sent %}checked{% endif %}>
+          <span class="payment-toggle-label" id="invoice-sent-label">
+            {% if pre_install_checklist.invoice_sent %}
+              ✓ Invoice sent to customer{% if pre_install_checklist.invoice_sent_at %} · {{ pre_install_checklist.invoice_sent_at|date:"M j, Y g:i a" }}{% endif %}
+            {% else %}
+              Invoice sent to customer
+            {% endif %}
+          </span>
+        </label>
+      </div>
     </section>
 
     <!-- internal prep CTA -->
@@ -301,6 +316,7 @@
   window.FINALIZE_URL       = "{% url 'jobs:pre_install_finalize' job.invoice_number %}";
   window.JOB_TEXT_URL       = "{% url 'jobs:pre_install_save_job_text' job.invoice_number %}";
   window.PAYMENT_URL        = "{% url 'jobs:pre_install_payment_received' job.invoice_number %}";
+  window.INVOICE_SENT_URL   = "{% url 'jobs:pre_install_toggle_invoice_sent' job.invoice_number %}";
   window.ALREADY_FINALIZED  = {{ job.finalized_at|yesno:"true,false" }};
 </script>
 <script src="{% static 'jobs/pre_install_checklist.js' %}"></script>

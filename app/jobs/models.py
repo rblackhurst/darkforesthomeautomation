@@ -502,6 +502,11 @@ class PreInstallChecklist(InstallRecord):
         help_text="Snapshot reference: this checklist renders against this exact "
                   "template version, even if a newer version is published later.",
     )
+    invoice_sent = models.BooleanField(
+        default=False,
+        help_text="Checked once the payment quote / invoice has been confirmed sent to the customer.",
+    )
+    invoice_sent_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"PreInstallChecklist for {self.job_id}"
@@ -572,6 +577,12 @@ class Package(models.Model):
         default=0,
         help_text="Monitoring tier digit encoded in the invoice number (0–9). "
                   "0 = no monitoring, 1 = basic, 2 = standard, 3 = premium, etc.",
+    )
+    default_rooms = models.JSONField(
+        null=True, blank=True,
+        help_text='Rooms to auto-create when this package is selected at sale time. '
+                  'List of objects: {"room_type": "bedroom", "custom_name": "Primary"}. '
+                  'custom_name is optional.',
     )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

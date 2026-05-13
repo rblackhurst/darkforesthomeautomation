@@ -485,6 +485,26 @@
   // ── Payment received toggle ──
   // ─────────────────────────────────────────────────────────────────────────
 
+  const invoiceSentCheck = document.getElementById("invoice-sent-check");
+  if (invoiceSentCheck) {
+    invoiceSentCheck.addEventListener("change", async () => {
+      const r = await fetch(window.INVOICE_SENT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+        body: JSON.stringify({ sent: invoiceSentCheck.checked }),
+        credentials: "same-origin",
+      });
+      if (!r || !r.ok) {
+        invoiceSentCheck.checked = !invoiceSentCheck.checked;
+        return;
+      }
+      const label = document.getElementById("invoice-sent-label");
+      if (label) {
+        label.textContent = invoiceSentCheck.checked ? "✓ Invoice sent to customer" : "Invoice sent to customer";
+      }
+    });
+  }
+
   const paymentCheck = document.getElementById("payment-received-check");
   if (paymentCheck) {
     paymentCheck.addEventListener("change", async () => {

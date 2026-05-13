@@ -130,4 +130,9 @@ urlpatterns = [
         views.pre_install_payment_received,
         name="pre_install_payment_received",
     ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/invoice-sent/",
+        views.pre_install_toggle_invoice_sent,
+        name="pre_install_toggle_invoice_sent",
+    ),
 ]

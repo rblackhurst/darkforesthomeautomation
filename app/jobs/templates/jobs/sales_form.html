@@ -1,0 +1,115 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFHA · New sale</title>
+  <link rel="stylesheet" href="{% static 'jobs/sales_form.css' %}">
+</head>
+<body>
+
+<header class="page-header">
+  <div class="header-row">
+    <div>
+      <a class="back-link" href="{% url 'jobs:home' %}">← Dashboard</a>
+      <h1>New sale</h1>
+    </div>
+  </div>
+</header>
+
+<main>
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for err in form.non_field_errors %}<p>{{ err }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <section class="form-section">
+      <h2>Customer</h2>
+      <div class="field-row two-col">
+        <div class="field {% if form.first_name.errors %}has-error{% endif %}">
+          <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+          {{ form.first_name }}
+          {% for err in form.first_name.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="field {% if form.last_name.errors %}has-error{% endif %}">
+          <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+          {{ form.last_name }}
+          {% for err in form.last_name.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+      </div>
+      <div class="field-row two-col">
+        <div class="field {% if form.email.errors %}has-error{% endif %}">
+          <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+          {{ form.email }}
+          {% for err in form.email.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="field {% if form.phone.errors %}has-error{% endif %}">
+          <label for="{{ form.phone.id_for_label }}">
+            {{ form.phone.label }}
+            <span class="optional">optional</span>
+          </label>
+          {{ form.phone }}
+          {% if form.phone.help_text %}<span class="field-hint">{{ form.phone.help_text }}</span>{% endif %}
+          {% for err in form.phone.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <h2>Job</h2>
+      <div class="field-row three-col">
+        <div class="field {% if form.invoice_number.errors %}has-error{% endif %}">
+          <label for="{{ form.invoice_number.id_for_label }}">{{ form.invoice_number.label }}</label>
+          {{ form.invoice_number }}
+          {% if form.invoice_number.help_text %}<span class="field-hint">{{ form.invoice_number.help_text }}</span>{% endif %}
+          {% for err in form.invoice_number.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="field {% if form.sold_on.errors %}has-error{% endif %}">
+          <label for="{{ form.sold_on.id_for_label }}">{{ form.sold_on.label }}</label>
+          {{ form.sold_on }}
+          {% for err in form.sold_on.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="field {% if form.install_date.errors %}has-error{% endif %}">
+          <label for="{{ form.install_date.id_for_label }}">
+            {{ form.install_date.label }}
+            <span class="optional">optional</span>
+          </label>
+          {{ form.install_date }}
+          {% if form.install_date.help_text %}<span class="field-hint">{{ form.install_date.help_text }}</span>{% endif %}
+          {% for err in form.install_date.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+      </div>
+      <div class="field {% if form.package_summary.errors %}has-error{% endif %}">
+        <label for="{{ form.package_summary.id_for_label }}">
+          {{ form.package_summary.label }}
+          <span class="optional">optional</span>
+        </label>
+        {{ form.package_summary }}
+        {% if form.package_summary.help_text %}<span class="field-hint">{{ form.package_summary.help_text }}</span>{% endif %}
+        {% for err in form.package_summary.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+      <div class="field {% if form.notes.errors %}has-error{% endif %}">
+        <label for="{{ form.notes.id_for_label }}">
+          {{ form.notes.label }}
+          <span class="optional">optional</span>
+        </label>
+        {{ form.notes }}
+        {% for err in form.notes.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <a href="{% url 'jobs:home' %}" class="cancel-btn">Cancel</a>
+      <button type="submit" class="submit-btn">Create job &amp; open pre-install checklist →</button>
+    </div>
+
+  </form>
+</main>
+
+<script src="{% static 'jobs/sales_form.js' %}"></script>
+</body>
+</html>

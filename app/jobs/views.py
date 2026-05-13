@@ -3,20 +3,25 @@ import secrets
 import string
 
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.timezone import now
 from django.views.decorators.http import require_POST
 
+from .forms import SalesForm
 from .models import (
     BackendInstall,
     BackendInstallCapture,
     BackendInstallItemState,
     ChecklistItem,
     ChecklistTemplate,
+    Customer,
     Job,
+    PreInstallCapture,
+    PreInstallChecklist,
+    PreInstallItemState,
 )
 
 
@@ -269,6 +274,205 @@ def backend_install_reset(request, invoice_number):
     return JsonResponse({"reset": True})
 
 
+# ── Pre-install checklist ────────────────────────────────────────────────
+
+def _get_or_init_pre_install(job):
+    pi, _ = PreInstallChecklist.objects.get_or_create(
+        job=job,
+        defaults={"template": ChecklistTemplate.current_for("pre-install")},
+    )
+    if pi.template_id is None:
+        pi.template = ChecklistTemplate.current_for("pre-install")
+        if pi.template_id is not None:
+            pi.save(update_fields=["template"])
+    return pi
+
+
+def _render_checklist(pi):
+    """Return (steps_list, total_checks, total_done) for a PreInstallChecklist."""
+    template = pi.template
+    steps = list(template.steps.prefetch_related("items").all())
+    item_states = {s.item_id: s for s in pi.item_states.all()}
+    captures = {c.key: c.value for c in pi.captures.all()}
+
+    rendered_steps = []
+    total_checks = total_done = 0
+    for step in steps:
+        entries = []
+        check_total = check_done = 0
+        for item in step.items.all():
+            entry = {"item": item}
+            if item.kind == "check":
+                state = item_states.get(item.id)
+                entry["checked"] = bool(state and state.checked)
+                entry["notes"] = state.notes if state else ""
+                check_total += 1
+                if entry["checked"]:
+                    check_done += 1
+            elif item.kind == "capture":
+                entry["value"] = captures.get(item.capture_key, "")
+                entry["prefilled"] = False
+            entries.append(entry)
+        rendered_steps.append({
+            "step": step,
+            "entries": entries,
+            "check_done": check_done,
+            "check_total": check_total,
+        })
+        total_checks += check_total
+        total_done += check_done
+    return rendered_steps, total_checks, total_done
+
+
+@login_required
+@staff_required
+def pre_install_checklist_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    pi = _get_or_init_pre_install(job)
+
+    if pi.template_id is None:
+        return render(
+            request,
+            "jobs/checklist_unavailable.html",
+            {"job": job, "form_name": "Pre-install checklist", "slug": "pre-install"},
+            status=503,
+        )
+
+    # Advance status from SOLD to PRE_INSTALL when the checklist is first opened.
+    if job.status == Job.Status.SOLD:
+        job.status = Job.Status.PRE_INSTALL
+        job.save(update_fields=["status"])
+
+    rendered_steps, total_checks, total_done = _render_checklist(pi)
+    return render(request, "jobs/pre_install_checklist.html", {
+        "job": job,
+        "pre_install_checklist": pi,
+        "template": pi.template,
+        "steps": rendered_steps,
+        "total_checks": total_checks,
+        "total_done": total_done,
+    })
+
+
+def _pi_checklist_item_for(pi, item_id, kind):
+    if pi.template_id is None:
+        raise Http404
+    return get_object_or_404(
+        ChecklistItem,
+        pk=item_id,
+        step__template_id=pi.template_id,
+        kind=kind,
+    )
+
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_toggle_check(request, invoice_number, item_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    pi = _get_or_init_pre_install(job)
+    item = _pi_checklist_item_for(pi, item_id, kind="check")
+
+    checked = bool(_load_json(request).get("checked"))
+    state, _ = PreInstallItemState.objects.get_or_create(
+        pre_install_checklist=pi, item=item,
+    )
+    state.checked = checked
+    state.checked_at = now() if checked else None
+    state.checked_by = request.user if checked else None
+    state.save(update_fields=["checked", "checked_at", "checked_by"])
+
+    return JsonResponse({"checked": state.checked})
+
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_save_notes(request, invoice_number, item_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    pi = _get_or_init_pre_install(job)
+    item = _pi_checklist_item_for(pi, item_id, kind="check")
+
+    notes = str(_load_json(request).get("notes", ""))
+    state, _ = PreInstallItemState.objects.get_or_create(
+        pre_install_checklist=pi, item=item,
+    )
+    state.notes = notes
+    state.save(update_fields=["notes"])
+
+    return JsonResponse({"saved": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_save_capture(request, invoice_number, key):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    pi = _get_or_init_pre_install(job)
+    if pi.template_id is None or not ChecklistItem.objects.filter(
+        step__template_id=pi.template_id, kind="capture", capture_key=key,
+    ).exists():
+        raise Http404("Unknown capture key for this template")
+
+    value = str(_load_json(request).get("value", ""))
+    PreInstallCapture.objects.update_or_create(
+        pre_install_checklist=pi, key=key, defaults={"value": value},
+    )
+    return JsonResponse({"saved": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def pre_install_reset(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    pi = _get_or_init_pre_install(job)
+
+    pi.item_states.all().delete()
+    pi.captures.all().delete()
+
+    latest = ChecklistTemplate.current_for("pre-install")
+    if latest is not None and latest.pk != pi.template_id:
+        pi.template = latest
+        pi.save(update_fields=["template"])
+
+    return JsonResponse({"reset": True})
+
+
+# ── Sales form ───────────────────────────────────────────────────────────
+
+@login_required
+@staff_required
+def sales_form(request):
+    if request.method == "POST":
+        form = SalesForm(request.POST)
+        if form.is_valid():
+            d = form.cleaned_data
+            customer = Customer.objects.create(
+                first_name=d["first_name"],
+                last_name=d["last_name"],
+                email=d["email"],
+                phone=d.get("phone", ""),
+            )
+            Job.objects.create(
+                invoice_number=d["invoice_number"],
+                customer=customer,
+                status=Job.Status.SOLD,
+                sold_on=d["sold_on"],
+                install_date=d.get("install_date"),
+                package_summary=d.get("package_summary", ""),
+                notes=d.get("notes", ""),
+            )
+            return redirect(
+                "jobs:pre_install_checklist_render",
+                invoice_number=d["invoice_number"],
+            )
+    else:
+        form = SalesForm(initial={"sold_on": now().date()})
+
+    return render(request, "jobs/sales_form.html", {"form": form})
+
+
 # ── Installer home / pipeline view ──────────────────────────────────────
 
 # Stages shown as expanded sections, in the order a job progresses.
@@ -285,9 +489,11 @@ ARCHIVE_STAGES = [Job.Status.COMPLETE, Job.Status.CANCELLED]
 
 
 def _next_action(job):
-    # The primary action button on a card. Only BACKEND has a real form
-    # right now; everything else links to the job in admin until those
-    # forms ship (Weeks 6-10).
+    if job.status in {Job.Status.SOLD, Job.Status.PRE_INSTALL}:
+        return (
+            reverse("jobs:pre_install_checklist_render", args=[job.invoice_number]),
+            "Open pre-install checklist",
+        )
     if job.status == Job.Status.BACKEND:
         return (
             reverse("jobs:backend_install_render", args=[job.invoice_number]),

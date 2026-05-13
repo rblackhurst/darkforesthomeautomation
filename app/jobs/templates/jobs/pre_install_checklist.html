@@ -1,0 +1,118 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Pre-install checklist</title>
+  <link rel="stylesheet" href="{% static 'jobs/backend_install.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-eyebrow">Pre-install checklist</div>
+      <div class="sidebar-customer">{{ job.customer.first_name }} {{ job.customer.last_name }}</div>
+      <div class="sidebar-meta">
+        Invoice {{ job.invoice_number }}{% if job.install_date %} · {{ job.install_date|date:"M j" }}{% endif %}
+      </div>
+    </div>
+
+    <div class="sidebar-progress">
+      <div class="sidebar-progress-label">
+        Overall <span class="sidebar-progress-fraction">{{ total_done }} / {{ total_checks }}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-bar-fill" style="width: {% if total_checks %}{% widthratio total_done total_checks 100 %}{% else %}0{% endif %}%"></div></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      {% for entry in steps %}
+        <a class="sidebar-step" href="#step-{{ entry.step.order|floatformat:'0' }}" data-step-anchor="step-{{ entry.step.order|floatformat:'0' }}">
+          <span class="sidebar-step-num">{{ entry.step.order|floatformat:"0" }}</span>
+          <span class="sidebar-step-title">{{ entry.step.title }}</span>
+          {% if entry.check_total %}
+            <span class="sidebar-step-progress {% if entry.check_done == entry.check_total %}complete{% endif %}">{{ entry.check_done }}/{{ entry.check_total }}</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="sidebar-link" href="{% url 'jobs:home' %}">← Dashboard</a>
+      <a class="sidebar-link" href="{% url 'admin:jobs_job_change' job.invoice_number %}">Open job in admin</a>
+      <button type="button" class="reset-btn" data-action="reset">Reset progress</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <header class="page-header">
+      <h1>{{ template.title }} <span class="version">v{{ template.version }}</span></h1>
+      <p class="customer-line">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · invoice {{ job.invoice_number }}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </header>
+
+    {% for entry in steps %}
+      <section class="step" id="step-{{ entry.step.order|floatformat:'0' }}">
+        <header class="step-header">
+          <span class="step-badge">Step {{ entry.step.order|floatformat:"0" }}</span>
+          <h2>{{ entry.step.title }}</h2>
+          {% if entry.check_total %}
+            <span class="step-progress {% if entry.check_done == entry.check_total %}complete{% endif %}">{{ entry.check_done }} / {{ entry.check_total }}</span>
+          {% endif %}
+        </header>
+
+        {% if entry.step.intro_md %}
+          <div class="step-intro">{{ entry.step.intro_md|linebreaks }}</div>
+        {% endif %}
+
+        {% for it in entry.entries %}
+          {% if it.item.kind == "content" %}
+            <div class="content-block">{{ it.item.body_md|safe }}</div>
+
+          {% elif it.item.kind == "check" %}
+            <div class="check-item">
+              <label>
+                <input type="checkbox"
+                       data-action="toggle-check"
+                       data-item-id="{{ it.item.id }}"
+                       {% if it.checked %}checked{% endif %}>
+                <span class="check-body">{{ it.item.body_md|safe }}</span>
+              </label>
+              <details class="notes-toggle" {% if it.notes %}open{% endif %}>
+                <summary>Notes</summary>
+                <textarea data-action="save-notes"
+                          data-item-id="{{ it.item.id }}"
+                          placeholder="Optional notes for this step">{{ it.notes }}</textarea>
+              </details>
+            </div>
+
+          {% elif it.item.kind == "capture" %}
+            <div class="capture-row">
+              <label for="cap-{{ it.item.capture_key }}">{{ it.item.capture_label }}</label>
+              <input id="cap-{{ it.item.capture_key }}"
+                     type="text"
+                     value="{{ it.value }}"
+                     placeholder="{{ it.item.capture_placeholder }}"
+                     data-action="save-capture"
+                     data-capture-key="{{ it.item.capture_key }}">
+            </div>
+          {% endif %}
+        {% endfor %}
+      </section>
+    {% endfor %}
+  </main>
+
+</div>
+
+<script>
+  window.PI_BASE_URL = "{% url 'jobs:pre_install_checklist_render' job.invoice_number %}";
+  window.PI_CUSTOMER_LABEL = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
+</script>
+<script src="{% static 'jobs/pre_install_checklist.js' %}"></script>
+</body>
+</html>

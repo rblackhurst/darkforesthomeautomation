@@ -8,6 +8,7 @@ from .models import (
     BackendInstall,
     BackendInstallCapture,
     BackendInstallItemState,
+    CatalogDevice,
     ChecklistItem,
     ChecklistStep,
     ChecklistTemplate,
@@ -16,11 +17,20 @@ from .models import (
     Job,
     OnsiteInstall,
     PairingSheet,
+    PreInstallCapture,
+    PreInstallChecklist,
+    PreInstallItemState,
     ServiceSubscription,
     TroubleRequest,
     WalkthroughSignoff,
     _fmt_order,
 )
+
+
+class PreInstallChecklistInline(admin.StackedInline):
+    model = PreInstallChecklist
+    extra = 0
+    can_delete = False
 
 
 class BackendInstallInline(admin.StackedInline):
@@ -75,6 +85,7 @@ class JobAdmin(admin.ModelAdmin):
     date_hierarchy = "install_date"
     readonly_fields = ("install_links",)
     inlines = [
+        PreInstallChecklistInline,
         BackendInstallInline,
         PairingSheetInline,
         AutomationConfigInline,
@@ -101,13 +112,19 @@ class JobAdmin(admin.ModelAdmin):
     def install_links(self, obj):
         if not obj.pk:
             return "Save the job first to enable form links."
-        url = reverse("jobs:backend_install_render", args=[obj.invoice_number])
+        btn = (
+            'display:inline-block;padding:6px 14px;background:#2d6b4e;'
+            'color:#fff;border-radius:4px;text-decoration:none;font-weight:500;margin-right:8px;'
+        )
+        pi_url = reverse("jobs:pre_install_checklist_render", args=[obj.invoice_number])
+        bi_url = reverse("jobs:backend_install_render", args=[obj.invoice_number])
         return format_html(
-            '<a class="button" href="{}" target="_blank" rel="noopener" '
-            'style="display:inline-block;padding:6px 14px;background:#2d6b4e;'
-            'color:#fff;border-radius:4px;text-decoration:none;font-weight:500;">'
-            'Open backend install →</a>',
-            url,
+            '<a class="button" href="{}" target="_blank" rel="noopener" style="{}">'
+            'Pre-install checklist →</a>'
+            '<a class="button" href="{}" target="_blank" rel="noopener" style="{}">'
+            'Backend install →</a>',
+            pi_url, btn,
+            bi_url, btn,
         )
 
 
@@ -237,6 +254,36 @@ class BackendInstallCaptureAdmin(admin.ModelAdmin):
     list_display = ("backend_install", "key", "value_preview", "updated_at")
     search_fields = ("backend_install__job__invoice_number", "key", "value")
     raw_id_fields = ("backend_install",)
+    readonly_fields = ("updated_at",)
+
+    @admin.display(description="Value")
+    def value_preview(self, obj):
+        return (obj.value[:60] + "…") if len(obj.value) > 60 else obj.value
+
+
+@admin.register(CatalogDevice)
+class CatalogDeviceAdmin(admin.ModelAdmin):
+    list_display = ("device_type", "model_name", "supplier", "supplier_sku", "default_cost", "active")
+    list_filter = ("device_type", "active")
+    search_fields = ("model_name", "supplier", "supplier_sku", "notes")
+    ordering = ("device_type", "model_name")
+    list_editable = ("active",)
+
+
+@admin.register(PreInstallItemState)
+class PreInstallItemStateAdmin(admin.ModelAdmin):
+    list_display = ("pre_install_checklist", "item", "checked", "checked_by", "checked_at")
+    list_filter = ("checked",)
+    search_fields = ("pre_install_checklist__job__invoice_number", "notes")
+    raw_id_fields = ("pre_install_checklist", "item", "checked_by")
+    readonly_fields = ("checked_at",)
+
+
+@admin.register(PreInstallCapture)
+class PreInstallCaptureAdmin(admin.ModelAdmin):
+    list_display = ("pre_install_checklist", "key", "value_preview", "updated_at")
+    search_fields = ("pre_install_checklist__job__invoice_number", "key", "value")
+    raw_id_fields = ("pre_install_checklist",)
     readonly_fields = ("updated_at",)
 
     @admin.display(description="Value")

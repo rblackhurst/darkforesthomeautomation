@@ -393,3 +393,103 @@ class BackendInstallCapture(models.Model):
 
     def __str__(self):
         return f"{self.backend_install.job_id} · {self.key}"
+
+
+class CatalogDevice(models.Model):
+    class DeviceType(models.TextChoices):
+        NUC = "nuc", "NUC / Server"
+        SWITCH = "switch", "Network switch"
+        ACCESS_POINT = "ap", "Access point"
+        SENSOR = "sensor", "Sensor"
+        CAMERA = "camera", "Camera"
+        LOCK = "lock", "Smart lock"
+        THERMOSTAT = "thermostat", "Thermostat"
+        HUB = "hub", "Hub / bridge"
+        OTHER = "other", "Other"
+
+    device_type = models.CharField(max_length=20, choices=DeviceType.choices)
+    model_name = models.CharField(max_length=200)
+    supplier = models.CharField(max_length=200, blank=True)
+    supplier_sku = models.CharField(max_length=100, blank=True)
+    purchase_url = models.URLField(blank=True)
+    default_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["device_type", "model_name"]
+
+    def __str__(self):
+        return f"{self.get_device_type_display()} — {self.model_name}"
+
+
+class PreInstallChecklist(InstallRecord):
+    job = models.OneToOneField(
+        Job, on_delete=models.CASCADE, related_name="pre_install_checklist",
+    )
+    template = models.ForeignKey(
+        "ChecklistTemplate",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="pre_install_checklists",
+        help_text="Snapshot reference: this checklist renders against this exact "
+                  "template version, even if a newer version is published later.",
+    )
+
+    def __str__(self):
+        return f"PreInstallChecklist for {self.job_id}"
+
+
+class PreInstallItemState(models.Model):
+    pre_install_checklist = models.ForeignKey(
+        PreInstallChecklist, on_delete=models.CASCADE, related_name="item_states",
+    )
+    item = models.ForeignKey(ChecklistItem, on_delete=models.PROTECT, related_name="+")
+    checked = models.BooleanField(default=False)
+    checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    checked_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(
+        blank=True,
+        help_text="Per-item installer notes.",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pre_install_checklist", "item"],
+                name="unique_pre_install_item_state",
+            ),
+        ]
+
+    def __str__(self):
+        tick = "✓" if self.checked else "·"
+        return f"{self.pre_install_checklist.job_id} · item {self.item_id} · {tick}"
+
+
+class PreInstallCapture(models.Model):
+    pre_install_checklist = models.ForeignKey(
+        PreInstallChecklist, on_delete=models.CASCADE, related_name="captures",
+    )
+    key = models.SlugField(max_length=60)
+    value = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pre_install_checklist", "key"],
+                name="unique_pre_install_capture_key",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.pre_install_checklist.job_id} · {self.key}"

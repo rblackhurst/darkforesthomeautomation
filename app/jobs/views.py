@@ -565,7 +565,7 @@ def _create_default_rooms(job, pkg):
             if substr not in device_cache:
                 device_cache[substr] = CatalogDevice.objects.filter(
                     model_name__icontains=substr, active=True
-                ).first()
+                ).exclude(device_type=CatalogDevice.DeviceType.KIT).first()
             device = device_cache[substr]
             if device:
                 RoomDevice.objects.create(room=room, device=device, quantity=1)
@@ -608,7 +608,7 @@ def _backfill_room_devices(job, pkg):
             if substr not in device_cache:
                 device_cache[substr] = CatalogDevice.objects.filter(
                     model_name__icontains=substr, active=True
-                ).first()
+                ).exclude(device_type=CatalogDevice.DeviceType.KIT).first()
             device = device_cache[substr]
             if device:
                 RoomDevice.objects.create(room=room, device=device, quantity=1)
@@ -1047,7 +1047,7 @@ def room_add(request, invoice_number):
                 if substr not in device_cache:
                     device_cache[substr] = CatalogDevice.objects.filter(
                         model_name__icontains=substr, active=True
-                    ).first()
+                    ).exclude(device_type=CatalogDevice.DeviceType.KIT).first()
                 device = device_cache[substr]
                 if device:
                     rd = RoomDevice.objects.create(room=room, device=device, quantity=1)

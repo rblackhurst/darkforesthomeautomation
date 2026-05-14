@@ -1,0 +1,20 @@
+{% extends "accounts/base.html" %}
+{% block title %}Recovery code · DFHA{% endblock %}
+{% block content %}
+  <h1>Use a recovery code</h1>
+  <p class="sub">Enter one of the one-time codes you saved when you set up 2FA. Each code works only once.</p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="field">
+      <label for="id_code">Recovery code</label>
+      {{ form.code }}
+      {% if form.code.errors %}<div class="errors">{{ form.code.errors|join:" " }}</div>{% endif %}
+    </div>
+    <button type="submit">Sign in</button>
+  </form>
+
+  <p class="alt-link">
+    Found your authenticator? <a href="{% url 'accounts:two_factor_verify' %}">Use the 6-digit code instead</a>
+  </p>
+{% endblock %}

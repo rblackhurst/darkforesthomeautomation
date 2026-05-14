@@ -1,0 +1,11 @@
+{% extends "accounts/base.html" %}
+{% block title %}Sign out · DFHA{% endblock %}
+{% block content %}
+  <h1>Sign out?</h1>
+  <p class="sub">You'll need to re-enter your password and 2FA code to come back in.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <button type="submit">Sign out</button>
+  </form>
+  <p class="alt-link"><a href="{% url 'jobs:home' %}">Cancel — stay signed in</a></p>
+{% endblock %}

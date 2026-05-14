@@ -1,0 +1,22 @@
+{% extends "accounts/base.html" %}
+{% block title %}Sign in · DFHA{% endblock %}
+{% block content %}
+  <h1>Sign in</h1>
+  <p class="sub">Dark Forest Home Automation — staff portal</p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <div class="field">
+      <label for="id_email">Email</label>
+      {{ form.email }}
+      {% if form.email.errors %}<div class="errors">{{ form.email.errors|join:" " }}</div>{% endif %}
+    </div>
+    <div class="field">
+      <label for="id_password">Password</label>
+      {{ form.password }}
+      {% if form.password.errors %}<div class="errors">{{ form.password.errors|join:" " }}</div>{% endif %}
+    </div>
+    <button type="submit">Continue</button>
+  </form>
+{% endblock %}

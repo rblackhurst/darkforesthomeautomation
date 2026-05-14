@@ -148,7 +148,7 @@ waiting on software.
 
 | Week | Milestone |
 |---|---|
-| 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified. **Remaining:** employee login + 2FA. |
+| 1–2 | ✅ Hetzner box provisioned, Django + Postgres deployed, `app.` subdomain live behind Cloudflare with SSL, Postmark domain verified. Employee login + TOTP 2FA shipped (`accounts` app). |
 | 3–4 | ✅ Data model live in the `jobs` app (Customer, Job, four install records, walkthrough sign-off, audit log, service subscription, trouble request, credential bundle). Django admin wired up as internal CRUD on day one. |
 | 5–6 | Port existing `install.html` content into the BackendInstall form (DB-backed, admin-editable checklist templates so content fixes don't need a code deploy). Sales form + pre-install checklist (reuses checklist template infra). CatalogDevice model + admin (price sheet). |
 | 6–7 | **PickSheet** generated from sale + pre-install: grouped by device type then quantity, with per-line supplier/SKU/URL pulled from CatalogDevice. Prints clean; re-generate to refresh. Sits between sale and config in the staff flow. |
@@ -211,6 +211,21 @@ Things we've deferred or haven't decided yet. Add freely.
 ## 10. Decision Log
 
 Newest first. Each entry: date, decision, rationale.
+
+- **2026-05-14** — **Employee login + TOTP 2FA shipped** as a small in-house
+  `accounts` Django app rather than `django-allauth`. Allauth was named in §2
+  as the likely choice; in practice we need ~150 lines (email-or-username
+  auth backend, 2-step login → TOTP verify, forced enrolment on first login,
+  10 one-time recovery codes hashed at rest, "reset enrolment" admin action,
+  middleware that gates staff users out of the app until TOTP is confirmed).
+  Allauth would have brought ~25 models, ~12 migrations, and a templating
+  surface we'd have had to override anyway for the DFHA look. Customer
+  signup + invite codes (Weeks 9–10) can revisit allauth then if its
+  invite-flow batteries become valuable; for now we own a smaller surface.
+  Dependencies added: `pyotp` (TOTP) + `segno` (pure-Python QR, no Pillow).
+  `LOGIN_URL` moved from `/admin/login/` to `/accounts/login/`; `/admin/login/`
+  still works as a superuser escape hatch but the middleware enforces 2FA
+  on `/admin/` once you're in.
 
 - **2026-05-13** — **Internal pricing reference** committed at
   `docs/internal/pricing.md` (not for client distribution). Source: Session 6 /

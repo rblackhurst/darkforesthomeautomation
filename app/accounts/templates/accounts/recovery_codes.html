@@ -1,0 +1,18 @@
+{% extends "accounts/base.html" %}
+{% block title %}Recovery codes · DFHA{% endblock %}
+{% block card_class %} wide{% endblock %}
+{% block content %}
+  <h1>Save your recovery codes</h1>
+  <p class="sub">Each code lets you sign in once if you lose your authenticator. Print them, save them in your password manager, and keep them somewhere safe.</p>
+
+  <div class="warn">
+    <strong>This is the only time these codes will be shown.</strong>
+    Leaving this page clears them. We can reset 2FA in the admin if you lose them, but the old codes won't come back.
+  </div>
+
+  <ul class="codes-grid">
+    {% for c in codes %}<li>{{ c }}</li>{% endfor %}
+  </ul>
+
+  <a href="{% url 'jobs:home' %}"><button type="button">I've saved them — continue</button></a>
+{% endblock %}

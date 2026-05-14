@@ -1,0 +1,219 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFHA · {% if view_only %}View sale{% elif edit_mode %}Edit sale{% else %}New sale{% endif %}</title>
+  <link rel="stylesheet" href="{% static 'jobs/sales_form.css' %}">
+</head>
+<body>
+
+<header class="page-header">
+  <div class="header-row">
+    <div>
+      {% if edit_mode %}
+        <a class="back-link" href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}">← Pre-install checklist</a>
+        <h1>{% if view_only %}View sale{% else %}Edit sale{% endif %} — {{ job.customer.first_name }} {{ job.customer.last_name }}</h1>
+        {% if view_only %}
+          <p style="font-size:13px;color:#6b7280;margin-top:4px;">Invoice {{ job.display_invoice_number }} has been finalized — this record is read-only.</p>
+        {% endif %}
+      {% else %}
+        <a class="back-link" href="{% url 'jobs:home' %}">← Dashboard</a>
+        <h1>New sale</h1>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.package_id }}
+    {{ form.devices_json }}
+    {% if view_only %}<fieldset disabled style="border:none;padding:0;margin:0;">{% endif %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for err in form.non_field_errors %}<p>{{ err }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- ── Customer ── -->
+    <section class="form-section">
+      <h2>Customer</h2>
+      <div class="field-row two-col">
+        <div class="field {% if form.first_name.errors %}has-error{% endif %}">
+          <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+          {{ form.first_name }}
+          {% for err in form.first_name.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="field {% if form.last_name.errors %}has-error{% endif %}">
+          <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+          {{ form.last_name }}
+          {% for err in form.last_name.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+      </div>
+      <div class="field-row two-col">
+        <div class="field {% if form.email.errors %}has-error{% endif %}">
+          <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+          {{ form.email }}
+          {% for err in form.email.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="field {% if form.phone.errors %}has-error{% endif %}">
+          <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }} <span class="optional">optional</span></label>
+          {{ form.phone }}
+          {% if form.phone.help_text %}<span class="field-hint">{{ form.phone.help_text }}</span>{% endif %}
+          {% for err in form.phone.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Package & devices ── -->
+    <section class="form-section">
+      <h2>Package &amp; devices</h2>
+
+      <div class="field">
+        <label for="package-select">Base package <span class="optional">optional</span></label>
+        <select id="package-select">
+          <option value="">— No package / custom build —</option>
+          {% comment %}Options rendered by JS from packages_json{% endcomment %}
+        </select>
+        <span class="field-hint">Selecting a package pre-fills the device table below. You can still add or remove items.{% if edit_mode %} Changing the package will replace the existing package rooms in the walkthrough — manually added rooms are kept.{% endif %}</span>
+      </div>
+
+      <div id="package-preview" class="package-preview" hidden>
+        <div class="package-preview-name" id="package-preview-name"></div>
+        <div class="package-preview-desc" id="package-preview-desc"></div>
+      </div>
+
+      <!-- device line table -->
+      <div class="device-table-wrap">
+        <table class="device-table" id="device-table">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th class="col-qty">Qty</th>
+              <th class="col-cost">Unit cost</th>
+              <th class="col-notes">Notes</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="device-tbody">
+            <tr id="device-empty-row">
+              <td colspan="5" class="device-empty">No devices added yet.</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr id="device-total-row" hidden>
+              <td colspan="2"><strong>Estimated total</strong></td>
+              <td id="device-total" class="col-cost"></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+        <button type="button" class="add-device-btn" id="add-device-btn">+ Add device</button>
+      </div>
+
+      <!-- Add device panel (inline form) -->
+      <div id="add-device-panel" class="add-device-panel" hidden>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="new-device-select">Device</label>
+            <select id="new-device-select">
+              <option value="">— choose —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="new-device-qty">Quantity</label>
+            <input id="new-device-qty" type="number" min="1" value="1">
+          </div>
+        </div>
+        <div class="field">
+          <label for="new-device-notes">Notes <span class="optional">optional</span></label>
+          <input id="new-device-notes" type="text" placeholder="e.g. customer prefers matte black">
+        </div>
+        <div class="add-panel-actions">
+          <button type="button" id="add-device-confirm" class="confirm-btn">Add to list</button>
+          <button type="button" id="add-device-cancel" class="cancel-inline-btn">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Custom integrations & automations ── -->
+    <section class="form-section">
+      <h2>Custom integrations &amp; automations</h2>
+      <p class="field-hint" style="margin-bottom:16px;">
+        Use this section to capture any existing devices or custom automation requests.
+        <strong>Note:</strong> most cloud-only devices (Google Nest, Ring, Ecobee, etc.) cannot be
+        integrated — we can investigate but cannot promise compatibility unless they are part of our
+        regular offering.
+      </p>
+      <div class="field {% if form.custom_integrations.errors %}has-error{% endif %}">
+        <label for="{{ form.custom_integrations.id_for_label }}">{{ form.custom_integrations.label }} <span class="optional">optional</span></label>
+        {{ form.custom_integrations }}
+        {% for err in form.custom_integrations.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+      <div class="field {% if form.custom_automations.errors %}has-error{% endif %}">
+        <label for="{{ form.custom_automations.id_for_label }}">{{ form.custom_automations.label }} <span class="optional">optional</span></label>
+        {{ form.custom_automations }}
+        {% for err in form.custom_automations.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+    </section>
+
+    <!-- ── Job details ── -->
+    <section class="form-section">
+      <h2>Job details</h2>
+      <div class="field {% if form.service_plan_tier.errors %}has-error{% endif %}">
+        <label for="{{ form.service_plan_tier.id_for_label }}">{{ form.service_plan_tier.label }} <span class="optional">optional</span></label>
+        {{ form.service_plan_tier }}
+        {% if form.service_plan_tier.help_text %}<span class="field-hint">{{ form.service_plan_tier.help_text }}</span>{% endif %}
+        {% for err in form.service_plan_tier.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+      <div class="field-row two-col">
+        <div class="field {% if form.sold_on.errors %}has-error{% endif %}">
+          <label for="{{ form.sold_on.id_for_label }}">{{ form.sold_on.label }}</label>
+          {{ form.sold_on }}
+          {% for err in form.sold_on.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+        <div class="field {% if form.install_date.errors %}has-error{% endif %}">
+          <label for="{{ form.install_date.id_for_label }}">{{ form.install_date.label }} <span class="optional">optional</span></label>
+          {{ form.install_date }}
+          {% if form.install_date.help_text %}<span class="field-hint">{{ form.install_date.help_text }}</span>{% endif %}
+          {% for err in form.install_date.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+        </div>
+      </div>
+      <div class="field {% if form.notes.errors %}has-error{% endif %}">
+        <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }} <span class="optional">optional</span></label>
+        {{ form.notes }}
+        {% for err in form.notes.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </div>
+      <p class="field-hint" style="margin-top:12px;">
+        The invoice number is generated automatically when the pre-install walkthrough is finalized.
+      </p>
+    </section>
+
+    {% if view_only %}</fieldset>{% endif %}
+    <div class="form-actions">
+      {% if view_only %}
+        <a href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}" class="submit-btn">← Back to checklist</a>
+      {% elif edit_mode %}
+        <a href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}" class="cancel-btn">Cancel</a>
+        <button type="submit" class="submit-btn">Save changes &amp; return to checklist →</button>
+      {% else %}
+        <a href="{% url 'jobs:home' %}" class="cancel-btn">Cancel</a>
+        <button type="submit" class="submit-btn">Start sale &amp; open pre-install checklist →</button>
+      {% endif %}
+    </div>
+
+  </form>
+</main>
+
+<script>
+  window.PACKAGES_DATA        = {{ packages_json|safe }};
+  window.CATALOG_DATA         = {{ catalog_json|safe }};
+  window.EXISTING_PACKAGE_ID  = {{ existing_package_id|default:"null" }};
+  window.EXISTING_ADHOC_JSON  = {{ existing_adhoc_json|default:"[]"|safe }};
+</script>
+<script src="{% static 'jobs/sales_form.js' %}"></script>
+</body>
+</html>

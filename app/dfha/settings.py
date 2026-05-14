@@ -145,6 +145,30 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# ── Email (Postmark via SMTP) ─────────────────────────────────────────────────
+# Postmark treats the SMTP username and password both as the server API token.
+# In dev (DEBUG=True) with no token set, fall back to console backend so emails
+# are printed to stdout rather than failing.
+_postmark_token = os.environ.get("POSTMARK_API_TOKEN", "")
+if DEBUG and not _postmark_token:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = "smtp.postmarkapp.com"
+    EMAIL_PORT = 587
+    EMAIL_HOST_USER = _postmark_token
+    EMAIL_HOST_PASSWORD = _postmark_token
+    EMAIL_USE_TLS = True
+
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DFHA_FROM_EMAIL",
+    "noreply@darkforesthomeautomation.com",
+)
+DFHA_REPLY_TO_EMAIL = os.environ.get(
+    "DFHA_REPLY_TO_EMAIL",
+    "hello@darkforesthomeautomation.com",
+)
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True

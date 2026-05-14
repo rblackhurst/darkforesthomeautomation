@@ -8,19 +8,35 @@ from .models import (
     BackendInstall,
     BackendInstallCapture,
     BackendInstallItemState,
+    CatalogDevice,
     ChecklistItem,
     ChecklistStep,
     ChecklistTemplate,
     CredentialBundle,
     Customer,
+    InternalPrep,
     Job,
     OnsiteInstall,
+    Package,
+    PackageDevice,
     PairingSheet,
+    PreInstallCapture,
+    PreInstallChecklist,
+    PreInstallItemState,
+    Room,
+    RoomDevice,
+    SaleLine,
     ServiceSubscription,
     TroubleRequest,
     WalkthroughSignoff,
     _fmt_order,
 )
+
+
+class PreInstallChecklistInline(admin.StackedInline):
+    model = PreInstallChecklist
+    extra = 0
+    can_delete = False
 
 
 class BackendInstallInline(admin.StackedInline):
@@ -59,6 +75,13 @@ class ServiceSubscriptionInline(admin.StackedInline):
     can_delete = False
 
 
+class SaleLineInline(admin.TabularInline):
+    model = SaleLine
+    extra = 0
+    fields = ("device", "quantity", "unit_cost", "confirmed_in_stock", "notes", "sort_order")
+    ordering = ("sort_order", "id")
+
+
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
     list_display = ("last_name", "first_name", "email", "city", "state")
@@ -68,13 +91,15 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ("invoice_number", "customer", "status", "install_date", "is_locked")
-    list_filter = ("status", "install_date")
-    search_fields = ("invoice_number", "customer__last_name", "customer__first_name")
-    autocomplete_fields = ("customer",)
+    list_display = ("invoice_label_col", "customer", "status", "install_date", "finalized_at", "payment_received", "is_locked")
+    list_filter = ("status", "install_date", "payment_received", "payment_override")
+    search_fields = ("invoice_number", "display_invoice_number", "customer__last_name", "customer__first_name")
+    autocomplete_fields = ("customer", "package")
     date_hierarchy = "install_date"
-    readonly_fields = ("install_links",)
+    readonly_fields = ("invoice_number", "display_invoice_number", "finalized_at", "payment_received_at", "install_links")
     inlines = [
+        SaleLineInline,
+        PreInstallChecklistInline,
         BackendInstallInline,
         PairingSheetInline,
         AutomationConfigInline,
@@ -86,10 +111,15 @@ class JobAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             "fields": (
-                "invoice_number", "customer", "status",
+                "invoice_number", "display_invoice_number", "customer", "package", "status",
                 "sold_on", "install_date",
                 "package_summary", "notes",
+                "custom_integrations", "custom_automations",
             ),
+        }),
+        ("Payment", {
+            "fields": ("finalized_at", "payment_override", "payment_override_amount", "payment_received", "payment_received_at"),
+            "classes": ("collapse",),
         }),
         ("Install forms", {
             "fields": ("install_links",),
@@ -97,17 +127,27 @@ class JobAdmin(admin.ModelAdmin):
         }),
     )
 
+    @admin.display(description="Invoice", ordering="display_invoice_number")
+    def invoice_label_col(self, obj):
+        return obj.display_invoice_number or f"[draft {obj.invoice_number[-8:]}]"
+
     @admin.display(description="Open")
     def install_links(self, obj):
         if not obj.pk:
             return "Save the job first to enable form links."
-        url = reverse("jobs:backend_install_render", args=[obj.invoice_number])
+        btn = (
+            'display:inline-block;padding:6px 14px;background:#2d6b4e;'
+            'color:#fff;border-radius:4px;text-decoration:none;font-weight:500;margin-right:8px;'
+        )
+        pi_url = reverse("jobs:pre_install_checklist_render", args=[obj.invoice_number])
+        bi_url = reverse("jobs:backend_install_render", args=[obj.invoice_number])
         return format_html(
-            '<a class="button" href="{}" target="_blank" rel="noopener" '
-            'style="display:inline-block;padding:6px 14px;background:#2d6b4e;'
-            'color:#fff;border-radius:4px;text-decoration:none;font-weight:500;">'
-            'Open backend install →</a>',
-            url,
+            '<a class="button" href="{}" target="_blank" rel="noopener" style="{}">'
+            'Pre-install checklist →</a>'
+            '<a class="button" href="{}" target="_blank" rel="noopener" style="{}">'
+            'Backend install →</a>',
+            pi_url, btn,
+            bi_url, btn,
         )
 
 
@@ -237,6 +277,81 @@ class BackendInstallCaptureAdmin(admin.ModelAdmin):
     list_display = ("backend_install", "key", "value_preview", "updated_at")
     search_fields = ("backend_install__job__invoice_number", "key", "value")
     raw_id_fields = ("backend_install",)
+    readonly_fields = ("updated_at",)
+
+    @admin.display(description="Value")
+    def value_preview(self, obj):
+        return (obj.value[:60] + "…") if len(obj.value) > 60 else obj.value
+
+
+class PackageDeviceInline(admin.TabularInline):
+    model = PackageDevice
+    extra = 1
+    fields = ("device", "quantity")
+    autocomplete_fields = ("device",)
+
+
+@admin.register(Package)
+class PackageAdmin(admin.ModelAdmin):
+    list_display = ("name", "base_price", "monitoring_tier", "device_count", "active")
+    list_filter = ("active",)
+    search_fields = ("name", "description")
+    list_editable = ("active",)
+    inlines = [PackageDeviceInline]
+
+    @admin.display(description="Devices")
+    def device_count(self, obj):
+        return obj.devices.count()
+
+
+@admin.register(CatalogDevice)
+class CatalogDeviceAdmin(admin.ModelAdmin):
+    list_display = ("device_type", "model_name", "supplier", "supplier_sku", "default_cost", "active")
+    list_filter = ("device_type", "active")
+    search_fields = ("model_name", "supplier", "supplier_sku", "notes")
+    ordering = ("device_type", "model_name")
+    list_editable = ("active",)
+
+
+@admin.register(InternalPrep)
+class InternalPrepAdmin(admin.ModelAdmin):
+    list_display = ("job", "github_username", "github_created", "picklist_picked", "updated_at")
+    search_fields = ("job__invoice_number", "github_username")
+    readonly_fields = ("created_at", "updated_at")
+
+
+class RoomDeviceInline(admin.TabularInline):
+    model = RoomDevice
+    extra = 0
+    fields = ("device", "quantity", "confirmed", "notes")
+
+
+@admin.register(Room)
+class RoomAdmin(admin.ModelAdmin):
+    list_display = ("job", "room_type", "custom_name", "device_count", "order")
+    list_filter = ("room_type",)
+    search_fields = ("job__invoice_number", "custom_name")
+    inlines = [RoomDeviceInline]
+
+    @admin.display(description="Devices")
+    def device_count(self, obj):
+        return obj.devices.count()
+
+
+@admin.register(PreInstallItemState)
+class PreInstallItemStateAdmin(admin.ModelAdmin):
+    list_display = ("pre_install_checklist", "item", "checked", "checked_by", "checked_at")
+    list_filter = ("checked",)
+    search_fields = ("pre_install_checklist__job__invoice_number", "notes")
+    raw_id_fields = ("pre_install_checklist", "item", "checked_by")
+    readonly_fields = ("checked_at",)
+
+
+@admin.register(PreInstallCapture)
+class PreInstallCaptureAdmin(admin.ModelAdmin):
+    list_display = ("pre_install_checklist", "key", "value_preview", "updated_at")
+    search_fields = ("pre_install_checklist__job__invoice_number", "key", "value")
+    raw_id_fields = ("pre_install_checklist",)
     readonly_fields = ("updated_at",)
 
     @admin.display(description="Value")

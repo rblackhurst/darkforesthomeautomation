@@ -46,13 +46,68 @@ class Job(models.Model):
         COMPLETE = "complete", "Complete"
         CANCELLED = "cancelled", "Cancelled"
 
+    class ServicePlan(models.IntegerChoices):
+        NONE = 0, "None / not selected"
+        BASIC = 1, "Basic ($29/mo)"
+        STANDARD = 2, "Standard ($49/mo)"
+        PREMIUM = 3, "Premium ($79/mo)"
+
     invoice_number = models.CharField(max_length=40, primary_key=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="jobs")
+    package = models.ForeignKey(
+        "Package",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="jobs",
+        help_text="Install package selected at sale time.",
+    )
+    service_plan_tier = models.PositiveSmallIntegerField(
+        choices=ServicePlan.choices,
+        default=ServicePlan.NONE,
+        help_text="Uptime service plan the customer signed up for "
+                  "(uptime checks, updates, battery kits, on-site visits). "
+                  "Encodes as the M digit in the invoice number.",
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SOLD)
     sold_on = models.DateField(null=True, blank=True)
     install_date = models.DateField(null=True, blank=True)
     package_summary = models.TextField(blank=True)
     notes = models.TextField(blank=True)
+    # Custom integrations / automations captured at sale + pre-install
+    custom_integrations = models.TextField(
+        blank=True,
+        help_text="Existing devices the customer wants integrated (e.g. smart locks, cameras). "
+                  "Note: most cloud-only devices (Google Nest, etc.) cannot be integrated.",
+    )
+    custom_automations = models.TextField(
+        blank=True,
+        help_text="Custom automation requests beyond the standard package.",
+    )
+    # Finalization + payment
+    display_invoice_number = models.CharField(
+        max_length=30,
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="System-generated customer-facing invoice code "
+                  "(YYMMDD + service-plan-tier + rooms + adhoc + seq). "
+                  "Set when the pre-install walkthrough is finalized.",
+    )
+    finalized_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the sale was finalized and the invoice number was generated.",
+    )
+    payment_override = models.BooleanField(
+        default=False,
+        help_text="Skip the automatic payment email — handle payment manually.",
+    )
+    payment_override_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Custom total override for testing / reduced-price installs.",
+    )
+    payment_received = models.BooleanField(default=False)
+    payment_received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,7 +119,13 @@ class Job(models.Model):
         ]
 
     def __str__(self):
-        return f"Job {self.invoice_number} — {self.customer}"
+        ref = self.display_invoice_number or self.invoice_number
+        return f"Job {ref} — {self.customer}"
+
+    @property
+    def invoice_label(self):
+        """Human-readable invoice reference for UI and emails."""
+        return self.display_invoice_number or "Pending"
 
     @property
     def is_locked(self):
@@ -393,3 +454,265 @@ class BackendInstallCapture(models.Model):
 
     def __str__(self):
         return f"{self.backend_install.job_id} · {self.key}"
+
+
+class CatalogDevice(models.Model):
+    class DeviceType(models.TextChoices):
+        NUC = "nuc", "NUC / Server"
+        SWITCH = "switch", "Network switch"
+        ACCESS_POINT = "ap", "Access point"
+        RELAY = "relay", "Smart relay"
+        PLUG = "plug", "Smart plug"
+        SENSOR = "sensor", "Sensor"
+        CAMERA = "camera", "Camera"
+        LOCK = "lock", "Smart lock"
+        THERMOSTAT = "thermostat", "Thermostat"
+        HUB = "hub", "Hub / bridge"
+        KIT = "kit", "Room / install kit"
+        OTHER = "other", "Other"
+
+    device_type = models.CharField(max_length=20, choices=DeviceType.choices)
+    model_name = models.CharField(max_length=200)
+    supplier = models.CharField(max_length=200, blank=True)
+    supplier_sku = models.CharField(max_length=100, blank=True)
+    purchase_url = models.URLField(blank=True)
+    default_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["device_type", "model_name"]
+
+    def __str__(self):
+        return f"{self.get_device_type_display()} — {self.model_name}"
+
+
+class PreInstallChecklist(InstallRecord):
+    job = models.OneToOneField(
+        Job, on_delete=models.CASCADE, related_name="pre_install_checklist",
+    )
+    template = models.ForeignKey(
+        "ChecklistTemplate",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="pre_install_checklists",
+        help_text="Snapshot reference: this checklist renders against this exact "
+                  "template version, even if a newer version is published later.",
+    )
+    invoice_sent = models.BooleanField(
+        default=False,
+        help_text="Checked once the payment quote / invoice has been confirmed sent to the customer.",
+    )
+    invoice_sent_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"PreInstallChecklist for {self.job_id}"
+
+
+class PreInstallItemState(models.Model):
+    pre_install_checklist = models.ForeignKey(
+        PreInstallChecklist, on_delete=models.CASCADE, related_name="item_states",
+    )
+    item = models.ForeignKey(ChecklistItem, on_delete=models.PROTECT, related_name="+")
+    checked = models.BooleanField(default=False)
+    checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    checked_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(
+        blank=True,
+        help_text="Per-item installer notes.",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pre_install_checklist", "item"],
+                name="unique_pre_install_item_state",
+            ),
+        ]
+
+    def __str__(self):
+        tick = "✓" if self.checked else "·"
+        return f"{self.pre_install_checklist.job_id} · item {self.item_id} · {tick}"
+
+
+class PreInstallCapture(models.Model):
+    pre_install_checklist = models.ForeignKey(
+        PreInstallChecklist, on_delete=models.CASCADE, related_name="captures",
+    )
+    key = models.SlugField(max_length=60)
+    value = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pre_install_checklist", "key"],
+                name="unique_pre_install_capture_key",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.pre_install_checklist.job_id} · {self.key}"
+
+
+# ── Packages & sale lines ─────────────────────────────────────────────────────
+
+class Package(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    base_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Base sale price for this package.",
+    )
+    monitoring_tier = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Monitoring tier digit encoded in the invoice number (0–9). "
+                  "0 = no monitoring, 1 = basic, 2 = standard, 3 = premium, etc.",
+    )
+    default_rooms = models.JSONField(
+        null=True, blank=True,
+        help_text='Rooms to auto-create when this package is selected at sale time. '
+                  'List of objects: {"room_type": "bedroom", "custom_name": "Primary"}. '
+                  'custom_name is optional.',
+    )
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class PackageDevice(models.Model):
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name="devices")
+    device = models.ForeignKey(
+        CatalogDevice, on_delete=models.PROTECT, related_name="package_lines",
+    )
+    quantity = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        ordering = ["device__device_type", "device__model_name"]
+
+    def __str__(self):
+        return f"{self.package.name}: {self.quantity}× {self.device.model_name}"
+
+
+class SaleLine(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="sale_lines")
+    device = models.ForeignKey(
+        CatalogDevice, on_delete=models.PROTECT, related_name="sale_lines",
+    )
+    quantity = models.PositiveSmallIntegerField(default=1)
+    unit_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Snapshot of the device cost at time of sale.",
+    )
+    notes = models.CharField(max_length=200, blank=True)
+    confirmed_in_stock = models.BooleanField(default=False)
+    from_package = models.BooleanField(
+        default=False,
+        help_text="True if this line was pre-filled from the selected package.",
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.job_id}: {self.quantity}× {self.device.model_name}"
+
+    @property
+    def line_total(self):
+        if self.unit_cost is not None:
+            return self.unit_cost * self.quantity
+        return None
+
+
+# ── Internal prep ─────────────────────────────────────────────────────────────
+
+class InternalPrep(models.Model):
+    job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="internal_prep")
+    github_username = models.CharField(max_length=100, blank=True)
+    github_created = models.BooleanField(default=False)
+    picklist_picked = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"InternalPrep for {self.job_id}"
+
+
+# ── Room walkthrough ──────────────────────────────────────────────────────────
+
+class Room(models.Model):
+    class RoomType(models.TextChoices):
+        LIVING_ROOM = "living_room", "Living room"
+        KITCHEN = "kitchen", "Kitchen"
+        DINING_ROOM = "dining_room", "Dining room"
+        BEDROOM = "bedroom", "Bedroom"
+        BATHROOM = "bathroom", "Bathroom"
+        OFFICE = "office", "Office"
+        GARAGE = "garage", "Garage"
+        BASEMENT = "basement", "Basement"
+        LAUNDRY = "laundry", "Laundry room"
+        HALLWAY = "hallway", "Hallway"
+        ENTRYWAY = "entryway", "Entryway"
+        OUTDOOR = "outdoor", "Backyard / outdoor"
+        OTHER = "other", "Other"
+
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="rooms")
+    room_type = models.CharField(max_length=20, choices=RoomType.choices)
+    custom_name = models.CharField(
+        max_length=100, blank=True,
+        help_text="Optional label to distinguish this room from others of the same type "
+                  "(e.g. 'Master', 'Kids', 'Grandma's').",
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+    from_package = models.BooleanField(
+        default=False,
+        help_text="True if this room was auto-created from the package default_rooms list. "
+                  "Allows re-applying a package without losing manually-added rooms.",
+    )
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    @property
+    def display_label(self):
+        base = self.get_room_type_display()
+        return f"{base} — {self.custom_name}" if self.custom_name else base
+
+    def __str__(self):
+        return f"{self.job_id}: {self.display_label}"
+
+
+class RoomDevice(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="devices")
+    device = models.ForeignKey(
+        CatalogDevice, on_delete=models.PROTECT, related_name="room_devices",
+    )
+    quantity = models.PositiveSmallIntegerField(default=1)
+    confirmed = models.BooleanField(
+        default=False,
+        help_text="Customer confirmed this device goes in this room.",
+    )
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.room}: {self.quantity}× {self.device.model_name}"

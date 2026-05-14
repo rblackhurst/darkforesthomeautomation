@@ -13,7 +13,7 @@
     <h1>Active jobs</h1>
     <div class="page-header-meta">
       <span class="active-count">{{ total_active }} active</span>
-      <a href="{% url 'admin:jobs_job_add' %}" class="primary-btn">+ New job</a>
+      <a href="{% url 'jobs:sales_form' %}" class="primary-btn">+ New sale</a>
     </div>
   </div>
   <input type="search" id="job-filter" placeholder="Filter by customer last name…" autocomplete="off" autofocus>
@@ -28,6 +28,33 @@
   {% endif %}
 
   {% for stage in stages %}
+    {% if stage.key == "backend" and internal_prep_cards %}
+      <section class="stage stage-special" data-stage="internal-prep">
+        <header class="stage-header">
+          <h2>Internal prep</h2>
+          <span class="stage-count">{{ internal_prep_cards|length }}</span>
+        </header>
+        <div class="card-list">
+          {% for c in internal_prep_cards %}
+            <article class="card" data-last-name="{{ c.job.customer.last_name|lower }}" data-first-name="{{ c.job.customer.first_name|lower }}">
+              <div class="card-main">
+                <div class="card-name">
+                  <strong>{{ c.job.customer.last_name }}, {{ c.job.customer.first_name }}</strong>
+                </div>
+                <div class="card-meta">
+                  <span class="invoice">{{ c.job.display_invoice_number }}</span>
+                  {% if c.job.install_date %}
+                    <span class="install-date">install {{ c.job.install_date|date:"M j" }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <a href="{{ c.next_url }}" class="card-action">{{ c.next_label }} →</a>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
     {% if stage.cards %}
       <section class="stage" data-stage="{{ stage.key }}">
         <header class="stage-header">
@@ -43,7 +70,7 @@
                   <strong>{{ c.job.customer.last_name }}, {{ c.job.customer.first_name }}</strong>
                 </div>
                 <div class="card-meta">
-                  <span class="invoice">#{{ c.job.invoice_number }}</span>
+                  <span class="invoice">{% if c.job.display_invoice_number %}{{ c.job.display_invoice_number }}{% else %}<em>pending</em>{% endif %}</span>
                   {% if c.job.install_date %}
                     <span class="install-date">install {{ c.job.install_date|date:"M j" }}</span>
                   {% else %}
@@ -85,7 +112,7 @@
                 <span class="archive-status">{{ c.job.get_status_display }}</span>
               </div>
               <div class="card-meta">
-                <span class="invoice">#{{ c.job.invoice_number }}</span>
+                <span class="invoice">{% if c.job.display_invoice_number %}{{ c.job.display_invoice_number }}{% else %}<em>pending</em>{% endif %}</span>
                 {% if c.job.install_date %}<span class="install-date">installed {{ c.job.install_date|date:"M j, Y" }}</span>{% endif %}
               </div>
             </div>

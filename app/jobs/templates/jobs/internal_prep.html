@@ -1,0 +1,138 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Internal prep</title>
+  <link rel="stylesheet" href="{% static 'jobs/internal_prep.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<header class="page-header">
+  <div class="header-row">
+    <div class="header-left">
+      <a class="back-link" href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}">← Pre-install checklist</a>
+      <h1>Internal prep</h1>
+      <p class="header-sub">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · invoice {{ job.invoice_number }}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </div>
+    <div class="header-actions">
+      <a class="pick-sheet-btn" href="{% url 'jobs:pick_sheet_render' job.invoice_number %}" target="_blank" rel="noopener">
+        View pick sheet →
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Room device list ── -->
+  <section class="card">
+    <div class="card-header">
+      <h2>Devices by room</h2>
+      <span class="badge badge-amber">{{ total_devices }} device{{ total_devices|pluralize }}</span>
+    </div>
+
+    {% if rooms %}
+      {% for room in rooms %}
+        <div class="room-section">
+          <div class="room-section-header">
+            <span class="room-section-name">{{ room.display_label }}</span>
+            <span class="room-section-cost">
+              {% if room.cost_subtotal %}${{ room.cost_subtotal|floatformat:2 }}{% else %}—{% endif %}
+            </span>
+          </div>
+          {% if room.room_devices %}
+            <table class="device-table">
+              <thead>
+                <tr>
+                  <th>Device</th>
+                  <th class="col-qty">Qty</th>
+                  <th class="col-cost">Company cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rd in room.room_devices %}
+                  <tr class="device-row">
+                    <td class="col-device">
+                      <span class="device-type">{{ rd.device.get_device_type_display }}</span>
+                      {{ rd.device.model_name }}
+                      {% if rd.device.supplier %}<span class="device-supplier">{{ rd.device.supplier }}{% if rd.device.supplier_sku %} · {{ rd.device.supplier_sku }}{% endif %}</span>{% endif %}
+                      {% if rd.device.purchase_url %}<a class="device-link" href="{{ rd.device.purchase_url }}" target="_blank" rel="noopener">↗</a>{% endif %}
+                    </td>
+                    <td class="col-qty">{{ rd.quantity }}</td>
+                    <td class="col-cost">{% if rd.device.default_cost %}${{ rd.device.default_cost }}{% else %}—{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <p class="empty-msg" style="padding:10px 16px;">No devices assigned to this room yet.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-msg">No rooms recorded yet. Complete the room walkthrough in the pre-install checklist first.</p>
+    {% endif %}
+  </section>
+
+  <!-- ── GitHub account ── -->
+  <section class="card">
+    <div class="card-header">
+      <h2>Customer GitHub account</h2>
+      <label class="toggle-row">
+        <input type="checkbox" id="github-created" class="toggle-check" {% if internal_prep.github_created %}checked{% endif %}>
+        <span>Account created</span>
+      </label>
+    </div>
+    <p class="card-hint">Create a GitHub account in the customer's name before the backend install. Home Assistant config, HACS, and any custom automations live in a private repo under their account.</p>
+    <div class="capture-row">
+      <label for="github-username">GitHub username</label>
+      <input id="github-username"
+             type="text"
+             class="capture-input"
+             value="{{ internal_prep.github_username }}"
+             placeholder="e.g. john-smith-ha"
+             data-field="github_username">
+    </div>
+  </section>
+
+  <!-- ── Picklist picked ── -->
+  <section class="card">
+    <div class="card-header">
+      <h2>Pick list status</h2>
+    </div>
+    <p class="card-hint">Once all devices have been physically pulled and are ready to go in the van, check this off.</p>
+    <label class="big-check-row">
+      <input type="checkbox" id="picklist-picked" class="toggle-check" {% if internal_prep.picklist_picked %}checked{% endif %}>
+      <span>Picklist picked — all devices in hand, ready to load</span>
+    </label>
+  </section>
+
+  <!-- ── Notes ── -->
+  <section class="card">
+    <div class="card-header"><h2>Internal notes</h2></div>
+    <textarea id="internal-notes" class="notes-area" placeholder="Anything else to track before install day…">{{ internal_prep.notes }}</textarea>
+  </section>
+
+  <div class="pick-sheet-cta">
+    <a class="pick-sheet-btn large" href="{% url 'jobs:pick_sheet_render' job.invoice_number %}" target="_blank" rel="noopener">
+      Open pick sheet (printable) →
+    </a>
+    <p class="pick-sheet-hint">The pick sheet aggregates all room devices by type with quantities, ready to print and pull from stock.</p>
+  </div>
+
+</main>
+
+<div class="save-toast" id="save-toast">Saved</div>
+
+<script>
+  window.IP_BASE_URL = "{% url 'jobs:internal_prep_render' job.invoice_number %}";
+</script>
+<script src="{% static 'jobs/internal_prep.js' %}"></script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Pre-install checklist</title>
+  <link rel="stylesheet" href="{% static 'jobs/backend_install.css' %}">
+  <link rel="stylesheet" href="{% static 'jobs/pre_install_extra.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-eyebrow">Pre-install checklist</div>
+      <div class="sidebar-customer">{{ job.customer.first_name }} {{ job.customer.last_name }}</div>
+      <div class="sidebar-meta">
+        {% if job.display_invoice_number %}Invoice {{ job.display_invoice_number }}{% else %}<em>Invoice pending</em>{% endif %}{% if job.install_date %} · {{ job.install_date|date:"M j" }}{% endif %}
+      </div>
+    </div>
+
+    <div class="sidebar-progress">
+      <div class="sidebar-progress-label">
+        Overall <span class="sidebar-progress-fraction">{{ total_done }} / {{ total_checks }}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-bar-fill" style="width: {% if total_checks %}{% widthratio total_done total_checks 100 %}{% else %}0{% endif %}%"></div></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      {% for entry in steps %}
+        <a class="sidebar-step" href="#step-{{ entry.step.order|floatformat:'0' }}" data-step-anchor="step-{{ entry.step.order|floatformat:'0' }}">
+          <span class="sidebar-step-num">{{ entry.step.order|floatformat:"0" }}</span>
+          <span class="sidebar-step-title">{{ entry.step.title }}</span>
+          {% if entry.check_total %}
+            <span class="sidebar-step-progress {% if entry.check_done == entry.check_total %}complete{% endif %}">{{ entry.check_done }}/{{ entry.check_total }}</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+      <a class="sidebar-step" href="#room-walkthrough" data-step-anchor="room-walkthrough">
+        <span class="sidebar-step-num">→</span>
+        <span class="sidebar-step-title">Room walkthrough</span>
+        <span class="sidebar-step-progress" id="room-count-badge">{{ rooms|length }} room{{ rooms|length|pluralize }}</span>
+      </a>
+      <a class="sidebar-step {% if job.finalized_at %}complete{% endif %}" href="#finalize-sale" data-step-anchor="finalize-sale">
+        <span class="sidebar-step-num">✓</span>
+        <span class="sidebar-step-title">Finalize sale</span>
+        {% if job.display_invoice_number %}
+          <span class="sidebar-step-progress complete">{{ job.display_invoice_number }}</span>
+        {% endif %}
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="sidebar-link sidebar-link-highlight" href="{% url 'jobs:internal_prep_render' job.invoice_number %}">Internal prep →</a>
+      <a class="sidebar-link" href="{% url 'jobs:sales_form_edit' job.invoice_number %}">{% if job.finalized_at %}View sale{% else %}Edit sale / package{% endif %}</a>
+      <a class="sidebar-link" href="{% url 'jobs:home' %}">← Dashboard</a>
+      <a class="sidebar-link" href="{% url 'admin:jobs_job_change' job.invoice_number %}">Open job in admin</a>
+      <button type="button" class="reset-btn" data-action="reset">Reset checklist</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <header class="page-header">
+      <h1>{{ template.title }} <span class="version">v{{ template.version }}</span></h1>
+      <p class="customer-line">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · {% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}<em>invoice pending</em>{% endif %}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </header>
+
+    {% for entry in steps %}
+      <section class="step" id="step-{{ entry.step.order|floatformat:'0' }}">
+        <header class="step-header">
+          <span class="step-badge">Step {{ entry.step.order|floatformat:"0" }}</span>
+          <h2>{{ entry.step.title }}</h2>
+          {% if entry.check_total %}
+            <span class="step-progress {% if entry.check_done == entry.check_total %}complete{% endif %}">{{ entry.check_done }} / {{ entry.check_total }}</span>
+          {% endif %}
+        </header>
+
+        {% if entry.step.intro_md %}
+          <div class="step-intro">{{ entry.step.intro_md|linebreaks }}</div>
+        {% endif %}
+
+        {% for it in entry.entries %}
+          {% if it.item.kind == "content" %}
+            <div class="content-block">{{ it.item.body_md|safe }}</div>
+          {% elif it.item.kind == "check" %}
+            <div class="check-item">
+              <label>
+                <input type="checkbox" data-action="toggle-check" data-item-id="{{ it.item.id }}" {% if it.checked %}checked{% endif %}>
+                <span class="check-body">{{ it.item.body_md|safe }}</span>
+              </label>
+              <details class="notes-toggle" {% if it.notes %}open{% endif %}>
+                <summary>Notes</summary>
+                <textarea data-action="save-notes" data-item-id="{{ it.item.id }}" placeholder="Optional notes for this step">{{ it.notes }}</textarea>
+              </details>
+            </div>
+          {% elif it.item.kind == "capture" %}
+            <div class="capture-row">
+              <label for="cap-{{ it.item.capture_key }}">{{ it.item.capture_label }}</label>
+              <input id="cap-{{ it.item.capture_key }}" type="text" value="{{ it.value }}" placeholder="{{ it.item.capture_placeholder }}" data-action="save-capture" data-capture-key="{{ it.item.capture_key }}">
+            </div>
+          {% endif %}
+        {% endfor %}
+      </section>
+    {% endfor %}
+
+    <!-- ── Room walkthrough ── -->
+    <section class="step room-walkthrough-section" id="room-walkthrough">
+      <header class="step-header">
+        <span class="step-badge">Walkthrough</span>
+        <h2>Room walkthrough &amp; device placement</h2>
+        <span class="step-progress" id="room-device-summary"></span>
+      </header>
+      <p class="step-intro">Walk through each room with the customer. Add rooms, assign devices, and check off anything the customer confirms. Confirmed devices roll into the pick sheet.</p>
+
+      <!-- Room list -->
+      <div id="room-list">
+        {% for room in rooms %}
+          <div class="room-card" data-room-id="{{ room.id }}">
+            <div class="room-card-header">
+              <span class="room-type-label">{{ room.get_room_type_display }}</span>
+              <input class="room-name-input" type="text" value="{{ room.custom_name }}"
+                     placeholder="add a name, e.g. Master"
+                     data-action="rename-room" data-room-id="{{ room.id }}">
+              <button type="button" class="room-delete-btn" data-room-id="{{ room.id }}" title="Remove room">×</button>
+            </div>
+            <div class="room-devices" id="room-devices-{{ room.id }}">
+              {% for rd in room.devices.all %}
+                <div class="room-device-row {% if rd.confirmed %}confirmed{% endif %}" data-rd-id="{{ rd.id }}">
+                  <label class="rd-confirm-label">
+                    <input type="checkbox" class="rd-confirm" data-room-id="{{ room.id }}" data-rd-id="{{ rd.id }}" {% if rd.confirmed %}checked{% endif %}>
+                    <span class="rd-label">
+                      <span class="rd-type">{{ rd.device.get_device_type_display }}</span>
+                      {% if rd.quantity > 1 %}{{ rd.quantity }}× {% endif %}{{ rd.device.model_name }}
+                    </span>
+                  </label>
+                  <div class="rd-actions">
+                    <button type="button" class="rd-swap-btn" data-room-id="{{ room.id }}" data-rd-id="{{ rd.id }}" title="Swap device">⇄</button>
+                    <button type="button" class="rd-delete-btn" data-room-id="{{ room.id }}" data-rd-id="{{ rd.id }}" title="Remove">×</button>
+                  </div>
+                </div>
+              {% empty %}
+                <p class="room-empty-msg">No devices added yet.</p>
+              {% endfor %}
+            </div>
+            <button type="button" class="add-rd-btn" data-room-id="{{ room.id }}">+ Add device</button>
+          </div>
+        {% empty %}
+          <p class="no-rooms-msg" id="no-rooms-msg">No rooms added yet. Use the button below to start the walkthrough.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Add room panel -->
+      <div class="add-room-panel">
+        <div class="field-row two-col" style="margin-bottom:0">
+          <div class="field" style="margin-bottom:0">
+            <select id="room-type-select">
+              <option value="">— Room type —</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <input id="room-custom-name" type="text" placeholder="Custom name (optional — e.g. Master, Kids, Grandma's)">
+          </div>
+        </div>
+        <button type="button" id="add-room-btn" class="add-room-btn">+ Add room</button>
+      </div>
+    </section>
+
+    <!-- ── Custom integrations & automations ── -->
+    <section class="step" id="custom-integrations">
+      <header class="step-header">
+        <span class="step-badge">Notes</span>
+        <h2>Custom integrations &amp; automations</h2>
+      </header>
+      <p class="step-intro">
+        Capture any existing devices the customer wants integrated, or custom automation requests.
+        <strong>Note:</strong> most cloud-only devices (Google Nest, Ring, Ecobee, etc.) cannot be
+        integrated — we can investigate but cannot promise compatibility unless they are part of our
+        regular offering.
+      </p>
+      <div class="capture-row capture-row-tall">
+        <label for="custom-integrations-input">Custom integrations</label>
+        <textarea id="custom-integrations-input" rows="4"
+          data-action="save-job-text" data-field="custom_integrations"
+          placeholder="List any existing devices…">{{ job.custom_integrations }}</textarea>
+      </div>
+      <div class="capture-row capture-row-tall">
+        <label for="custom-automations-input">Custom automations</label>
+        <textarea id="custom-automations-input" rows="4"
+          data-action="save-job-text" data-field="custom_automations"
+          placeholder="Describe custom automation requests…">{{ job.custom_automations }}</textarea>
+      </div>
+    </section>
+
+    <!-- ── Finalize sale ── -->
+    <section class="step finalize-section" id="finalize-sale">
+      <header class="step-header">
+        <span class="step-badge">Finalize</span>
+        <h2>Finalize sale &amp; generate invoice</h2>
+      </header>
+
+      <!-- Service plan (always editable; encodes into invoice number) -->
+      <div class="capture-row" id="service-plan-row">
+        <label for="service-plan-select">Service plan</label>
+        <select id="service-plan-select" data-action="save-job-text" data-field="service_plan_tier" {% if job.finalized_at %}disabled{% endif %}>
+          <option value="0" {% if job.service_plan_tier == 0 %}selected{% endif %}>None / not selected</option>
+          <option value="1" {% if job.service_plan_tier == 1 %}selected{% endif %}>Basic ($29/mo — uptime checks + low-battery alerts)</option>
+          <option value="2" {% if job.service_plan_tier == 2 %}selected{% endif %}>Standard ($49/mo — Basic + updates + automation tweaks)</option>
+          <option value="3" {% if job.service_plan_tier == 3 %}selected{% endif %}>Premium ($79/mo — Standard + priority response + annual visit)</option>
+        </select>
+      </div>
+
+      {% if job.finalized_at %}
+        <!-- Already finalized -->
+        <div class="finalize-done">
+          <div class="finalize-invoice-display">
+            Invoice <strong>{{ job.display_invoice_number }}</strong>
+          </div>
+          <div class="finalize-meta">
+            Finalized {{ job.finalized_at|date:"M j, Y g:i a" }}
+            {% if job.payment_override %}&nbsp;· <em>Email skipped (manual payment)</em>{% endif %}
+          </div>
+
+          <!-- Payment received -->
+          <div class="payment-received-row">
+            <label class="payment-toggle">
+              <input type="checkbox" id="payment-received-check" data-action="payment-received" {% if job.payment_received %}checked{% endif %}>
+              <span class="payment-toggle-label">
+                {% if job.payment_received %}
+                  ✓ Payment received{% if job.payment_received_at %} · {{ job.payment_received_at|date:"M j, Y g:i a" }}{% endif %}
+                {% else %}
+                  Payment received
+                {% endif %}
+              </span>
+            </label>
+          </div>
+        </div>
+
+      {% else %}
+
+        <!-- Not yet finalized -->
+        <p class="step-intro">
+          Complete the room walkthrough above, then finalize to generate the invoice number and send the payment quote to the customer.
+        </p>
+        <div class="finalize-summary" id="finalize-summary">
+          {% if package_discount %}
+            <div class="finalize-summary-row"><span>Package items (à la carte)</span><span>{{ package_list_price }}</span></div>
+            <div class="finalize-summary-row finalize-discount-row"><span>Package discount</span><span>−{{ package_discount }}</span></div>
+            {% if adhoc_price %}
+              <div class="finalize-summary-row"><span>{{ adhoc_label }}</span><span>{{ adhoc_price }}</span></div>
+            {% endif %}
+          {% endif %}
+          <div class="finalize-summary-row {% if package_discount %}finalize-total-row{% endif %}"><span>Estimated total</span><span id="finalize-total">{{ sale_total|default:"—" }}</span></div>
+          <div class="finalize-summary-row"><span>50% deposit</span><span id="finalize-deposit">{{ sale_deposit|default:"—" }}</span></div>
+        </div>
+        <div class="finalize-override-row">
+          <label class="finalize-override-toggle">
+            <input type="checkbox" id="finalize-override-check">
+            <span>Override — skip auto-email (handle payment manually)</span>
+          </label>
+          <div id="finalize-override-amount-wrap" class="finalize-override-amount" hidden>
+            <label for="finalize-override-amount">Custom total amount <span class="optional">optional</span></label>
+            <input type="number" id="finalize-override-amount" min="0" step="0.01" placeholder="e.g. 500.00">
+            <span class="field-hint">Leave blank to keep the calculated total; enter a value for a reduced price.</span>
+          </div>
+        </div>
+        <button type="button" id="finalize-btn" class="finalize-btn">
+          Finalize sale &amp; generate invoice →
+        </button>
+      {% endif %}
+
+      <!-- Invoice sent — last confirmation step, always shown -->
+      <div class="payment-received-row" style="margin-top:16px;">
+        <label class="payment-toggle">
+          <input type="checkbox" id="invoice-sent-check" data-action="invoice-sent" {% if pre_install_checklist.invoice_sent %}checked{% endif %}>
+          <span class="payment-toggle-label" id="invoice-sent-label">
+            {% if pre_install_checklist.invoice_sent %}
+              ✓ Invoice sent to customer{% if pre_install_checklist.invoice_sent_at %} · {{ pre_install_checklist.invoice_sent_at|date:"M j, Y g:i a" }}{% endif %}
+            {% else %}
+              Invoice sent to customer
+            {% endif %}
+          </span>
+        </label>
+      </div>
+    </section>
+
+
+
+  </main>
+
+</div>
+
+<!-- Swap room device modal -->
+<div id="rd-swap-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h3>Swap device</h3>
+    <div class="field">
+      <label>Replace with</label>
+      <select id="rd-swap-device-select">
+        <option value="">— choose —</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="rd-swap-confirm-btn" class="confirm-btn">Swap</button>
+      <button type="button" id="rd-swap-cancel-btn" class="cancel-inline-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add room device modal -->
+<div id="rd-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h3>Add device to room</h3>
+    <div class="field">
+      <label>Device</label>
+      <select id="rd-device-select">
+        <option value="">— choose —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Quantity</label>
+      <input id="rd-qty" type="number" min="1" value="1">
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="rd-confirm-btn" class="confirm-btn">Add</button>
+      <button type="button" id="rd-cancel-btn" class="cancel-inline-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.PI_BASE_URL        = "{% url 'jobs:pre_install_checklist_render' job.invoice_number %}";
+  window.PI_CUSTOMER_LABEL  = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
+  window.ROOM_TYPES         = {{ room_types_json|safe }};
+  window.CATALOG_DEVICES    = {{ catalog_json|safe }};
+  window.FINALIZE_URL       = "{% url 'jobs:pre_install_finalize' job.invoice_number %}";
+  window.JOB_TEXT_URL       = "{% url 'jobs:pre_install_save_job_text' job.invoice_number %}";
+  window.PAYMENT_URL        = "{% url 'jobs:pre_install_payment_received' job.invoice_number %}";
+  window.INVOICE_SENT_URL   = "{% url 'jobs:pre_install_toggle_invoice_sent' job.invoice_number %}";
+  window.ALREADY_FINALIZED  = {{ job.finalized_at|yesno:"true,false" }};
+</script>
+<script src="{% static 'jobs/pre_install_checklist.js' %}"></script>
+</body>
+</html>

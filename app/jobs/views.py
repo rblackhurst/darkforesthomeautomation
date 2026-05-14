@@ -570,11 +570,56 @@ def _create_default_rooms(job, pkg):
                 RoomDevice.objects.create(room=room, device=device, quantity=1)
 
 
+def _backfill_room_devices(job, pkg):
+    """Add missing device assignments to package-derived rooms that have none.
+
+    Safe to call on existing jobs: only touches rooms that currently have zero
+    devices, so confirmed work already done by the installer is preserved.
+    """
+    if not pkg.default_rooms:
+        return
+    device_cache = {}
+    # Work against a mutable list so each entry matches at most one room.
+    empty_rooms = list(
+        job.rooms.filter(from_package=True)
+        .annotate(_dc=Count("devices"))
+        .filter(_dc=0)
+    )
+    if not empty_rooms:
+        return
+    for entry in pkg.default_rooms:
+        if not entry.get("devices"):
+            continue
+        room_type = entry.get("room_type")
+        custom_name = entry.get("custom_name", "")
+        room = next(
+            (r for r in empty_rooms
+             if r.room_type == room_type and r.custom_name == custom_name),
+            None,
+        )
+        if not room:
+            continue
+        empty_rooms.remove(room)
+        for dev_spec in entry["devices"]:
+            substr = dev_spec.get("model_name_contains", "")
+            if not substr:
+                continue
+            if substr not in device_cache:
+                device_cache[substr] = CatalogDevice.objects.filter(
+                    model_name__icontains=substr, active=True
+                ).first()
+            device = device_cache[substr]
+            if device:
+                RoomDevice.objects.create(room=room, device=device, quantity=1)
+
+
 def _update_sale(job, new_package_id, device_rows):
     """Replace sale lines and package-derived rooms for an existing job.
 
     Called from the edit-sale form. Keeps manually-added rooms intact and only
     replaces package-sourced sale lines / rooms when the package changes.
+    When the package is unchanged, backfills any room device assignments that
+    are missing (handles jobs created before the device-mapping migration).
     """
     package_changed = job.package_id != (new_package_id or None)
 
@@ -585,6 +630,12 @@ def _update_sale(job, new_package_id, device_rows):
         job.package_summary = ""
         job.payment_override_amount = None
         job.save(update_fields=["package", "package_summary", "payment_override_amount"])
+    elif job.package_id:
+        # Package unchanged — backfill devices into any package rooms that lack them.
+        try:
+            _backfill_room_devices(job, Package.objects.get(pk=job.package_id, active=True))
+        except Package.DoesNotExist:
+            pass
 
     # Always refresh à-la-carte lines so the latest quantities/notes are saved.
     job.sale_lines.filter(from_package=False).delete()
@@ -592,9 +643,6 @@ def _update_sale(job, new_package_id, device_rows):
     # Re-use the same helper; it handles both package lines and à-la-carte.
     # If the package didn't change, pass None so it skips re-creating package lines.
     _create_sale_lines(job, new_package_id if package_changed else None, device_rows)
-
-    # If package unchanged but à-la-carte changed, payment_override_amount is already
-    # set from the original package application — no adjustment needed.
 
 
 def _create_sale_lines(job, package_id, device_rows):

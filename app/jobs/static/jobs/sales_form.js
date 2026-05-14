@@ -88,10 +88,13 @@
       totalCell.textContent = totalKnown ? "$" + total.toFixed(2) : "—";
     }
 
-    // Sync hidden inputs
+    // Sync hidden inputs — only send à-la-carte lines; package items are
+    // reconstructed server-side from package_id to avoid duplication.
     if (packageIdInput) packageIdInput.value = packageSelect.value || "";
     if (devicesJsonInput) devicesJsonInput.value = JSON.stringify(
-      lines.map(({ device_id, quantity, notes }) => ({ device_id, quantity, notes }))
+      lines
+        .filter(l => !l._fromPackage)
+        .map(({ device_id, quantity, notes }) => ({ device_id, quantity, notes }))
     );
   }
 

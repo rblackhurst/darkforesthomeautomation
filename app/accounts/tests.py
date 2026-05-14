@@ -206,3 +206,25 @@ class EmailBackendTests(TestCase):
             "email": "RON@example.com", "password": "hunter2!hunter2",
         })
         self.assertEqual(r.status_code, 302)
+
+    def test_duplicate_case_variant_usernames_do_not_crash(self):
+        # Django's unique=True on username is case-sensitive in SQLite, so
+        # "ron" and "Ron" can coexist. The backend must not 500 in that case.
+        User.objects.create_user(
+            username="ron", email="ron+a@example.com",
+            password="alpha-password-1", is_staff=True,
+        )
+        User.objects.create_user(
+            username="Ron", email="ron+b@example.com",
+            password="beta-password-2", is_staff=True,
+        )
+        # Either password should still log in *its* user without crashing.
+        r = self.client.post(_login_url(), {
+            "email": "ron", "password": "beta-password-2",
+        })
+        self.assertEqual(r.status_code, 302)
+        self.client.logout()
+        r = self.client.post(_login_url(), {
+            "email": "ron", "password": "alpha-password-1",
+        })
+        self.assertEqual(r.status_code, 302)

@@ -1427,12 +1427,22 @@ def home_dashboard(request):
             archive.append(card)
         elif job.status in grouped:
             grouped[job.status].append(card)
-        # Collect finalized (invoiced) active jobs for the internal prep section.
+        # Collect finalized (invoiced) active jobs for the prep section.
+        # Once pre-install is finalized, internal prep and backend install
+        # can run in parallel — surface both buttons on the same card.
         if job.finalized_at and job.status not in archived_statuses:
             internal_prep_cards.append({
                 "job": job,
-                "next_url": reverse("jobs:internal_prep_render", args=[job.invoice_number]),
-                "next_label": "Open internal prep",
+                "actions": [
+                    {
+                        "url": reverse("jobs:internal_prep_render", args=[job.invoice_number]),
+                        "label": "Internal prep",
+                    },
+                    {
+                        "url": reverse("jobs:backend_install_render", args=[job.invoice_number]),
+                        "label": "Backend install",
+                    },
+                ],
             })
 
     stages = [

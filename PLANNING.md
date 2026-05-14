@@ -153,7 +153,7 @@ waiting on software.
 | 5–6 | Port existing `install.html` content into the BackendInstall form (DB-backed, admin-editable checklist templates so content fixes don't need a code deploy). Sales form + pre-install checklist (reuses checklist template infra). CatalogDevice model + admin (price sheet). |
 | 6–7 | **PickSheet** generated from sale + pre-install: grouped by device type then quantity, with per-line supplier/SKU/URL pulled from CatalogDevice. Prints clean; re-generate to refresh. Sits between sale and config in the staff flow. |
 | 7–8 | PairingSheet, AutomationConfig, OnsiteInstall forms. Walkthrough sign-off (locks job, starts audit trail, triggers post-install email). |
-| 9–10 | Customer portal — invite email with setup code, customer signup w/ 2FA, view package + docs, trouble-request form. |
+| 9–10 | Customer portal — invite email with setup code, customer signup w/ 2FA, view package + docs, trouble-request form. **Account management** ships alongside: self-service password reset (Django built-ins + Postmark) and a unified "Invite a user" page that covers both employees and customers. |
 | 11–12 | Stripe Billing (3 uptime tiers + DIY-package quote-request form). "Download my credentials" encrypted export. Polish. |
 
 Pace can accelerate if we move faster than expected.
@@ -192,6 +192,18 @@ Things we've deferred or haven't decided yet. Add freely.
 - Final wording / styling of the post-install email and the in-portal
   "Download my credentials" warning copy.
 - ~~Pricing for the three uptime service tiers.~~ → Resolved — see `docs/internal/pricing.md`.
+- **Account management UX:** for now, employee accounts are created and
+  reset via `/admin/auth/user/` (Django admin) and `/admin/accounts/employeetotp/`
+  ("Reset TOTP enrolment" action). That's fine for 3–4 staff. Once
+  customers exist (Weeks 9–10) we need:
+    1. A self-service password-reset flow (forgot password → emailed link),
+       wiring Django's built-in reset views to Postmark and theming the
+       four templates. Useful for employees too; cheap to ship early.
+    2. A purpose-built "manage users" page that handles invite + disable
+       + reset-2FA with one set of templates for both employees and
+       customers — same UX for "invite an installer" as "invite a
+       customer." Bundling it with the customer portal avoids building
+       two parallel invite flows.
 - Whether the trouble-request form should accept photo attachments in v1.
 - Whether customer portal should show install photos (and if so, where they're
   stored — Backblaze B2 likely).

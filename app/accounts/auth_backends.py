@@ -1,13 +1,20 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
+from django.db.models import Q
 
 
 class EmailOrUsernameBackend(ModelBackend):
-    """Authenticate by email (case-insensitive) first, then by username.
+    """Authenticate by email or username, case-insensitively.
 
-    Lets staff log in with the email address shown on their account without
-    forcing existing username-based superusers (e.g. the one created by
-    `manage.py createsuperuser`) to change anything.
+    Default Django usernames are unique but case-sensitive at the DB level,
+    so `Ron` and `ron` can both exist. We resolve that ambiguity by:
+      1. Matching `email iexact OR username iexact` in a single query.
+      2. Preferring an exact-case hit if both are present.
+      3. Trying each remaining candidate's password — first success wins.
+
+    This means an existing username-based superuser (e.g. created via
+    `createsuperuser` with no email) can still log in with their username,
+    and any duplicate accounts won't crash login.
     """
 
     def authenticate(self, request, username=None, password=None, **kwargs):
@@ -17,24 +24,24 @@ class EmailOrUsernameBackend(ModelBackend):
         User = get_user_model()
         ident = username.strip()
 
-        try:
-            user = User.objects.get(email__iexact=ident)
-        except User.DoesNotExist:
-            try:
-                user = User.objects.get(username__iexact=ident)
-            except User.DoesNotExist:
-                # Run the default hasher anyway so timing doesn't leak which
-                # accounts exist.
-                User().set_password(password)
-                return None
-        except User.MultipleObjectsReturned:
-            # Email collisions shouldn't happen in practice (3–4 employees)
-            # but if they do, fall back to username lookup to disambiguate.
-            try:
-                user = User.objects.get(username__iexact=ident)
-            except User.DoesNotExist:
-                return None
+        candidates = list(
+            User.objects.filter(
+                Q(email__iexact=ident) | Q(username__iexact=ident),
+            )
+        )
+        # Try exact-case matches before case-insensitive ones, but still try
+        # *every* candidate's password — the right user is whichever account
+        # the password unlocks.
+        candidates.sort(
+            key=lambda u: 0 if (u.email == ident or u.username == ident) else 1,
+        )
 
-        if user.check_password(password) and self.user_can_authenticate(user):
-            return user
+        for user in candidates:
+            if user.check_password(password) and self.user_can_authenticate(user):
+                return user
+
+        if not candidates:
+            # Run the default hasher anyway so timing doesn't leak which
+            # accounts exist.
+            User().set_password(password)
         return None

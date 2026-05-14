@@ -964,11 +964,11 @@ def internal_prep_render(request, invoice_number):
     rooms = list(job.rooms.prefetch_related("devices__device").order_by("order"))
     for room in rooms:
         devs = list(room.devices.select_related("device").all())
-        room._devices = devs
+        room.room_devices = devs
         room.cost_subtotal = sum(
             (rd.device.default_cost or Decimal("0")) * rd.quantity for rd in devs
         )
-    total_devices = sum(len(r._devices) for r in rooms)
+    total_devices = sum(len(r.room_devices) for r in rooms)
 
     return render(request, "jobs/internal_prep.html", {
         "job": job,

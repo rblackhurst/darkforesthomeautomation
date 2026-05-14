@@ -46,7 +46,7 @@
               {% if room.cost_subtotal %}${{ room.cost_subtotal|floatformat:2 }}{% else %}—{% endif %}
             </span>
           </div>
-          {% if room._devices %}
+          {% if room.room_devices %}
             <table class="device-table">
               <thead>
                 <tr>
@@ -56,7 +56,7 @@
                 </tr>
               </thead>
               <tbody>
-                {% for rd in room._devices %}
+                {% for rd in room.room_devices %}
                   <tr class="device-row">
                     <td class="col-device">
                       <span class="device-type">{{ rd.device.get_device_type_display }}</span>

@@ -175,13 +175,16 @@
   }
 
   // Build a room card DOM node from server data
-  function buildRoomCard(roomId, displayLabel) {
+  function buildRoomCard(roomId, roomTypeLabel, customName) {
     const card = document.createElement("div");
     card.className = "room-card";
     card.dataset.roomId = roomId;
     card.innerHTML = `
       <div class="room-card-header">
-        <span class="room-label">${escHtml(displayLabel)}</span>
+        <span class="room-type-label">${escHtml(roomTypeLabel)}</span>
+        <input class="room-name-input" type="text" value="${escHtml(customName || "")}"
+               placeholder="add a name, e.g. Master"
+               data-action="rename-room" data-room-id="${roomId}">
         <button type="button" class="room-delete-btn" data-room-id="${roomId}" title="Remove room">×</button>
       </div>
       <div class="room-devices" id="room-devices-${roomId}">
@@ -221,7 +224,7 @@
       if (noRoomsMsg) noRoomsMsg.remove();
 
       const roomList = document.getElementById("room-list");
-      const card = buildRoomCard(data.id, data.display_label);
+      const card = buildRoomCard(data.id, data.room_type_label, data.custom_name);
       roomList.appendChild(card);
 
       // Reset inputs
@@ -252,6 +255,21 @@
         refreshRoomBadge();
         refreshRoomDeviceSummary();
       }
+    });
+  }
+
+  // Rename room (blur on name input — delegated, uses focusout which bubbles)
+  if (roomList) {
+    roomList.addEventListener("focusout", async (e) => {
+      const input = e.target.closest(".room-name-input");
+      if (!input) return;
+      const roomId = input.dataset.roomId;
+      await fetch(`${BASE}rooms/${roomId}/rename/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+        body: JSON.stringify({ custom_name: input.value }),
+        credentials: "same-origin",
+      });
     });
   }
 

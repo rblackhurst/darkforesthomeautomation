@@ -370,10 +370,28 @@ def pre_install_checklist_render(request, invoice_number):
         for d in CatalogDevice.objects.filter(active=True)
     ]
 
-    total = _sale_total(job)
-    line_sum = _sale_line_sum(job)
+    # Break SaleLines into package vs à-la-carte for correct discount display.
+    pkg_list_price = Decimal("0")
+    adhoc_price = Decimal("0")
+    for sl in job.sale_lines.all():
+        val = (sl.unit_cost or Decimal("0")) * sl.quantity
+        if sl.from_package:
+            pkg_list_price += val
+        else:
+            adhoc_price += val
+
+    if job.payment_override_amount and not job.payment_override:
+        # Auto package-discount: bundle price + adhoc on top.
+        package_discount = max(
+            Decimal("0"),
+            (pkg_list_price - job.payment_override_amount).quantize(Decimal("0.01")),
+        )
+        total = (job.payment_override_amount + adhoc_price).quantize(Decimal("0.01"))
+    else:
+        package_discount = Decimal("0")
+        total = _sale_total(job).quantize(Decimal("0.01"))
+
     half = (total / 2).quantize(Decimal("0.01"))
-    package_discount = (line_sum - total).quantize(Decimal("0.01")) if line_sum > total else Decimal("0")
 
     service_plan_choices = [
         {"value": v, "label": l}
@@ -390,10 +408,11 @@ def pre_install_checklist_render(request, invoice_number):
         "rooms": rooms,
         "room_types_json": json.dumps(room_types),
         "catalog_json": json.dumps(catalog_flat),
-        "sale_total": f"${total.quantize(Decimal('0.01'))}",
+        "sale_total": f"${total}",
         "sale_deposit": f"${half}",
-        "sale_line_sum": f"${line_sum.quantize(Decimal('0.01'))}",
+        "package_list_price": f"${pkg_list_price.quantize(Decimal('0.01'))}" if package_discount else None,
         "package_discount": f"${package_discount}" if package_discount else None,
+        "adhoc_price": f"${adhoc_price.quantize(Decimal('0.01'))}" if (package_discount and adhoc_price) else None,
         "service_plan_choices_json": json.dumps(service_plan_choices),
     })
 
@@ -521,21 +540,34 @@ def _catalog_json():
 
 
 def _create_default_rooms(job, pkg):
-    """Auto-create Room rows from Package.default_rooms when a package is sold."""
+    """Auto-create Room rows (with pre-assigned devices) from Package.default_rooms."""
     if not pkg.default_rooms:
         return
     valid_types = {c[0] for c in Room.RoomType.choices}
+    device_cache = {}
+
     for order, entry in enumerate(pkg.default_rooms):
         room_type = entry.get("room_type", "other")
         if room_type not in valid_types:
             room_type = "other"
-        Room.objects.create(
+        room = Room.objects.create(
             job=job,
             room_type=room_type,
             custom_name=entry.get("custom_name", ""),
             order=order,
             from_package=True,
         )
+        for dev_spec in entry.get("devices", []):
+            substr = dev_spec.get("model_name_contains", "")
+            if not substr:
+                continue
+            if substr not in device_cache:
+                device_cache[substr] = CatalogDevice.objects.filter(
+                    model_name__icontains=substr, active=True
+                ).first()
+            device = device_cache[substr]
+            if device:
+                RoomDevice.objects.create(room=room, device=device, quantity=1)
 
 
 def _update_sale(job, new_package_id, device_rows):
@@ -656,10 +688,11 @@ def _sale_total(job, manual_override=None):
     Return the effective sale total as Decimal.
 
     Priority:
-      1. manual_override — a one-time amount entered in the finalize form
-      2. job.payment_override_amount — persisted override (auto-set to
-         package.base_price when a package is applied; can be adjusted)
-      3. Sum of SaleLines (à la carte fallback)
+      1. manual_override — a one-time amount entered in the finalize form (true override)
+      2. job.payment_override (True) + payment_override_amount — staff-set final price
+      3. package auto-discount: payment_override_amount (package bundle price) +
+         any à-la-carte lines added on top (from_package=False)
+      4. Sum of all SaleLines (no package / fully custom build)
     """
     if manual_override:
         try:
@@ -667,7 +700,15 @@ def _sale_total(job, manual_override=None):
         except InvalidOperation:
             pass
     if job.payment_override_amount:
-        return job.payment_override_amount
+        if job.payment_override:
+            # Staff explicitly set a final price — use as-is.
+            return job.payment_override_amount
+        # Auto-applied package discount: bundle price + any à-la-carte items on top.
+        adhoc = sum(
+            (sl.unit_cost or Decimal("0")) * sl.quantity
+            for sl in job.sale_lines.filter(from_package=False)
+        )
+        return job.payment_override_amount + adhoc
     return sum(
         (sl.unit_cost or Decimal("0")) * sl.quantity
         for sl in job.sale_lines.all()
@@ -796,7 +837,21 @@ def sales_form_edit(request, invoice_number):
                 "sold_on", "install_date", "notes",
                 "custom_integrations", "custom_automations", "service_plan_tier",
             ])
+            old_package_id = job.package_id
             _update_sale(job, d.get("package_id"), d.get("devices_json") or [])
+            # If the package changed, refresh the package_summary capture so
+            # the pre-install checklist shows the new package description.
+            if job.package_id != old_package_id:
+                pi = _get_or_init_pre_install(job)
+                if job.package_id and job.package:
+                    pkg = job.package
+                    desc = pkg.description
+                    prefill = f"{pkg.name} — {desc}" if desc else pkg.name
+                else:
+                    prefill = ""
+                updated = pi.captures.filter(key="package_summary").update(value=prefill)
+                if not updated and prefill:
+                    pi.captures.create(key="package_summary", value=prefill)
             return redirect("jobs:pre_install_checklist_render", invoice_number=invoice_number)
     else:
         adhoc_lines = [
@@ -907,8 +962,21 @@ def room_add(request, invoice_number):
         "id": room.id,
         "display_label": room.display_label,
         "room_type": room.room_type,
+        "room_type_label": room.get_room_type_display(),
         "custom_name": room.custom_name,
     })
+
+
+@login_required
+@staff_required
+@require_POST
+def room_rename(request, invoice_number, room_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    room = get_object_or_404(Room, pk=room_id, job=job)
+    data = _load_json(request)
+    room.custom_name = str(data.get("custom_name", ""))[:100].strip()
+    room.save(update_fields=["custom_name"])
+    return JsonResponse({"custom_name": room.custom_name, "display_label": room.display_label})
 
 
 @login_required

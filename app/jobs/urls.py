@@ -70,6 +70,11 @@ urlpatterns = [
         name="room_add",
     ),
     path(
+        "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/rename/",
+        views.room_rename,
+        name="room_rename",
+    ),
+    path(
         "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/delete/",
         views.room_delete,
         name="room_delete",

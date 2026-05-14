@@ -125,7 +125,10 @@
         {% for room in rooms %}
           <div class="room-card" data-room-id="{{ room.id }}">
             <div class="room-card-header">
-              <span class="room-label">{{ room.display_label }}</span>
+              <span class="room-type-label">{{ room.get_room_type_display }}</span>
+              <input class="room-name-input" type="text" value="{{ room.custom_name }}"
+                     placeholder="add a name, e.g. Master"
+                     data-action="rename-room" data-room-id="{{ room.id }}">
               <button type="button" class="room-delete-btn" data-room-id="{{ room.id }}" title="Remove room">×</button>
             </div>
             <div class="room-devices" id="room-devices-{{ room.id }}">
@@ -242,10 +245,13 @@
         </p>
         <div class="finalize-summary" id="finalize-summary">
           {% if package_discount %}
-            <div class="finalize-summary-row finalize-list-row"><span>À la carte value</span><span>${{ sale_line_sum }}</span></div>
-            <div class="finalize-summary-row finalize-discount-row"><span>Package discount</span><span>−${{ package_discount }}</span></div>
+            <div class="finalize-summary-row"><span>Package items (à la carte)</span><span>{{ package_list_price }}</span></div>
+            <div class="finalize-summary-row finalize-discount-row"><span>Package discount</span><span>−{{ package_discount }}</span></div>
+            {% if adhoc_price %}
+              <div class="finalize-summary-row"><span>Additional items</span><span>{{ adhoc_price }}</span></div>
+            {% endif %}
           {% endif %}
-          <div class="finalize-summary-row"><span>Estimated total</span><span id="finalize-total">{{ sale_total|default:"—" }}</span></div>
+          <div class="finalize-summary-row {% if package_discount %}finalize-total-row{% endif %}"><span>Estimated total</span><span id="finalize-total">{{ sale_total|default:"—" }}</span></div>
           <div class="finalize-summary-row"><span>50% deposit</span><span id="finalize-deposit">{{ sale_deposit|default:"—" }}</span></div>
         </div>
         <div class="finalize-override-row">

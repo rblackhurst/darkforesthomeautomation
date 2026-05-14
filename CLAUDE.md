@@ -17,8 +17,9 @@
 
 - Marketing site (HTML at the repo root) is independent of the Django app.
 - All app code lives under `app/`. See `app/README.md` for local run steps.
-- Short-lived feature branches off `main`. Push to `main` triggers
-  `dfha-deploy` on the server.
+- Short-lived feature branches off `main`. Deploy is **manual** today —
+  after merging to `main`, SSH to `dfha-app-01` and run `sudo dfha-deploy`.
+  (A GitHub Action to fire this on every push is on the to-do list.)
 
 ## Dev vs. prod environments
 

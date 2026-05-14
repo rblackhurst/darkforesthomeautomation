@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DFHA · {% if edit_mode %}Edit sale{% else %}New sale{% endif %}</title>
+  <title>DFHA · {% if view_only %}View sale{% elif edit_mode %}Edit sale{% else %}New sale{% endif %}</title>
   <link rel="stylesheet" href="{% static 'jobs/sales_form.css' %}">
 </head>
 <body>
@@ -13,7 +13,10 @@
     <div>
       {% if edit_mode %}
         <a class="back-link" href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}">← Pre-install checklist</a>
-        <h1>Edit sale — {{ job.customer.first_name }} {{ job.customer.last_name }}</h1>
+        <h1>{% if view_only %}View sale{% else %}Edit sale{% endif %} — {{ job.customer.first_name }} {{ job.customer.last_name }}</h1>
+        {% if view_only %}
+          <p style="font-size:13px;color:#6b7280;margin-top:4px;">Invoice {{ job.display_invoice_number }} has been finalized — this record is read-only.</p>
+        {% endif %}
       {% else %}
         <a class="back-link" href="{% url 'jobs:home' %}">← Dashboard</a>
         <h1>New sale</h1>
@@ -27,6 +30,7 @@
     {% csrf_token %}
     {{ form.package_id }}
     {{ form.devices_json }}
+    {% if view_only %}<fieldset disabled style="border:none;padding:0;margin:0;">{% endif %}
 
     {% if form.non_field_errors %}
       <div class="form-errors">
@@ -188,8 +192,11 @@
       </p>
     </section>
 
+    {% if view_only %}</fieldset>{% endif %}
     <div class="form-actions">
-      {% if edit_mode %}
+      {% if view_only %}
+        <a href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}" class="submit-btn">← Back to checklist</a>
+      {% elif edit_mode %}
         <a href="{% url 'jobs:pre_install_checklist_render' job.invoice_number %}" class="cancel-btn">Cancel</a>
         <button type="submit" class="submit-btn">Save changes &amp; return to checklist →</button>
       {% else %}

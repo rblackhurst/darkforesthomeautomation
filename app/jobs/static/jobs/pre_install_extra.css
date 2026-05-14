@@ -105,7 +105,18 @@
   flex-shrink: 0;
   cursor: pointer;
 }
-.rd-label { font-size: 14px; }
+.rd-label { font-size: 14px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.rd-type {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-radius: 999px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
 
 .rd-actions {
   display: flex;

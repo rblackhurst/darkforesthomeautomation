@@ -864,16 +864,15 @@ def sales_form(request):
 @login_required
 @staff_required
 def sales_form_edit(request, invoice_number):
-    """Edit sale details (customer, package, devices) for a non-finalized job."""
+    """Edit sale details (customer, package, devices) for a non-finalized job.
+    When the job is already finalized, renders in read-only view mode."""
     job = get_object_or_404(Job, invoice_number=invoice_number)
-
-    if job.finalized_at:
-        return redirect("jobs:pre_install_checklist_render", invoice_number=invoice_number)
-
     packages = _packages_json()
     catalog = _catalog_json()
 
-    if request.method == "POST":
+    view_only = bool(job.finalized_at)
+
+    if not view_only and request.method == "POST":
         form = SalesForm(request.POST)
         if form.is_valid():
             d = form.cleaned_data
@@ -940,6 +939,7 @@ def sales_form_edit(request, invoice_number):
         "catalog_json": json.dumps(catalog),
         "job": job,
         "edit_mode": True,
+        "view_only": view_only,
         "existing_package_id": job.package_id or "",
         "existing_adhoc_json": json.dumps(adhoc_lines),
     })

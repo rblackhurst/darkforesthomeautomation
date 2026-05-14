@@ -54,9 +54,7 @@
 
     <div class="sidebar-footer">
       <a class="sidebar-link sidebar-link-highlight" href="{% url 'jobs:internal_prep_render' job.invoice_number %}">Internal prep →</a>
-      {% if not job.finalized_at %}
-        <a class="sidebar-link" href="{% url 'jobs:sales_form_edit' job.invoice_number %}">Edit sale / package</a>
-      {% endif %}
+      <a class="sidebar-link" href="{% url 'jobs:sales_form_edit' job.invoice_number %}">{% if job.finalized_at %}View sale{% else %}Edit sale / package{% endif %}</a>
       <a class="sidebar-link" href="{% url 'jobs:home' %}">← Dashboard</a>
       <a class="sidebar-link" href="{% url 'admin:jobs_job_change' job.invoice_number %}">Open job in admin</a>
       <button type="button" class="reset-btn" data-action="reset">Reset checklist</button>
@@ -136,7 +134,10 @@
                 <div class="room-device-row {% if rd.confirmed %}confirmed{% endif %}" data-rd-id="{{ rd.id }}">
                   <label class="rd-confirm-label">
                     <input type="checkbox" class="rd-confirm" data-room-id="{{ room.id }}" data-rd-id="{{ rd.id }}" {% if rd.confirmed %}checked{% endif %}>
-                    <span class="rd-label">{{ rd.quantity }}× {{ rd.device }}</span>
+                    <span class="rd-label">
+                      <span class="rd-type">{{ rd.device.get_device_type_display }}</span>
+                      {% if rd.quantity > 1 %}{{ rd.quantity }}× {% endif %}{{ rd.device.model_name }}
+                    </span>
                   </label>
                   <div class="rd-actions">
                     <button type="button" class="rd-swap-btn" data-room-id="{{ room.id }}" data-rd-id="{{ rd.id }}" title="Swap device">⇄</button>

@@ -175,14 +175,23 @@
     el.classList.toggle("complete", total > 0 && confirmed === total);
   }
 
-  function buildDeviceRow(roomId, rdId, quantity, deviceLabel, confirmed) {
+  function buildDeviceRow(roomId, rdId, quantity, deviceLabel, confirmed, deviceTypeLabel) {
+    // deviceLabel is the full "Type — Model name" string; split on first " — "
+    const sepIdx = deviceLabel.indexOf(" — ");
+    const typeStr = deviceTypeLabel || (sepIdx >= 0 ? deviceLabel.slice(0, sepIdx) : "");
+    const nameStr = sepIdx >= 0 ? deviceLabel.slice(sepIdx + 3) : deviceLabel;
+    const qtyPrefix = quantity > 1 ? `${quantity}× ` : "";
+
     const row = document.createElement("div");
     row.className = "room-device-row" + (confirmed ? " confirmed" : "");
     row.dataset.rdId = String(rdId);
     row.innerHTML = `
       <label class="rd-confirm-label">
         <input type="checkbox" class="rd-confirm" data-room-id="${roomId}" data-rd-id="${rdId}" ${confirmed ? "checked" : ""}>
-        <span class="rd-label">${quantity}× ${escHtml(deviceLabel)}</span>
+        <span class="rd-label">
+          <span class="rd-type">${escHtml(typeStr)}</span>
+          ${qtyPrefix}${escHtml(nameStr)}
+        </span>
       </label>
       <div class="rd-actions">
         <button type="button" class="rd-swap-btn" data-room-id="${roomId}" data-rd-id="${rdId}" title="Swap device">⇄</button>
@@ -458,8 +467,12 @@
     const row = document.querySelector(`.room-device-row[data-rd-id="${rdId}"]`);
     if (row) {
       const label = row.querySelector(".rd-label");
-      if (label) label.textContent = `1× ${data.device_label}`;
-      // Update swap/delete button data-rd-id (unchanged) — no-op, already correct
+      if (label) {
+        const sepIdx = data.device_label.indexOf(" — ");
+        const typeStr = sepIdx >= 0 ? data.device_label.slice(0, sepIdx) : "";
+        const nameStr = sepIdx >= 0 ? data.device_label.slice(sepIdx + 3) : data.device_label;
+        label.innerHTML = `<span class="rd-type">${escHtml(typeStr)}</span>${escHtml(nameStr)}`;
+      }
     }
   });
 

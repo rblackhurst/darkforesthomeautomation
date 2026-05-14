@@ -412,7 +412,8 @@ def pre_install_checklist_render(request, invoice_number):
         "sale_deposit": f"${half}",
         "package_list_price": f"${pkg_list_price.quantize(Decimal('0.01'))}" if package_discount else None,
         "package_discount": f"${package_discount}" if package_discount else None,
-        "adhoc_price": f"${adhoc_price.quantize(Decimal('0.01'))}" if (package_discount and adhoc_price) else None,
+        "adhoc_price": _fmt_adhoc(adhoc_price) if (package_discount and adhoc_price != Decimal("0")) else None,
+        "adhoc_label": "Net adjustments" if (package_discount and adhoc_price < Decimal("0")) else "Additional items",
         "service_plan_choices_json": json.dumps(service_plan_choices),
     })
 
@@ -731,6 +732,14 @@ def _generate_display_invoice_number(job):
     return f"{date_part}{tier:01d}{room_count:02d}{adhoc_count:03d}{sequence:02d}"
 
 
+def _fmt_adhoc(value):
+    """Format adhoc Decimal as '$X.XX' or '−$X.XX' for negative values."""
+    q = value.quantize(Decimal("0.01"))
+    if q < 0:
+        return f"−${abs(q)}"
+    return f"${q}"
+
+
 def _sale_total(job, manual_override=None):
     """
     Return the effective sale total as Decimal.
@@ -1006,12 +1015,47 @@ def room_add(request, invoice_number):
     custom_name = str(data.get("custom_name", ""))[:100]
     next_order = (job.rooms.aggregate(m=Max("order"))["m"] or 0) + 1
     room = Room.objects.create(job=job, room_type=room_type, custom_name=custom_name, order=next_order)
+
+    # Pre-populate devices from package when this room type matches a package entry
+    devices_added = []
+    pkg = job.package if job.package_id else None
+    if pkg and pkg.default_rooms:
+        matching = [
+            e for e in pkg.default_rooms
+            if e.get("room_type") == room_type and e.get("custom_name", "") == custom_name
+        ]
+        if matching:
+            existing_count = job.rooms.filter(
+                room_type=room_type, custom_name=custom_name
+            ).exclude(pk=room.pk).count()
+            entry = matching[min(existing_count, len(matching) - 1)]
+            device_cache = {}
+            for dev_spec in entry.get("devices", []):
+                substr = dev_spec.get("model_name_contains", "")
+                if not substr:
+                    continue
+                if substr not in device_cache:
+                    device_cache[substr] = CatalogDevice.objects.filter(
+                        model_name__icontains=substr, active=True
+                    ).first()
+                device = device_cache[substr]
+                if device:
+                    rd = RoomDevice.objects.create(room=room, device=device, quantity=1)
+                    devices_added.append({
+                        "id": rd.id,
+                        "device_id": device.id,
+                        "device_label": str(device),
+                        "quantity": 1,
+                        "confirmed": False,
+                    })
+
     return JsonResponse({
         "id": room.id,
         "display_label": room.display_label,
         "room_type": room.room_type,
         "room_type_label": room.get_room_type_display(),
         "custom_name": room.custom_name,
+        "devices": devices_added,
     })
 
 
@@ -1079,6 +1123,42 @@ def room_device_confirm(request, invoice_number, room_id, rd_id):
     rd.confirmed = bool(_load_json(request).get("confirmed"))
     rd.save(update_fields=["confirmed"])
     return JsonResponse({"confirmed": rd.confirmed})
+
+
+@login_required
+@staff_required
+@require_POST
+def room_device_swap(request, invoice_number, room_id, rd_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    room = get_object_or_404(Room, pk=room_id, job=job)
+    rd = get_object_or_404(RoomDevice, pk=rd_id, room=room)
+    data = _load_json(request)
+    try:
+        new_device = CatalogDevice.objects.get(pk=int(data.get("device_id", 0)), active=True)
+    except (CatalogDevice.DoesNotExist, (ValueError, TypeError)):
+        return JsonResponse({"error": "Device not found"}, status=400)
+
+    old_device = rd.device
+    if old_device.pk == new_device.pk:
+        return JsonResponse({"device_id": new_device.id, "device_label": str(new_device)})
+
+    old_cost = old_device.default_cost or Decimal("0")
+    new_cost = new_device.default_cost or Decimal("0")
+    delta = new_cost - old_cost
+
+    if delta != Decimal("0"):
+        SaleLine.objects.create(
+            job=job,
+            device=new_device,
+            unit_cost=delta,
+            quantity=1,
+            notes=f"Swap: {old_device.model_name} → {new_device.model_name}"[:200],
+            from_package=False,
+        )
+
+    rd.device = new_device
+    rd.save(update_fields=["device"])
+    return JsonResponse({"device_id": new_device.id, "device_label": str(new_device)})
 
 
 # ── Pick sheet ───────────────────────────────────────────────────────────────

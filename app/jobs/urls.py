@@ -94,6 +94,11 @@ urlpatterns = [
         views.room_device_confirm,
         name="room_device_confirm",
     ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/devices/<int:rd_id>/swap/",
+        views.room_device_swap,
+        name="room_device_swap",
+    ),
 
     # ── Internal prep ────────────────────────────────────────────────────
     path(

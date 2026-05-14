@@ -145,16 +145,17 @@
     });
   }
 
-  // Populate catalog device <select> in modal
+  // Populate catalog device <select> in both modals
   const rdDeviceSelect = document.getElementById("rd-device-select");
-  if (rdDeviceSelect) {
+  [rdDeviceSelect, document.getElementById("rd-swap-device-select")].forEach((sel) => {
+    if (!sel) return;
     CATALOG.forEach((d) => {
       const opt = document.createElement("option");
       opt.value = d.device_id;
       opt.textContent = d.label;
-      rdDeviceSelect.appendChild(opt);
+      sel.appendChild(opt);
     });
-  }
+  });
 
   // Room count badge in sidebar
   function refreshRoomBadge() {
@@ -174,11 +175,43 @@
     el.classList.toggle("complete", total > 0 && confirmed === total);
   }
 
+  function buildDeviceRow(roomId, rdId, quantity, deviceLabel, confirmed) {
+    const row = document.createElement("div");
+    row.className = "room-device-row" + (confirmed ? " confirmed" : "");
+    row.dataset.rdId = String(rdId);
+    row.innerHTML = `
+      <label class="rd-confirm-label">
+        <input type="checkbox" class="rd-confirm" data-room-id="${roomId}" data-rd-id="${rdId}" ${confirmed ? "checked" : ""}>
+        <span class="rd-label">${quantity}× ${escHtml(deviceLabel)}</span>
+      </label>
+      <div class="rd-actions">
+        <button type="button" class="rd-swap-btn" data-room-id="${roomId}" data-rd-id="${rdId}" title="Swap device">⇄</button>
+        <button type="button" class="rd-delete-btn" data-room-id="${roomId}" data-rd-id="${rdId}" title="Remove">×</button>
+      </div>
+    `;
+    return row;
+  }
+
   // Build a room card DOM node from server data
-  function buildRoomCard(roomId, roomTypeLabel, customName) {
+  function buildRoomCard(roomId, roomTypeLabel, customName, devices) {
     const card = document.createElement("div");
     card.className = "room-card";
     card.dataset.roomId = roomId;
+
+    const devicesEl = document.createElement("div");
+    devicesEl.className = "room-devices";
+    devicesEl.id = `room-devices-${roomId}`;
+    if (devices && devices.length) {
+      devices.forEach((d) => {
+        devicesEl.appendChild(buildDeviceRow(roomId, d.id, d.quantity, d.device_label, d.confirmed));
+      });
+    } else {
+      const p = document.createElement("p");
+      p.className = "room-empty-msg";
+      p.textContent = "No devices added yet.";
+      devicesEl.appendChild(p);
+    }
+
     card.innerHTML = `
       <div class="room-card-header">
         <span class="room-type-label">${escHtml(roomTypeLabel)}</span>
@@ -187,11 +220,14 @@
                data-action="rename-room" data-room-id="${roomId}">
         <button type="button" class="room-delete-btn" data-room-id="${roomId}" title="Remove room">×</button>
       </div>
-      <div class="room-devices" id="room-devices-${roomId}">
-        <p class="room-empty-msg">No devices added yet.</p>
-      </div>
-      <button type="button" class="add-rd-btn" data-room-id="${roomId}">+ Add device</button>
     `;
+    card.appendChild(devicesEl);
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "add-rd-btn";
+    addBtn.dataset.roomId = String(roomId);
+    addBtn.textContent = "+ Add device";
+    card.appendChild(addBtn);
     return card;
   }
 
@@ -224,7 +260,7 @@
       if (noRoomsMsg) noRoomsMsg.remove();
 
       const roomList = document.getElementById("room-list");
-      const card = buildRoomCard(data.id, data.room_type_label, data.custom_name);
+      const card = buildRoomCard(data.id, data.room_type_label, data.custom_name, data.devices || []);
       roomList.appendChild(card);
 
       // Reset inputs
@@ -321,20 +357,8 @@
 
     const devicesContainer = document.getElementById(`room-devices-${roomId}`);
     if (devicesContainer) {
-      // Remove "no devices" placeholder
       devicesContainer.querySelectorAll(".room-empty-msg").forEach((el) => el.remove());
-
-      const row = document.createElement("div");
-      row.className = "room-device-row";
-      row.dataset.rdId = data.id;
-      row.innerHTML = `
-        <label class="rd-confirm-label">
-          <input type="checkbox" class="rd-confirm" data-room-id="${roomId}" data-rd-id="${data.id}">
-          <span class="rd-label">${data.quantity}× ${escHtml(data.device_label)}</span>
-        </label>
-        <button type="button" class="rd-delete-btn" data-room-id="${roomId}" data-rd-id="${data.id}" title="Remove">×</button>
-      `;
-      devicesContainer.appendChild(row);
+      devicesContainer.appendChild(buildDeviceRow(roomId, data.id, data.quantity, data.device_label, false));
     }
     refreshRoomDeviceSummary();
   });
@@ -383,6 +407,61 @@
       }
     });
   }
+
+  // ── Swap device modal ──
+  const swapModal = document.getElementById("rd-swap-modal");
+  const swapDeviceSelect = document.getElementById("rd-swap-device-select");
+  let swapRoomId = null;
+  let swapRdId = null;
+
+  function openSwapModal(roomId, rdId) {
+    swapRoomId = roomId;
+    swapRdId = rdId;
+    if (swapDeviceSelect) swapDeviceSelect.value = "";
+    if (swapModal) { swapModal.hidden = false; swapDeviceSelect?.focus(); }
+  }
+
+  function closeSwapModal() {
+    if (swapModal) swapModal.hidden = true;
+    swapRoomId = null;
+    swapRdId = null;
+  }
+
+  document.getElementById("rd-swap-cancel-btn")?.addEventListener("click", closeSwapModal);
+  swapModal?.addEventListener("click", (e) => { if (e.target === swapModal) closeSwapModal(); });
+
+  // Open swap modal (delegated)
+  if (roomList) {
+    roomList.addEventListener("click", (e) => {
+      const btn = e.target.closest(".rd-swap-btn");
+      if (btn) openSwapModal(btn.dataset.roomId, btn.dataset.rdId);
+    });
+  }
+
+  document.getElementById("rd-swap-confirm-btn")?.addEventListener("click", async () => {
+    const deviceId = parseInt(swapDeviceSelect?.value, 10);
+    if (!deviceId) { swapDeviceSelect?.focus(); return; }
+    const roomId = swapRoomId;
+    const rdId = swapRdId;
+
+    const r = await fetch(`${BASE}rooms/${roomId}/devices/${rdId}/swap/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+      body: JSON.stringify({ device_id: deviceId }),
+      credentials: "same-origin",
+    });
+
+    if (!r.ok) { closeSwapModal(); return; }
+    const data = await r.json();
+    closeSwapModal();
+
+    const row = document.querySelector(`.room-device-row[data-rd-id="${rdId}"]`);
+    if (row) {
+      const label = row.querySelector(".rd-label");
+      if (label) label.textContent = `1× ${data.device_label}`;
+      // Update swap/delete button data-rd-id (unchanged) — no-op, already correct
+    }
+  });
 
   function escHtml(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");

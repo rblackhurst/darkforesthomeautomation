@@ -30,50 +30,53 @@
 
 <main>
 
-  <!-- ── Device list / pick list ── -->
+  <!-- ── Room device list ── -->
   <section class="card">
     <div class="card-header">
-      <h2>Device list</h2>
-      <span class="badge {% if all_confirmed %}badge-green{% else %}badge-amber{% endif %}">
-        {{ total_confirmed }} / {{ sale_lines|length }} confirmed in stock
-      </span>
+      <h2>Devices by room</h2>
+      <span class="badge badge-amber">{{ total_devices }} device{{ total_devices|pluralize }}</span>
     </div>
 
-    {% if sale_lines %}
-      <table class="device-table">
-        <thead>
-          <tr>
-            <th>Device</th>
-            <th class="col-qty">Qty</th>
-            <th class="col-cost">Unit cost</th>
-            <th class="col-notes">Notes</th>
-            <th class="col-check">In stock</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for sl in sale_lines %}
-            <tr class="device-row {% if sl.confirmed_in_stock %}confirmed{% endif %}" data-sl-id="{{ sl.id }}">
-              <td class="col-device">
-                <span class="device-type">{{ sl.device.get_device_type_display }}</span>
-                {{ sl.device.model_name }}
-                {% if sl.device.supplier %}<span class="device-supplier">{{ sl.device.supplier }}{% if sl.device.supplier_sku %} · {{ sl.device.supplier_sku }}{% endif %}</span>{% endif %}
-                {% if sl.device.purchase_url %}<a class="device-link" href="{{ sl.device.purchase_url }}" target="_blank" rel="noopener">↗</a>{% endif %}
-              </td>
-              <td class="col-qty">{{ sl.quantity }}</td>
-              <td class="col-cost">{% if sl.unit_cost %}${{ sl.unit_cost }}{% else %}—{% endif %}</td>
-              <td class="col-notes">{{ sl.notes }}</td>
-              <td class="col-check">
-                <input type="checkbox"
-                       class="stock-check"
-                       data-sl-id="{{ sl.id }}"
-                       {% if sl.confirmed_in_stock %}checked{% endif %}>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    {% if rooms %}
+      {% for room in rooms %}
+        <div class="room-section">
+          <div class="room-section-header">
+            <span class="room-section-name">{{ room.display_label }}</span>
+            <span class="room-section-cost">
+              {% if room.cost_subtotal %}${{ room.cost_subtotal|floatformat:2 }}{% else %}—{% endif %}
+            </span>
+          </div>
+          {% if room._devices %}
+            <table class="device-table">
+              <thead>
+                <tr>
+                  <th>Device</th>
+                  <th class="col-qty">Qty</th>
+                  <th class="col-cost">Company cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rd in room._devices %}
+                  <tr class="device-row">
+                    <td class="col-device">
+                      <span class="device-type">{{ rd.device.get_device_type_display }}</span>
+                      {{ rd.device.model_name }}
+                      {% if rd.device.supplier %}<span class="device-supplier">{{ rd.device.supplier }}{% if rd.device.supplier_sku %} · {{ rd.device.supplier_sku }}{% endif %}</span>{% endif %}
+                      {% if rd.device.purchase_url %}<a class="device-link" href="{{ rd.device.purchase_url }}" target="_blank" rel="noopener">↗</a>{% endif %}
+                    </td>
+                    <td class="col-qty">{{ rd.quantity }}</td>
+                    <td class="col-cost">{% if rd.device.default_cost %}${{ rd.device.default_cost }}{% else %}—{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <p class="empty-msg" style="padding:10px 16px;">No devices assigned to this room yet.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
     {% else %}
-      <p class="empty-msg">No devices were recorded on the sales form. You can add sale lines via <a href="{% url 'admin:jobs_job_change' job.invoice_number %}">the admin →</a></p>
+      <p class="empty-msg">No rooms recorded yet. Complete the room walkthrough in the pre-install checklist first.</p>
     {% endif %}
   </section>
 
@@ -120,7 +123,7 @@
     <a class="pick-sheet-btn large" href="{% url 'jobs:pick_sheet_render' job.invoice_number %}" target="_blank" rel="noopener">
       Open pick sheet (printable) →
     </a>
-    <p class="pick-sheet-hint">The pick sheet combines all sold devices plus any confirmed room devices from the pre-install walkthrough, grouped by type.</p>
+    <p class="pick-sheet-hint">The pick sheet aggregates all room devices by type with quantities, ready to print and pull from stock.</p>
   </div>
 
 </main>

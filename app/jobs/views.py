@@ -957,14 +957,21 @@ def _get_or_create_internal_prep(job):
 def internal_prep_render(request, invoice_number):
     job = get_object_or_404(Job, invoice_number=invoice_number)
     ip = _get_or_create_internal_prep(job)
-    sale_lines = list(job.sale_lines.select_related("device").all())
-    total_confirmed = sum(1 for sl in sale_lines if sl.confirmed_in_stock)
+
+    rooms = list(job.rooms.prefetch_related("devices__device").order_by("order"))
+    for room in rooms:
+        devs = list(room.devices.select_related("device").all())
+        room._devices = devs
+        room.cost_subtotal = sum(
+            (rd.device.default_cost or Decimal("0")) * rd.quantity for rd in devs
+        )
+    total_devices = sum(len(r._devices) for r in rooms)
+
     return render(request, "jobs/internal_prep.html", {
         "job": job,
         "internal_prep": ip,
-        "sale_lines": sale_lines,
-        "total_confirmed": total_confirmed,
-        "all_confirmed": len(sale_lines) > 0 and total_confirmed == len(sale_lines),
+        "rooms": rooms,
+        "total_devices": total_devices,
     })
 
 
@@ -1168,22 +1175,10 @@ def room_device_swap(request, invoice_number, room_id, rd_id):
 def pick_sheet_render(request, invoice_number):
     job = get_object_or_404(Job, invoice_number=invoice_number)
 
-    # Combine sale lines + confirmed room devices, deduplicating by device.
+    # Aggregate all room devices by device, regardless of confirmation status.
     quantities: dict[int, dict] = {}
-
-    for sl in job.sale_lines.select_related("device").all():
-        did = sl.device_id
-        if did not in quantities:
-            quantities[did] = {
-                "device": sl.device,
-                "quantity": 0,
-                "source": [],
-            }
-        quantities[did]["quantity"] += sl.quantity
-        quantities[did]["source"].append("sale")
-
-    for room in job.rooms.prefetch_related("devices__device").all():
-        for rd in room.devices.filter(confirmed=True):
+    for room in job.rooms.prefetch_related("devices__device").order_by("order"):
+        for rd in room.devices.select_related("device").all():
             did = rd.device_id
             if did not in quantities:
                 quantities[did] = {

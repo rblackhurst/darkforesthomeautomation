@@ -1,0 +1,21 @@
+{% extends "accounts/base.html" %}
+{% block title %}Two-factor code · DFHA{% endblock %}
+{% block content %}
+  <h1>Two-factor code</h1>
+  <p class="sub">Enter the 6-digit code from your authenticator app for <strong>{{ user_email }}</strong>.</p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="field">
+      <label for="id_code">6-digit code</label>
+      {{ form.code }}
+      {% if form.code.errors %}<div class="errors">{{ form.code.errors|join:" " }}</div>{% endif %}
+    </div>
+    <button type="submit">Sign in</button>
+  </form>
+
+  <p class="alt-link">
+    Lost your device? <a href="{% url 'accounts:recovery_login' %}">Use a recovery code</a>
+    · <a href="{% url 'accounts:login' %}">Start over</a>
+  </p>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "accounts/base.html" %}
+{% block title %}Set up 2FA · DFHA{% endblock %}
+{% block card_class %} wide{% endblock %}
+{% block content %}
+  <h1>Set up two-factor authentication</h1>
+  <p class="sub">Required for <strong>{{ user_email }}</strong>. Use any TOTP authenticator (Google Authenticator, Authy, 1Password, Bitwarden).</p>
+
+  <ol>
+    <li>Open your authenticator app and add a new account.</li>
+    <li>Scan this QR code, or type the secret in manually.</li>
+    <li>Enter the 6-digit code the app shows you below.</li>
+  </ol>
+
+  <img class="qr" src="{{ qr_data_uri }}" alt="TOTP QR code">
+
+  <label>Manual entry (if you can't scan)</label>
+  <div class="secret-fallback">{{ secret }}</div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="field">
+      <label for="id_code">Code from app</label>
+      {{ form.code }}
+      {% if form.code.errors %}<div class="errors">{{ form.code.errors|join:" " }}</div>{% endif %}
+    </div>
+    <button type="submit">Confirm &amp; finish</button>
+  </form>
+{% endblock %}

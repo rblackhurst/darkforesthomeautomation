@@ -80,6 +80,13 @@ a { color: var(--accent); }
 }
 .primary-btn:hover { filter: brightness(1.08); }
 
+.signout-link {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.signout-link:hover { color: var(--text); }
+
 #job-filter {
   width: 100%;
   background: var(--bg);

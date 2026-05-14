@@ -14,6 +14,9 @@
     <div class="page-header-meta">
       <span class="active-count">{{ total_active }} active</span>
       <a href="{% url 'jobs:sales_form' %}" class="primary-btn">+ New sale</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'accounts:logout' %}" class="signout-link" title="Signed in as {{ user.email|default:user.username }}">Sign out</a>
+      {% endif %}
     </div>
   </div>
   <input type="search" id="job-filter" placeholder="Filter by customer last name…" autocomplete="off" autofocus>

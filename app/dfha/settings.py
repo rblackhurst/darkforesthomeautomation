@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "accounts",
     "jobs",
 ]
 
@@ -50,6 +51,12 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "accounts.middleware.Require2FAMiddleware",
+]
+
+AUTHENTICATION_BACKENDS = [
+    "accounts.auth_backends.EmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 ROOT_URLCONF = "dfha.urls"
@@ -127,9 +134,9 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Until a dedicated employee login page ships, route @login_required
-# redirects to the admin login (which exists today).
-LOGIN_URL = "/admin/login/"
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

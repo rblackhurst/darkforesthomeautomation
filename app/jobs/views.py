@@ -762,21 +762,24 @@ def _sale_total(job, manual_override=None):
             return job.payment_override_amount
         # Auto-applied package discount: bundle price + any à-la-carte items on top.
         adhoc = sum(
-            (sl.unit_cost or Decimal("0")) * sl.quantity
-            for sl in job.sale_lines.filter(from_package=False)
+            ((sl.unit_cost or Decimal("0")) * sl.quantity
+             for sl in job.sale_lines.filter(from_package=False)),
+            Decimal("0"),
         )
         return job.payment_override_amount + adhoc
     return sum(
-        (sl.unit_cost or Decimal("0")) * sl.quantity
-        for sl in job.sale_lines.all()
+        ((sl.unit_cost or Decimal("0")) * sl.quantity
+         for sl in job.sale_lines.all()),
+        Decimal("0"),
     )
 
 
 def _sale_line_sum(job):
     """Raw sum of SaleLine costs — used to display the à la carte value."""
     return sum(
-        (sl.unit_cost or Decimal("0")) * sl.quantity
-        for sl in job.sale_lines.all()
+        ((sl.unit_cost or Decimal("0")) * sl.quantity
+         for sl in job.sale_lines.all()),
+        Decimal("0"),
     )
 
 

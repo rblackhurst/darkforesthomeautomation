@@ -367,7 +367,7 @@ def pre_install_checklist_render(request, invoice_number):
     room_types = [{"value": c[0], "label": c[1]} for c in Room.RoomType.choices]
     catalog_flat = [
         {"device_id": d.id, "label": str(d)}
-        for d in CatalogDevice.objects.filter(active=True)
+        for d in CatalogDevice.objects.filter(active=True).exclude(device_type=CatalogDevice.DeviceType.KIT)
     ]
 
     # Break SaleLines into package vs à-la-carte for correct discount display.
@@ -1413,15 +1413,24 @@ def home_dashboard(request):
         .values_list("step__template_id", "n")
     )
 
+    archived_statuses = {s.value for s in ARCHIVE_STAGES}
     grouped = {s.value: [] for s in ACTIVE_STAGES}
     archive = []
+    internal_prep_cards = []
+
     for job in jobs:
         card = _card(job, backend_check_totals)
-        if job.status in {s.value for s in ARCHIVE_STAGES}:
+        if job.status in archived_statuses:
             archive.append(card)
         elif job.status in grouped:
             grouped[job.status].append(card)
-        # Any unrecognized status: skip — shouldn't happen.
+        # Collect finalized (invoiced) active jobs for the internal prep section.
+        if job.finalized_at and job.status not in archived_statuses:
+            internal_prep_cards.append({
+                "job": job,
+                "next_url": reverse("jobs:internal_prep_render", args=[job.invoice_number]),
+                "next_label": "Open internal prep",
+            })
 
     stages = [
         {
@@ -1437,4 +1446,5 @@ def home_dashboard(request):
         "archive": archive,
         "total_active": sum(len(s["cards"]) for s in stages),
         "total_archive": len(archive),
+        "internal_prep_cards": internal_prep_cards,
     })

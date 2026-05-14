@@ -221,6 +221,21 @@ main {
   border-color: var(--accent-dim);
 }
 
+/* Two-button stack on prep cards: internal + backend side by side. */
+.card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stage-sublabel {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
 /* ── Archive ── */
 .archive {
   margin-top: 32px;
@@ -259,4 +274,5 @@ main {
   main { padding: 18px 18px 60px; }
   .card { flex-direction: column; align-items: flex-start; gap: 10px; }
   .card-action { align-self: stretch; text-align: center; background: var(--accent-bg); border-color: var(--accent-dim); }
+  .card-actions { width: 100%; flex-direction: column; }
 }

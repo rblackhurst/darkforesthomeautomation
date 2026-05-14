@@ -32,9 +32,9 @@
 
   {% for stage in stages %}
     {% if stage.key == "backend" and internal_prep_cards %}
-      <section class="stage stage-special" data-stage="internal-prep">
+      <section class="stage stage-special" data-stage="prep">
         <header class="stage-header">
-          <h2>Internal prep</h2>
+          <h2>Prep <small class="stage-sublabel">(internal + backend, in parallel)</small></h2>
           <span class="stage-count">{{ internal_prep_cards|length }}</span>
         </header>
         <div class="card-list">
@@ -51,7 +51,11 @@
                   {% endif %}
                 </div>
               </div>
-              <a href="{{ c.next_url }}" class="card-action">{{ c.next_label }} →</a>
+              <div class="card-actions">
+                {% for a in c.actions %}
+                  <a href="{{ a.url }}" class="card-action">{{ a.label }} →</a>
+                {% endfor %}
+              </div>
             </article>
           {% endfor %}
         </div>

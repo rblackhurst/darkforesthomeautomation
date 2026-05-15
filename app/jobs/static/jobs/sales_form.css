@@ -259,3 +259,14 @@ main {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Custom item additions ── */
+.add-device-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.add-device-row .add-device-btn { margin-top: 0; }
+.add-custom-btn { background: var(--bg, #fff); }
+.device-line-custom td:first-child em { color: var(--accent, #2d6b4e); font-style: normal; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-right: 6px; }
+.device-line-custom .col-cost small { color: var(--text-muted, #6b7280); font-size: 11px; }

@@ -111,7 +111,10 @@
             </tr>
           </tfoot>
         </table>
-        <button type="button" class="add-device-btn" id="add-device-btn">+ Add device</button>
+        <div class="add-device-row">
+          <button type="button" class="add-device-btn" id="add-device-btn">+ Add catalog device</button>
+          <button type="button" class="add-device-btn add-custom-btn" id="add-custom-btn">+ Add custom item</button>
+        </div>
       </div>
 
       <!-- Add device panel (inline form) -->
@@ -135,6 +138,42 @@
         <div class="add-panel-actions">
           <button type="button" id="add-device-confirm" class="confirm-btn">Add to list</button>
           <button type="button" id="add-device-cancel" class="cancel-inline-btn">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Add custom item panel (off-catalog line) -->
+      <div id="add-custom-panel" class="add-device-panel" hidden>
+        <p class="field-hint" style="margin-bottom:12px;">
+          Use this for anything that isn't in the catalog yet — a specialty device,
+          a one-off accessory, or a labor-only line. Both prices roll into the sale total.
+        </p>
+        <div class="field">
+          <label for="new-custom-desc">Description</label>
+          <input id="new-custom-desc" type="text" maxlength="200" placeholder="e.g. Customer-supplied Hue bulbs setup">
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="new-custom-price">Device price <span class="optional">optional</span></label>
+            <input id="new-custom-price" type="number" min="0" step="0.01" placeholder="e.g. 89.99">
+          </div>
+          <div class="field">
+            <label for="new-custom-install">Installation charge <span class="optional">optional</span></label>
+            <input id="new-custom-install" type="number" min="0" step="0.01" placeholder="e.g. 50.00">
+          </div>
+        </div>
+        <div class="field-row two-col">
+          <div class="field">
+            <label for="new-custom-qty">Quantity</label>
+            <input id="new-custom-qty" type="number" min="1" value="1">
+          </div>
+          <div class="field">
+            <label for="new-custom-notes">Notes <span class="optional">optional</span></label>
+            <input id="new-custom-notes" type="text" maxlength="200" placeholder="e.g. labor only, parts on hand">
+          </div>
+        </div>
+        <div class="add-panel-actions">
+          <button type="button" id="add-custom-confirm" class="confirm-btn">Add to list</button>
+          <button type="button" id="add-custom-cancel" class="cancel-inline-btn">Cancel</button>
         </div>
       </div>
     </section>

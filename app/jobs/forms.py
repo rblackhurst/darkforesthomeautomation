@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal, InvalidOperation
 
 from django import forms
 
@@ -87,10 +88,34 @@ class SalesForm(forms.Form):
         cleaned = []
         for row in data:
             try:
-                device_id = int(row["device_id"])
                 quantity = max(1, int(row.get("quantity", 1)))
                 notes = str(row.get("notes", ""))[:200]
-                cleaned.append({"device_id": device_id, "quantity": quantity, "notes": notes})
+                if row.get("custom"):
+                    description = str(row.get("description", "")).strip()[:200]
+                    if not description:
+                        raise forms.ValidationError("Custom items need a description.")
+                    cleaned.append({
+                        "custom": True,
+                        "description": description,
+                        "unit_cost": _decimal_or_none(row.get("unit_cost")),
+                        "install_charge": _decimal_or_none(row.get("install_charge")),
+                        "quantity": quantity,
+                        "notes": notes,
+                    })
+                else:
+                    device_id = int(row["device_id"])
+                    cleaned.append({
+                        "device_id": device_id, "quantity": quantity, "notes": notes,
+                    })
             except (KeyError, ValueError, TypeError):
                 raise forms.ValidationError("One or more device rows are malformed.")
         return cleaned
+
+
+def _decimal_or_none(raw):
+    if raw is None or raw == "":
+        return None
+    try:
+        return Decimal(str(raw))
+    except (InvalidOperation, ValueError):
+        return None

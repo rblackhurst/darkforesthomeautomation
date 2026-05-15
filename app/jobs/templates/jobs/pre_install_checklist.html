@@ -149,6 +149,11 @@
               {% endfor %}
             </div>
             <button type="button" class="add-rd-btn" data-room-id="{{ room.id }}">+ Add device</button>
+            <details class="room-notes-toggle" {% if room.notes %}open{% endif %}>
+              <summary>Room notes</summary>
+              <textarea class="room-notes-input" data-action="save-room-notes" data-room-id="{{ room.id }}" rows="2"
+                        placeholder="Walkthrough notes — placement hints, access quirks, wiring concerns…">{{ room.notes }}</textarea>
+            </details>
           </div>
         {% empty %}
           <p class="no-rooms-msg" id="no-rooms-msg">No rooms added yet. Use the button below to start the walkthrough.</p>

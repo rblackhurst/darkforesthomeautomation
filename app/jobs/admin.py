@@ -329,11 +329,11 @@ class PackageAdmin(admin.ModelAdmin):
 
 @admin.register(CatalogDevice)
 class CatalogDeviceAdmin(admin.ModelAdmin):
-    list_display = ("device_type", "model_name", "function_slug", "supplier", "supplier_sku", "default_cost", "active")
-    list_filter = ("device_type", "active", "function_slug")
+    list_display = ("device_type", "model_name", "function_slug", "channels", "supplier", "supplier_sku", "default_cost", "active")
+    list_filter = ("device_type", "active", "function_slug", "channels")
     search_fields = ("model_name", "supplier", "supplier_sku", "notes", "function_slug")
     ordering = ("device_type", "model_name")
-    list_editable = ("function_slug", "active")
+    list_editable = ("function_slug", "channels", "active")
 
 
 @admin.register(InternalPrep)

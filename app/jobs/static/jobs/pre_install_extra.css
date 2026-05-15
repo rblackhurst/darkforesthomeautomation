@@ -423,3 +423,38 @@
   text-decoration: none;
 }
 .internal-prep-link:hover { background: var(--accent); color: #fff; }
+
+/* ── Room notes ── */
+.room-notes-toggle {
+  margin-top: 8px;
+  border-top: 1px dashed var(--border, #e5e7eb);
+  padding-top: 8px;
+}
+.room-notes-toggle summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+  cursor: pointer;
+  padding: 4px 2px;
+  user-select: none;
+}
+.room-notes-toggle summary:hover { color: var(--accent, #2d6b4e); }
+.room-notes-toggle[open] summary { color: var(--text-soft, #374151); }
+.room-notes-input {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--border-dark, #d1d5db);
+  border-radius: var(--radius, 6px);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.45;
+  resize: vertical;
+  background: var(--bg, #fff);
+  color: var(--text, #111827);
+}
+.room-notes-input:focus {
+  outline: 2px solid var(--accent-dim, #a7d4bd);
+  outline-offset: 1px;
+  border-color: var(--accent, #2d6b4e);
+}

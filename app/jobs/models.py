@@ -507,6 +507,12 @@ class CatalogDevice(models.Model):
                   "produces '{room_slug}_{device_kind}_{function_slug}'. Leave blank for "
                   "devices that don't get a name (NUC, UPS, kits).",
     )
+    channels = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="How many independently-named HA entities this device produces. "
+                  "Dual relays (e.g. MINI-ZB2GS light + fan) set this to 2, so the "
+                  "pairing sheet generates two named rows per unit.",
+    )
     notes = models.TextField(blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -643,6 +649,19 @@ class SaleLine(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="sale_lines")
     device = models.ForeignKey(
         CatalogDevice, on_delete=models.PROTECT, related_name="sale_lines",
+        null=True, blank=True,
+        help_text="Catalog device. Leave blank for a custom off-catalog line — "
+                  "describe it in custom_description and set unit_cost manually.",
+    )
+    custom_description = models.CharField(
+        max_length=200, blank=True,
+        help_text="Description shown in pick sheets / pricing when this line is "
+                  "off-catalog (device is blank).",
+    )
+    install_charge = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Optional labor / installation charge for this line on top of "
+                  "unit_cost × quantity. Used for off-catalog custom items.",
     )
     quantity = models.PositiveSmallIntegerField(default=1)
     unit_cost = models.DecimalField(
@@ -661,13 +680,21 @@ class SaleLine(models.Model):
         ordering = ["sort_order", "id"]
 
     def __str__(self):
-        return f"{self.job_id}: {self.quantity}× {self.device.model_name}"
+        label = self.device.model_name if self.device else (self.custom_description or "custom item")
+        return f"{self.job_id}: {self.quantity}× {label}"
+
+    @property
+    def line_label(self):
+        if self.device:
+            return self.device.model_name
+        return self.custom_description or "Custom item"
 
     @property
     def line_total(self):
-        if self.unit_cost is not None:
-            return self.unit_cost * self.quantity
-        return None
+        base = (self.unit_cost or 0) * self.quantity if self.unit_cost is not None else None
+        if base is None and self.install_charge is None:
+            return None
+        return (base or 0) + (self.install_charge or 0)
 
 
 # ── Internal prep ─────────────────────────────────────────────────────────────
@@ -709,6 +736,11 @@ class Room(models.Model):
         max_length=100, blank=True,
         help_text="Optional label to distinguish this room from others of the same type "
                   "(e.g. 'Master', 'Kids', 'Grandma's').",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Walkthrough notes for this room — anything the customer mentioned, "
+                  "access quirks, wiring concerns, or device-placement reminders.",
     )
     order = models.PositiveSmallIntegerField(default=0)
     from_package = models.BooleanField(

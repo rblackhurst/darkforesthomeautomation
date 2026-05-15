@@ -117,6 +117,29 @@
     });
   }
 
+  // ── Mark backend install complete ──
+  const completeBtn = document.getElementById("bi-complete-btn");
+  if (completeBtn && window.BI_COMPLETE_URL) {
+    completeBtn.addEventListener("click", async () => {
+      const ok = window.confirm(
+        `Mark ${CUSTOMER}'s backend install complete and advance the job to ` +
+        `the pairing stage?`
+      );
+      if (!ok) return;
+      const r = await post(window.BI_COMPLETE_URL, {}, completeBtn);
+      if (r && r.ok) window.location.reload();
+    });
+  }
+
+  const reopenBtn = document.getElementById("bi-reopen-btn");
+  if (reopenBtn && window.BI_REOPEN_URL) {
+    reopenBtn.addEventListener("click", async () => {
+      if (!window.confirm("Reopen the backend install to record more work?")) return;
+      const r = await post(window.BI_REOPEN_URL, {}, reopenBtn);
+      if (r && r.ok) window.location.reload();
+    });
+  }
+
   // ── Scroll spy: highlight the step closest to the top of the viewport ──
   const steps = document.querySelectorAll("section.step");
   const links = new Map();

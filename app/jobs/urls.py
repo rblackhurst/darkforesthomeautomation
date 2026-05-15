@@ -35,6 +35,16 @@ urlpatterns = [
         views.backend_install_reset,
         name="backend_install_reset",
     ),
+    path(
+        "jobs/<str:invoice_number>/backend-install/complete/",
+        views.backend_install_complete,
+        name="backend_install_complete",
+    ),
+    path(
+        "jobs/<str:invoice_number>/backend-install/reopen/",
+        views.backend_install_reopen,
+        name="backend_install_reopen",
+    ),
 
     # ── Pre-install checklist ────────────────────────────────────────────
     path(
@@ -73,6 +83,11 @@ urlpatterns = [
         "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/rename/",
         views.room_rename,
         name="room_rename",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/notes/",
+        views.room_save_notes,
+        name="room_save_notes",
     ),
     path(
         "jobs/<str:invoice_number>/pre-install/rooms/<int:room_id>/delete/",

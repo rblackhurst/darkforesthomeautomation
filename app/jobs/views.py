@@ -148,6 +148,13 @@ def backend_install_render(request, invoice_number):
             status=503,
         )
 
+    # Advance status from SOLD/PRE_INSTALL to BACKEND when the form is first
+    # opened — internal prep and backend install run in parallel after the
+    # pre-install checklist is finalized.
+    if job.status in {Job.Status.SOLD, Job.Status.PRE_INSTALL}:
+        job.status = Job.Status.BACKEND
+        job.save(update_fields=["status"])
+
     _ensure_prefilled_captures(bi)
 
     template = bi.template
@@ -183,6 +190,8 @@ def backend_install_render(request, invoice_number):
         total_checks += check_total
         total_done += check_done
 
+    all_checks_done = total_checks > 0 and total_done == total_checks
+
     return render(request, "jobs/backend_install.html", {
         "job": job,
         "backend_install": bi,
@@ -190,6 +199,9 @@ def backend_install_render(request, invoice_number):
         "steps": rendered_steps,
         "total_checks": total_checks,
         "total_done": total_done,
+        "checks_remaining": total_checks - total_done,
+        "all_checks_done": all_checks_done,
+        "can_open_pairing": bi.completed_at is not None,
     })
 
 
@@ -265,6 +277,40 @@ def backend_install_save_capture(request, invoice_number, key):
         backend_install=bi, key=key, defaults={"value": value},
     )
     return JsonResponse({"saved": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def backend_install_complete(request, invoice_number):
+    """Mark the backend install complete and advance the job to pairing."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    bi = _get_or_init_backend_install(job)
+    if bi.completed_at is None:
+        bi.completed_at = now()
+        bi.save(update_fields=["completed_at"])
+    if job.status in {Job.Status.SOLD, Job.Status.PRE_INSTALL, Job.Status.BACKEND}:
+        job.status = Job.Status.PAIRING
+        job.save(update_fields=["status"])
+    return JsonResponse({
+        "ok": True,
+        "completed_at": bi.completed_at.isoformat() if bi.completed_at else None,
+        "status": job.status,
+        "pairing_url": reverse("jobs:pairing_sheet_render", args=[job.invoice_number]),
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def backend_install_reopen(request, invoice_number):
+    """Clear completed_at so the installer can keep working without rewinding status."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    bi = _get_or_init_backend_install(job)
+    if bi.completed_at is not None:
+        bi.completed_at = None
+        bi.save(update_fields=["completed_at"])
+    return JsonResponse({"ok": True})
 
 
 @login_required
@@ -377,7 +423,7 @@ def pre_install_checklist_render(request, invoice_number):
     pkg_list_price = Decimal("0")
     adhoc_price = Decimal("0")
     for sl in job.sale_lines.all():
-        val = (sl.unit_cost or Decimal("0")) * sl.quantity
+        val = _line_total(sl)
         if sl.from_package:
             pkg_list_price += val
         else:
@@ -650,7 +696,13 @@ def _update_sale(job, new_package_id, device_rows):
 
 
 def _create_sale_lines(job, package_id, device_rows):
-    """Create SaleLine rows from a package expansion + à-la-carte rows."""
+    """Create SaleLine rows from a package expansion + à-la-carte rows.
+
+    `device_rows` accepts two row shapes:
+      - catalog rows: {device_id, quantity, notes}
+      - custom rows:  {custom: True, description, unit_cost, install_charge,
+                       quantity, notes}
+    """
     sort = 0
 
     if package_id:
@@ -687,6 +739,23 @@ def _create_sale_lines(job, package_id, device_rows):
             pass
 
     for row in device_rows:
+        if row.get("custom"):
+            description = str(row.get("description", "")).strip()[:200]
+            if not description:
+                continue
+            SaleLine.objects.create(
+                job=job,
+                device=None,
+                custom_description=description,
+                quantity=max(1, int(row.get("quantity", 1))),
+                unit_cost=row.get("unit_cost"),
+                install_charge=row.get("install_charge"),
+                notes=row.get("notes", ""),
+                from_package=False,
+                sort_order=sort,
+            )
+            sort += 1
+            continue
         try:
             device = CatalogDevice.objects.get(pk=row["device_id"], active=True)
         except CatalogDevice.DoesNotExist:
@@ -743,6 +812,12 @@ def _fmt_adhoc(value):
     return f"${q}"
 
 
+def _line_total(sl):
+    """Decimal total for one SaleLine, including any per-line install charge."""
+    base = (sl.unit_cost or Decimal("0")) * sl.quantity
+    return base + (sl.install_charge or Decimal("0"))
+
+
 def _sale_total(job, manual_override=None):
     """
     Return the effective sale total as Decimal.
@@ -765,14 +840,12 @@ def _sale_total(job, manual_override=None):
             return job.payment_override_amount
         # Auto-applied package discount: bundle price + any à-la-carte items on top.
         adhoc = sum(
-            ((sl.unit_cost or Decimal("0")) * sl.quantity
-             for sl in job.sale_lines.filter(from_package=False)),
+            (_line_total(sl) for sl in job.sale_lines.filter(from_package=False)),
             Decimal("0"),
         )
         return job.payment_override_amount + adhoc
     return sum(
-        ((sl.unit_cost or Decimal("0")) * sl.quantity
-         for sl in job.sale_lines.all()),
+        (_line_total(sl) for sl in job.sale_lines.all()),
         Decimal("0"),
     )
 
@@ -780,8 +853,7 @@ def _sale_total(job, manual_override=None):
 def _sale_line_sum(job):
     """Raw sum of SaleLine costs — used to display the à la carte value."""
     return sum(
-        ((sl.unit_cost or Decimal("0")) * sl.quantity
-         for sl in job.sale_lines.all()),
+        (_line_total(sl) for sl in job.sale_lines.all()),
         Decimal("0"),
     )
 
@@ -867,6 +939,24 @@ def sales_form(request):
     })
 
 
+def _serialize_adhoc(sl):
+    """JSON-safe dict for one à-la-carte SaleLine (catalog or custom)."""
+    if sl.device_id:
+        return {
+            "device_id": sl.device_id,
+            "quantity": sl.quantity,
+            "notes": sl.notes,
+        }
+    return {
+        "custom": True,
+        "description": sl.custom_description,
+        "unit_cost": str(sl.unit_cost) if sl.unit_cost is not None else None,
+        "install_charge": str(sl.install_charge) if sl.install_charge is not None else None,
+        "quantity": sl.quantity,
+        "notes": sl.notes,
+    }
+
+
 @login_required
 @staff_required
 def sales_form_edit(request, invoice_number):
@@ -916,10 +1006,7 @@ def sales_form_edit(request, invoice_number):
                     pi.captures.create(key="package_summary", value=prefill)
             return redirect("jobs:pre_install_checklist_render", invoice_number=invoice_number)
     else:
-        adhoc_lines = [
-            {"device_id": sl.device_id, "quantity": sl.quantity, "notes": sl.notes}
-            for sl in job.sale_lines.filter(from_package=False)
-        ]
+        adhoc_lines = [_serialize_adhoc(sl) for sl in job.sale_lines.filter(from_package=False)]
         form = SalesForm(initial={
             "first_name": job.customer.first_name,
             "last_name": job.customer.last_name,
@@ -934,10 +1021,7 @@ def sales_form_edit(request, invoice_number):
             "package_id": job.package_id or "",
         })
 
-    adhoc_lines = [
-        {"device_id": sl.device_id, "quantity": sl.quantity, "notes": sl.notes}
-        for sl in job.sale_lines.filter(from_package=False)
-    ]
+    adhoc_lines = [_serialize_adhoc(sl) for sl in job.sale_lines.filter(from_package=False)]
 
     return render(request, "jobs/sales_form.html", {
         "form": form,
@@ -1082,6 +1166,19 @@ def room_rename(request, invoice_number, room_id):
     room.custom_name = str(data.get("custom_name", ""))[:100].strip()
     room.save(update_fields=["custom_name"])
     return JsonResponse({"custom_name": room.custom_name, "display_label": room.display_label})
+
+
+@login_required
+@staff_required
+@require_POST
+def room_save_notes(request, invoice_number, room_id):
+    """Persist the walkthrough notes textarea for a single room."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    room = get_object_or_404(Room, pk=room_id, job=job)
+    notes = str(_load_json(request).get("notes", ""))
+    room.notes = notes
+    room.save(update_fields=["notes"])
+    return JsonResponse({"ok": True})
 
 
 @login_required
@@ -1553,8 +1650,46 @@ def _device_kind_token(device):
     return _DEVICE_KIND_TOKEN.get(device.device_type, "")
 
 
-def _ha_name_for(room, device, instance_index, instance_count):
-    """Return the formula-generated HA friendly name, or '' if any token is missing."""
+# Dual-relay channel suffixes. A dual relay (CatalogDevice.channels = 2)
+# produces two named entities per unit; default suffixes match the most
+# common use case (light + fan, e.g. MINI-ZB2GS).
+DUAL_RELAY_CHANNEL_SUFFIXES = ("light", "fan")
+
+
+# Per-room-type role suffixes for water sensors. When more than one water
+# sensor lands in the same room, replace the numeric instance suffix with a
+# role label so the entity names match the eventual automations
+# ({room}_sensor_water_sink vs {room}_sensor_water_dishwasher, etc.).
+WATER_SENSOR_ROLES = {
+    "kitchen":  ("sink", "dishwasher", "fridge"),
+    "bathroom": ("sink", "toilet"),
+}
+
+
+def _water_sensor_role_suffix(room, device, instance_index):
+    """Role suffix (e.g. 'sink', 'dishwasher') for a water sensor, or None.
+
+    Returns None when the device isn't a water sensor, the room type has no
+    role map, or the instance index runs past the configured roles.
+    """
+    if device.device_type != CatalogDevice.DeviceType.SENSOR:
+        return None
+    if (device.function_slug or "").strip() != "water":
+        return None
+    roles = WATER_SENSOR_ROLES.get(room.room_type)
+    if not roles or instance_index < 1 or instance_index > len(roles):
+        return None
+    return roles[instance_index - 1]
+
+
+def _ha_name_for(room, device, instance_index, instance_count, channel_index=1, channels=1):
+    """Return the formula-generated HA friendly name, or '' if any token is missing.
+
+    instance_index   — 1-based index across multiple units of the same RoomDevice.
+    instance_count   — total units of that RoomDevice.
+    channel_index    — 1-based index across this unit's channels (1..channels).
+    channels         — total channels per unit (1 for single devices, 2 for dual relays).
+    """
     room_part = _room_slug(room)
     kind = _device_kind_token(device)
     fn = (device.function_slug or "").strip()
@@ -1564,7 +1699,17 @@ def _ha_name_for(room, device, instance_index, instance_count):
     if fn:
         parts.append(fn)
     name = "_".join(parts)
-    if instance_count > 1:
+
+    # Dual-relay (or multi-channel) devices add a channel suffix.
+    if channels > 1 and channel_index <= len(DUAL_RELAY_CHANNEL_SUFFIXES):
+        name = f"{name}_{DUAL_RELAY_CHANNEL_SUFFIXES[channel_index - 1]}"
+
+    # Water sensors get role suffixes (sink / dishwasher / toilet) instead of
+    # a bare numeric index.
+    role = _water_sensor_role_suffix(room, device, instance_index)
+    if role:
+        name = f"{name}_{role}"
+    elif instance_count > 1:
         name = f"{name}_{instance_index}"
     return name
 
@@ -1575,13 +1720,30 @@ def _get_or_init_pairing_sheet(job):
     return ps
 
 
+def _channel_layout(quantity, channels):
+    """Yield (flat_index, instance_index, channel_index) tuples.
+
+    Flat indexing keeps the unique (pairing_sheet, room_device, instance_index)
+    constraint intact while still letting a single dual-relay RoomDevice with
+    quantity=N produce N × channels rows. flat_index runs 1..(quantity × channels).
+    """
+    qty = max(quantity, 1)
+    ch = max(channels, 1)
+    for flat in range(1, qty * ch + 1):
+        instance = ((flat - 1) // ch) + 1
+        channel = ((flat - 1) % ch) + 1
+        yield flat, instance, channel
+
+
 def _sync_pairing_rows(ps):
     """Ensure PairingSheetDevice rows mirror current RoomDevice quantities.
 
     Adds missing rows (with formula-generated ha_name) and deletes orphans for
-    RoomDevices that were removed or had their quantity reduced. Never overrides
-    a row's ha_name once it's been edited; only the auto-filled empty rows pick
-    up a freshly-computed name. Skipped entirely when the sheet is locked.
+    RoomDevices that were removed or had their quantity reduced. Multi-channel
+    catalog devices (CatalogDevice.channels > 1) emit one row per channel per
+    unit so each entity gets its own HA name. Never overrides a row's ha_name
+    once it's been edited; only the auto-filled empty rows pick up a freshly-
+    computed name. Skipped entirely when the sheet is locked.
     """
     if ps.locked:
         return
@@ -1602,15 +1764,16 @@ def _sync_pairing_rows(ps):
     for room in rooms:
         for rd in room.devices.select_related("device").all():
             qty = max(rd.quantity, 1)
-            for idx in range(1, qty + 1):
-                wanted_keys.add((rd.id, idx))
-                if (rd.id, idx) in existing:
+            channels = max(rd.device.channels or 1, 1)
+            for flat, instance, channel in _channel_layout(qty, channels):
+                wanted_keys.add((rd.id, flat))
+                if (rd.id, flat) in existing:
                     continue
-                ha = _ha_name_for(room, rd.device, idx, qty)
+                ha = _ha_name_for(room, rd.device, instance, qty, channel, channels)
                 PairingSheetDevice.objects.create(
                     pairing_sheet=ps,
                     room_device=rd,
-                    instance_index=idx,
+                    instance_index=flat,
                     ha_name=ha,
                 )
 
@@ -1727,7 +1890,10 @@ def pairing_sheet_regenerate_name(request, invoice_number, psd_id):
         return JsonResponse({"error": "Pairing sheet is locked."}, status=409)
     rd = psd.room_device
     qty = max(rd.quantity, 1)
-    psd.ha_name = _ha_name_for(rd.room, rd.device, psd.instance_index, qty)
+    channels = max(rd.device.channels or 1, 1)
+    instance = ((psd.instance_index - 1) // channels) + 1
+    channel = ((psd.instance_index - 1) % channels) + 1
+    psd.ha_name = _ha_name_for(rd.room, rd.device, instance, qty, channel, channels)
     psd.save(update_fields=["ha_name"])
     return JsonResponse({"ok": True, "ha_name": psd.ha_name})
 

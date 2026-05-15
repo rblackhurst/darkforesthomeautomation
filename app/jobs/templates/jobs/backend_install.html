@@ -107,6 +107,30 @@
         {% endfor %}
       </section>
     {% endfor %}
+
+    <!-- ── Mark complete / next step ── -->
+    <section class="bi-complete-card">
+      {% if backend_install.completed_at %}
+        <div class="bi-complete-state">
+          <span class="bi-complete-badge">✓ Backend install complete</span>
+          <span class="bi-complete-stamp">{{ backend_install.completed_at|date:"M j, Y g:i a" }}</span>
+        </div>
+        <a class="bi-pairing-link" href="{% url 'jobs:pairing_sheet_render' job.invoice_number %}">
+          Open pairing sheet →
+        </a>
+        <p class="bi-complete-hint">The pairing sheet generates HA / Z2M friendly names per device and tracks what's been paired on install day.</p>
+        <button type="button" class="bi-reopen-btn" id="bi-reopen-btn">Reopen backend install</button>
+      {% else %}
+        <p class="bi-complete-hint">Finish every checkbox above, then mark the backend install complete. That unlocks the pairing sheet — devices can't be paired into a system that doesn't exist yet.</p>
+        <button type="button" class="bi-complete-btn" id="bi-complete-btn"
+                {% if not all_checks_done %}disabled{% endif %}>
+          Mark backend install complete
+        </button>
+        {% if not all_checks_done %}
+          <p class="bi-complete-pending">{{ checks_remaining }} step{{ checks_remaining|pluralize }} remaining ({{ total_done }} / {{ total_checks }} done).</p>
+        {% endif %}
+      {% endif %}
+    </section>
   </main>
 
 </div>
@@ -114,6 +138,8 @@
 <script>
   window.BI_BASE_URL = "{% url 'jobs:backend_install_render' job.invoice_number %}";
   window.BI_CUSTOMER_LABEL = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
+  window.BI_COMPLETE_URL = "{% url 'jobs:backend_install_complete' job.invoice_number %}";
+  window.BI_REOPEN_URL = "{% url 'jobs:backend_install_reopen' job.invoice_number %}";
 </script>
 <script src="{% static 'jobs/backend_install.js' %}"></script>
 </body>

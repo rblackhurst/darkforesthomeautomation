@@ -237,6 +237,17 @@
     addBtn.dataset.roomId = String(roomId);
     addBtn.textContent = "+ Add device";
     card.appendChild(addBtn);
+
+    // Notes textarea (collapsed by default for newly-added rooms).
+    const notesDetails = document.createElement("details");
+    notesDetails.className = "room-notes-toggle";
+    notesDetails.innerHTML = `
+      <summary>Room notes</summary>
+      <textarea class="room-notes-input" data-action="save-room-notes" data-room-id="${roomId}" rows="2"
+                placeholder="Walkthrough notes — placement hints, access quirks, wiring concerns…"></textarea>
+    `;
+    card.appendChild(notesDetails);
+
     return card;
   }
 
@@ -306,15 +317,27 @@
   // Rename room (blur on name input — delegated, uses focusout which bubbles)
   if (roomList) {
     roomList.addEventListener("focusout", async (e) => {
-      const input = e.target.closest(".room-name-input");
-      if (!input) return;
-      const roomId = input.dataset.roomId;
-      await fetch(`${BASE}rooms/${roomId}/rename/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
-        body: JSON.stringify({ custom_name: input.value }),
-        credentials: "same-origin",
-      });
+      const nameInput = e.target.closest(".room-name-input");
+      if (nameInput) {
+        const roomId = nameInput.dataset.roomId;
+        await fetch(`${BASE}rooms/${roomId}/rename/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+          body: JSON.stringify({ custom_name: nameInput.value }),
+          credentials: "same-origin",
+        });
+        return;
+      }
+      const notesInput = e.target.closest(".room-notes-input");
+      if (notesInput) {
+        const roomId = notesInput.dataset.roomId;
+        await fetch(`${BASE}rooms/${roomId}/notes/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF },
+          body: JSON.stringify({ notes: notesInput.value }),
+          credentials: "same-origin",
+        });
+      }
     });
   }
 

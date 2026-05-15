@@ -16,11 +16,17 @@
   invoice auto-generation, finalize flow with Postmark quote email.
 - Weeks 6–7 ✅ — PickSheet computed live from SaleLine + confirmed RoomDevice,
   grouped by device type, printable. `/jobs/<invoice>/pick-sheet/`.
-- Weeks 7–8 (in progress) — PairingSheet ✅ landed (per-room rows, formula HA/Z2M
-  names, paired ✓ with audit, lock/unlock). OnsiteInstall ✅ landed (hybrid
-  cards: VLAN/DHCP, Tailscale, remote monitoring, with confirmation flags;
-  "Mark complete" advances Job → WALKTHROUGH). Still to do: AutomationConfig,
-  walkthrough sign-off.
+- Weeks 7–8 (in progress) — PairingSheet ✅ (per-room rows, formula HA/Z2M
+  names, dual-relay channels → `_light`/`_fan`, kitchen/bathroom water-sensor
+  role suffixes `_sink`/`_dishwasher`/`_fridge`/`_toilet`, paired ✓ with audit,
+  lock/unlock). OnsiteInstall ✅ (hybrid cards: VLAN/DHCP, Tailscale, remote
+  monitoring, with confirmation flags; "Mark complete" advances Job →
+  WALKTHROUGH). Backend install now gates the pairing sheet — backend
+  install has "Mark complete" CTA that advances Job → PAIRING and surfaces
+  the pairing-sheet link; internal-prep page no longer jumps straight to
+  pairing. Room notes on every walkthrough room, off-catalog "custom" sale
+  lines (description + price + install charge) on the sales / edit-sale form.
+  Still to do: AutomationConfig, walkthrough sign-off.
 - Up next — finish Weeks 7–8: AutomationConfig form, walkthrough sign-off
   (locks protected sections, starts audit trail, triggers post-install email).
 

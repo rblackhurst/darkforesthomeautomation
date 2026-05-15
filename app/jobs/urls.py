@@ -187,4 +187,26 @@ urlpatterns = [
         views.sales_form_edit,
         name="sales_form_edit",
     ),
+
+    # ── On-site install ──────────────────────────────────────────────────
+    path(
+        "jobs/<str:invoice_number>/onsite-install/",
+        views.onsite_install_render,
+        name="onsite_install_render",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/save/",
+        views.onsite_install_save_field,
+        name="onsite_install_save_field",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/complete/",
+        views.onsite_install_complete,
+        name="onsite_install_complete",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/reopen/",
+        views.onsite_install_reopen,
+        name="onsite_install_reopen",
+    ),
 ]

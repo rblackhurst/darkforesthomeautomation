@@ -17,11 +17,12 @@
 - Weeks 6–7 ✅ — PickSheet computed live from SaleLine + confirmed RoomDevice,
   grouped by device type, printable. `/jobs/<invoice>/pick-sheet/`.
 - Weeks 7–8 (in progress) — PairingSheet ✅ landed (per-room rows, formula HA/Z2M
-  names, paired ✓ with audit, lock/unlock). Still to do: AutomationConfig,
-  OnsiteInstall, walkthrough sign-off.
-- Up next — finish Weeks 7–8: AutomationConfig form, OnsiteInstall form,
-  walkthrough sign-off (locks protected sections, starts audit trail,
-  triggers post-install email).
+  names, paired ✓ with audit, lock/unlock). OnsiteInstall ✅ landed (hybrid
+  cards: VLAN/DHCP, Tailscale, remote monitoring, with confirmation flags;
+  "Mark complete" advances Job → WALKTHROUGH). Still to do: AutomationConfig,
+  walkthrough sign-off.
+- Up next — finish Weeks 7–8: AutomationConfig form, walkthrough sign-off
+  (locks protected sections, starts audit trail, triggers post-install email).
 
 **Keep this section current** — update "Where we are" with any milestone-
 shifting commit so the next session inherits accurate state. PLANNING.md

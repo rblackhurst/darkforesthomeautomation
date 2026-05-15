@@ -160,13 +160,17 @@ class JobAdmin(admin.ModelAdmin):
         )
         pi_url = reverse("jobs:pre_install_checklist_render", args=[obj.invoice_number])
         bi_url = reverse("jobs:backend_install_render", args=[obj.invoice_number])
+        oi_url = reverse("jobs:onsite_install_render", args=[obj.invoice_number])
         return format_html(
             '<a class="button" href="{}" target="_blank" rel="noopener" style="{}">'
             'Pre-install checklist →</a>'
             '<a class="button" href="{}" target="_blank" rel="noopener" style="{}">'
-            'Backend install →</a>',
+            'Backend install →</a>'
+            '<a class="button" href="{}" target="_blank" rel="noopener" style="{}">'
+            'On-site install →</a>',
             pi_url, btn,
             bi_url, btn,
+            oi_url, btn,
         )
 
 

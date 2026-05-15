@@ -27,6 +27,7 @@ from .models import (
     Customer,
     InternalPrep,
     Job,
+    OnsiteInstall,
     Package,
     PairingSheet,
     PairingSheetDevice,
@@ -1369,6 +1370,11 @@ def _next_action(job):
             reverse("jobs:pairing_sheet_render", args=[job.invoice_number]),
             "Open pairing sheet",
         )
+    if job.status in {Job.Status.AUTOMATION, Job.Status.ONSITE}:
+        return (
+            reverse("jobs:onsite_install_render", args=[job.invoice_number]),
+            "Open on-site install",
+        )
     return (
         reverse("admin:jobs_job_change", args=[job.invoice_number]),
         "Open in admin",
@@ -1758,3 +1764,110 @@ def pairing_sheet_unlock(request, invoice_number):
         ps.locked_by = None
         ps.save(update_fields=["locked", "locked_at", "locked_by"])
     return JsonResponse({"ok": True, "locked": False})
+
+
+# ── On-site install ──────────────────────────────────────────────────────────
+
+
+ONSITE_TEXT_FIELDS = {"vlan_changes", "tailscale_account", "remote_monitoring", "notes"}
+ONSITE_FLAG_FIELDS = {"vlan_configured", "tailscale_active", "remote_access_verified"}
+
+
+def _get_or_init_onsite_install(job):
+    oi, _ = OnsiteInstall.objects.get_or_create(job=job)
+    if oi.started_at is None:
+        oi.started_at = now()
+        oi.save(update_fields=["started_at"])
+    return oi
+
+
+@login_required
+@staff_required
+def onsite_install_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi = _get_or_init_onsite_install(job)
+
+    # Advance status to ONSITE when an earlier stage opens this form. Don't
+    # rewind once it's progressed to WALKTHROUGH/COMPLETE.
+    pre_onsite = {
+        Job.Status.SOLD,
+        Job.Status.PRE_INSTALL,
+        Job.Status.BACKEND,
+        Job.Status.PAIRING,
+        Job.Status.AUTOMATION,
+    }
+    if job.status in pre_onsite:
+        job.status = Job.Status.ONSITE
+        job.save(update_fields=["status"])
+
+    completed_flags = [oi.vlan_configured, oi.tailscale_active, oi.remote_access_verified]
+    flag_total = len(completed_flags)
+    flag_done = sum(1 for f in completed_flags if f)
+
+    return render(request, "jobs/onsite_install.html", {
+        "job": job,
+        "onsite_install": oi,
+        "flag_total": flag_total,
+        "flag_done": flag_done,
+        "flag_remaining": flag_total - flag_done,
+        "ready_to_complete": flag_done == flag_total and oi.completed_at is None,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_save_field(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi = _get_or_init_onsite_install(job)
+    data = _load_json(request)
+    field = data.get("field")
+    value = data.get("value")
+
+    if field in ONSITE_FLAG_FIELDS:
+        setattr(oi, field, bool(value))
+    elif field in ONSITE_TEXT_FIELDS:
+        if field == "tailscale_account":
+            value = str(value)[:200]
+        setattr(oi, field, str(value))
+    else:
+        return JsonResponse({"error": "Unknown field"}, status=400)
+
+    oi.save(update_fields=[field])
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_complete(request, invoice_number):
+    """Mark the on-site install complete and advance the job to walkthrough."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi = _get_or_init_onsite_install(job)
+
+    if oi.completed_at is None:
+        oi.completed_at = now()
+        oi.save(update_fields=["completed_at"])
+
+    if job.status in {Job.Status.AUTOMATION, Job.Status.ONSITE}:
+        job.status = Job.Status.WALKTHROUGH
+        job.save(update_fields=["status"])
+
+    return JsonResponse({
+        "ok": True,
+        "completed_at": oi.completed_at.isoformat() if oi.completed_at else None,
+        "status": job.status,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_reopen(request, invoice_number):
+    """Clear completed_at so edits can resume (status is left alone)."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi = _get_or_init_onsite_install(job)
+    if oi.completed_at is not None:
+        oi.completed_at = None
+        oi.save(update_fields=["completed_at"])
+    return JsonResponse({"ok": True})

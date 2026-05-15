@@ -1,0 +1,91 @@
+/* DFHA on-site install page */
+
+:root {
+  --bg:           #ffffff;
+  --bg-alt:       #fafafa;
+  --bg-muted:     #f3f4f6;
+  --border:       #e5e7eb;
+  --border-dark:  #d1d5db;
+  --text:         #111827;
+  --text-soft:    #374151;
+  --text-muted:   #6b7280;
+  --accent:       #2d6b4e;
+  --accent-bg:    #ecfdf5;
+  --accent-dim:   #a7d4bd;
+  --amber:        #b45309;
+  --amber-bg:     #fef3c7;
+  --red:          #b91c1c;
+  --radius:       6px;
+  --sans:         system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --mono:         ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg-alt); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); }
+
+/* ── Page header ── */
+.page-header { background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px 32px; position: sticky; top: 0; z-index: 10; }
+.header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.back-link { font-size: 12px; color: var(--text-muted); text-decoration: none; display: block; margin-bottom: 3px; }
+.back-link:hover { color: var(--accent); }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.header-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.header-sub strong { color: var(--text); }
+.header-actions { display: flex; align-items: center; gap: 10px; padding-top: 20px; flex-wrap: wrap; }
+
+.progress-pill { font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-bg); border-radius: 999px; padding: 4px 12px; }
+.complete-badge { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-bg); border-radius: 999px; padding: 4px 12px; }
+.reopen-btn { font-size: 12px; font-weight: 600; color: var(--text-soft); background: var(--bg); border: 1px solid var(--border-dark); border-radius: var(--radius); padding: 5px 12px; cursor: pointer; }
+.reopen-btn:hover { background: var(--bg-muted); }
+
+/* ── Main ── */
+main { max-width: 860px; margin: 28px auto; padding: 0 24px 80px; }
+
+/* ── Cards ── */
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 26px; margin-bottom: 20px; transition: border-color 0.12s; }
+.card[data-field].confirmed { border-color: var(--accent-dim); background: linear-gradient(180deg, var(--accent-bg) 0%, var(--bg) 60%); }
+.card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.card-header h2 { font-size: 16px; font-weight: 600; flex: 1; }
+.card-hint { font-size: 13.5px; color: var(--text-soft); margin-bottom: 14px; line-height: 1.5; }
+
+/* ── Confirm checkbox row ── */
+.confirm-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-soft); cursor: pointer; padding: 4px 10px; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 999px; }
+.confirm-row:hover { background: var(--bg-muted); }
+.confirm-check { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.card.confirmed .confirm-row { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-dim); font-weight: 600; }
+
+/* ── Capture inputs ── */
+.capture-row { display: flex; align-items: center; gap: 14px; background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 16px; }
+.capture-row label { font-size: 14px; font-weight: 500; color: var(--text-soft); min-width: 200px; }
+.capture-input { flex: 1; background: var(--bg); border: 1px solid var(--border-dark); border-radius: var(--radius); color: var(--text); font-size: 14.5px; padding: 7px 11px; font-family: var(--mono); }
+.capture-input:focus { outline: 2px solid var(--accent-dim); outline-offset: 1px; border-color: var(--accent); }
+
+/* ── Notes areas ── */
+.notes-area { width: 100%; min-height: 110px; background: var(--bg); border: 1px solid var(--border-dark); border-radius: var(--radius); color: var(--text); font-family: var(--sans); font-size: 14px; padding: 10px 12px; resize: vertical; line-height: 1.5; }
+.notes-area:focus { outline: 2px solid var(--accent-dim); outline-offset: 1px; border-color: var(--accent); }
+
+/* ── Complete card ── */
+.complete-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 26px; text-align: center; margin-top: 8px; }
+.complete-hint { font-size: 13.5px; color: var(--text-soft); margin-bottom: 14px; }
+.complete-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 600; padding: 10px 22px; cursor: pointer; }
+.complete-btn:hover:not(:disabled) { background: #235a40; }
+.complete-btn:disabled { background: var(--border-dark); cursor: not-allowed; }
+.complete-pending { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+
+body.completed .complete-card { background: var(--accent-bg); border-color: var(--accent-dim); }
+
+/* ── Save flash ── */
+.save-ok { box-shadow: inset 3px 0 0 var(--accent); }
+.save-err { box-shadow: inset 3px 0 0 var(--red); }
+
+.save-toast {
+  position: fixed; bottom: 20px; right: 24px;
+  background: var(--accent); color: #fff;
+  font-size: 13px; font-weight: 600;
+  padding: 8px 16px; border-radius: var(--radius);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.15s;
+}
+.save-toast.visible { opacity: 1; }
+.save-toast.error { background: var(--red); }

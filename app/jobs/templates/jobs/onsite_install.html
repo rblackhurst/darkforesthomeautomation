@@ -1,0 +1,132 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · On-site install</title>
+  <link rel="stylesheet" href="{% static 'jobs/onsite_install.css' %}">
+</head>
+<body class="{% if onsite_install.completed_at %}completed{% endif %}">
+{% csrf_token %}
+
+<header class="page-header">
+  <div class="header-row">
+    <div class="header-left">
+      <a class="back-link" href="{% url 'jobs:home' %}">← Active jobs</a>
+      <h1>On-site install</h1>
+      <p class="header-sub">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · invoice {% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}{{ job.invoice_number }}{% endif %}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </div>
+    <div class="header-actions">
+      <span class="progress-pill">
+        <span id="flag-done">{{ flag_done }}</span> / {{ flag_total }} confirmed
+      </span>
+      {% if onsite_install.completed_at %}
+        <span class="complete-badge">✓ Completed {{ onsite_install.completed_at|date:"M j, g:i a" }}</span>
+        <button type="button" class="reopen-btn" id="reopen-btn">Reopen</button>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── VLAN / DHCP ── -->
+  <section class="card" data-field="vlan_configured">
+    <div class="card-header">
+      <h2>Router · VLAN / DHCP</h2>
+      <label class="confirm-row">
+        <input type="checkbox" class="confirm-check" id="vlan-configured"
+               data-field="vlan_configured"
+               {% if onsite_install.vlan_configured %}checked{% endif %}>
+        <span>Applied on router</span>
+      </label>
+    </div>
+    <p class="card-hint">Document any VLAN tagging, DHCP reservations, port-forwarding rules, or firewall changes made on the customer's router. Note what was changed and why — future installers will read this.</p>
+    <textarea class="notes-area"
+              data-field="vlan_changes"
+              placeholder="e.g. IoT VLAN 20 created, NUC pinned at 10.0.20.10, port 8123 reserved for HA…">{{ onsite_install.vlan_changes }}</textarea>
+  </section>
+
+  <!-- ── Tailscale ── -->
+  <section class="card" data-field="tailscale_active">
+    <div class="card-header">
+      <h2>Tailscale</h2>
+      <label class="confirm-row">
+        <input type="checkbox" class="confirm-check" id="tailscale-active"
+               data-field="tailscale_active"
+               {% if onsite_install.tailscale_active %}checked{% endif %}>
+        <span>Signed in &amp; reachable</span>
+      </label>
+    </div>
+    <p class="card-hint">Tailscale gives the customer (and us, with consent) secure remote access to their NUC. The account belongs to the customer from day one.</p>
+    <div class="capture-row">
+      <label for="tailscale-account">Tailscale account / tailnet</label>
+      <input id="tailscale-account"
+             type="text"
+             class="capture-input"
+             data-field="tailscale_account"
+             value="{{ onsite_install.tailscale_account }}"
+             placeholder="e.g. smith-family.ts.net">
+    </div>
+  </section>
+
+  <!-- ── Remote monitoring ── -->
+  <section class="card" data-field="remote_access_verified">
+    <div class="card-header">
+      <h2>Remote monitoring &amp; access</h2>
+      <label class="confirm-row">
+        <input type="checkbox" class="confirm-check" id="remote-access-verified"
+               data-field="remote_access_verified"
+               {% if onsite_install.remote_access_verified %}checked{% endif %}>
+        <span>Verified from outside LAN</span>
+      </label>
+    </div>
+    <p class="card-hint">Note the monitoring / alerting setup (uptime checks, push notifications, backup destination) and confirm you reached the HA dashboard from a cell network — not just the customer's Wi-Fi.</p>
+    <textarea class="notes-area"
+              data-field="remote_monitoring"
+              placeholder="e.g. Uptime Kuma watching HA via Tailscale; iOS Companion app installed on customer's phone with push alerts on; nightly DB backup to Backblaze B2…">{{ onsite_install.remote_monitoring }}</textarea>
+  </section>
+
+  <!-- ── Notes ── -->
+  <section class="card">
+    <div class="card-header"><h2>On-site notes</h2></div>
+    <textarea class="notes-area"
+              data-field="notes"
+              placeholder="Anything else worth recording about today's on-site work — surprises, deviations from plan, follow-ups…">{{ onsite_install.notes }}</textarea>
+  </section>
+
+  <!-- ── Complete ── -->
+  <section class="complete-card">
+    {% if onsite_install.completed_at %}
+      <p class="complete-hint">On-site install marked complete. The job is now in the walkthrough stage. Reopen above if you need to record more on-site work.</p>
+    {% else %}
+      <p class="complete-hint">When all three sections are confirmed and any final notes are entered, mark the on-site install complete. The job advances to the walkthrough stage.</p>
+      <button type="button" class="complete-btn" id="complete-btn"
+              {% if flag_done < flag_total %}disabled{% endif %}>
+        Mark on-site install complete
+      </button>
+      {% if flag_remaining > 0 %}
+        <p class="complete-pending">{{ flag_remaining }} more confirmation{{ flag_remaining|pluralize }} needed before this can be marked complete.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+</main>
+
+<div class="save-toast" id="save-toast">Saved</div>
+
+<script>
+  window.OI_URLS = {
+    save:     "{% url 'jobs:onsite_install_save_field' job.invoice_number %}",
+    complete: "{% url 'jobs:onsite_install_complete'   job.invoice_number %}",
+    reopen:   "{% url 'jobs:onsite_install_reopen'     job.invoice_number %}",
+  };
+  window.OI_FLAG_TOTAL = {{ flag_total }};
+</script>
+<script src="{% static 'jobs/onsite_install.js' %}"></script>
+</body>
+</html>

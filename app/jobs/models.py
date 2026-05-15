@@ -197,8 +197,20 @@ class AutomationConfig(InstallRecord):
 class OnsiteInstall(InstallRecord):
     job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="onsite_install")
     vlan_changes = models.TextField(blank=True)
+    vlan_configured = models.BooleanField(
+        default=False,
+        help_text="VLAN / DHCP reservations applied on the customer's router.",
+    )
     tailscale_account = models.CharField(max_length=200, blank=True)
+    tailscale_active = models.BooleanField(
+        default=False,
+        help_text="Tailscale signed in on the customer's NUC and reachable from a phone.",
+    )
     remote_monitoring = models.TextField(blank=True)
+    remote_access_verified = models.BooleanField(
+        default=False,
+        help_text="Verified the customer can reach Home Assistant from outside their LAN.",
+    )
 
     def __str__(self):
         return f"OnsiteInstall for {self.job_id}"

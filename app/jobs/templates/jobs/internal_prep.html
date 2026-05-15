@@ -124,6 +124,10 @@
       Open pick sheet (printable) →
     </a>
     <p class="pick-sheet-hint">The pick sheet aggregates all room devices by type with quantities, ready to print and pull from stock.</p>
+    <a class="pick-sheet-btn large" href="{% url 'jobs:pairing_sheet_render' job.invoice_number %}" style="margin-top:14px;">
+      Open pairing sheet →
+    </a>
+    <p class="pick-sheet-hint">The pairing sheet generates HA / Z2M friendly names per device and tracks what's been paired on install day.</p>
   </div>
 
 </main>

@@ -152,7 +152,7 @@ waiting on software.
 | 3–4 | ✅ Data model live in the `jobs` app (Customer, Job, four install records, walkthrough sign-off, audit log, service subscription, trouble request, credential bundle). Django admin wired up as internal CRUD on day one. |
 | 5–6 | Port existing `install.html` content into the BackendInstall form (DB-backed, admin-editable checklist templates so content fixes don't need a code deploy). Sales form + pre-install checklist (reuses checklist template infra). CatalogDevice model + admin (price sheet). |
 | 6–7 | **PickSheet** generated from sale + pre-install: grouped by device type then quantity, with per-line supplier/SKU/URL pulled from CatalogDevice. Prints clean; re-generate to refresh. Sits between sale and config in the staff flow. |
-| 7–8 | PairingSheet, AutomationConfig, OnsiteInstall forms. Walkthrough sign-off (locks job, starts audit trail, triggers post-install email). |
+| 7–8 | **PairingSheet** ✅ landed — per-room device rows with formula-generated HA / Z2M names (`{room_slug}_{device_kind}_{function_slug}`), paired ✓ with timestamp + audit, copy-to-clipboard, lock/unlock. AutomationConfig, OnsiteInstall forms still to do. Walkthrough sign-off (locks job, starts audit trail, triggers post-install email). |
 | 9–10 | Customer portal — invite email with setup code, customer signup w/ 2FA, view package + docs, trouble-request form. **Account management** ships alongside: self-service password reset (Django built-ins + Postmark) and a unified "Invite a user" page that covers both employees and customers. |
 | 11–12 | Stripe Billing (3 uptime tiers + DIY-package quote-request form). "Download my credentials" encrypted export. Polish. |
 

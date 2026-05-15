@@ -20,6 +20,7 @@ from .models import (
     Package,
     PackageDevice,
     PairingSheet,
+    PairingSheetDevice,
     PreInstallCapture,
     PreInstallChecklist,
     PreInstallItemState,
@@ -49,6 +50,24 @@ class PairingSheetInline(admin.StackedInline):
     model = PairingSheet
     extra = 0
     can_delete = False
+    readonly_fields = ("locked", "locked_at", "locked_by")
+
+
+class PairingSheetDeviceInline(admin.TabularInline):
+    model = PairingSheetDevice
+    extra = 0
+    fields = ("room_device", "instance_index", "ha_name", "paired", "paired_at", "paired_by", "notes")
+    readonly_fields = ("paired_at", "paired_by")
+    raw_id_fields = ("room_device",)
+
+
+@admin.register(PairingSheet)
+class PairingSheetAdmin(admin.ModelAdmin):
+    list_display = ("job", "locked", "locked_at", "completed_at", "updated_at")
+    list_filter = ("locked",)
+    search_fields = ("job__invoice_number", "job__customer__last_name")
+    readonly_fields = ("created_at", "updated_at", "locked_at", "locked_by", "completed_at")
+    inlines = [PairingSheetDeviceInline]
 
 
 class AutomationConfigInline(admin.StackedInline):
@@ -306,11 +325,11 @@ class PackageAdmin(admin.ModelAdmin):
 
 @admin.register(CatalogDevice)
 class CatalogDeviceAdmin(admin.ModelAdmin):
-    list_display = ("device_type", "model_name", "supplier", "supplier_sku", "default_cost", "active")
-    list_filter = ("device_type", "active")
-    search_fields = ("model_name", "supplier", "supplier_sku", "notes")
+    list_display = ("device_type", "model_name", "function_slug", "supplier", "supplier_sku", "default_cost", "active")
+    list_filter = ("device_type", "active", "function_slug")
+    search_fields = ("model_name", "supplier", "supplier_sku", "notes", "function_slug")
     ordering = ("device_type", "model_name")
-    list_editable = ("active",)
+    list_editable = ("function_slug", "active")
 
 
 @admin.register(InternalPrep)

@@ -28,6 +28,8 @@ from .models import (
     InternalPrep,
     Job,
     Package,
+    PairingSheet,
+    PairingSheetDevice,
     PreInstallCapture,
     PreInstallChecklist,
     PreInstallItemState,
@@ -1362,6 +1364,11 @@ def _next_action(job):
             reverse("jobs:backend_install_render", args=[job.invoice_number]),
             "Open backend install",
         )
+    if job.status == Job.Status.PAIRING:
+        return (
+            reverse("jobs:pairing_sheet_render", args=[job.invoice_number]),
+            "Open pairing sheet",
+        )
     return (
         reverse("admin:jobs_job_change", args=[job.invoice_number]),
         "Open in admin",
@@ -1461,3 +1468,293 @@ def home_dashboard(request):
         "total_archive": len(archive),
         "internal_prep_cards": internal_prep_cards,
     })
+
+
+# ── Pairing sheet ────────────────────────────────────────────────────────────
+#
+# The pairing sheet is the installer's worksheet during the "Pairing" stage:
+# every paired device gets a stable HA / Z2M friendly name derived from
+# {room_slug}_{device_kind}_{function_slug}. Names are pre-filled by formula
+# and remain editable until the sheet is locked.
+
+
+# Room-slug map ported from internal/planner.html toSlug(). Keyed by (room_type,
+# lowercased custom_name); custom_name "" is the fallback for that room_type.
+# Multiple matches resolve to the first hit; specific names like "Primary"
+# inside a Bedroom collapse to a "_primary" suffix.
+_ROOM_NAME_HINTS = [
+    ("primary", "primary"),
+    ("master",  "primary"),
+    ("main",    "main"),
+    ("guest",   "guest"),
+    ("secondary", "secondary"),
+    ("kids",    "kids"),
+]
+
+
+def _room_slug(room):
+    """Slug-safe, formula-friendly token for a room. Mirrors planner.html toSlug()."""
+    rt = room.room_type
+    custom = (room.custom_name or "").strip().lower()
+    suffix = ""
+    if custom:
+        for needle, token in _ROOM_NAME_HINTS:
+            if needle in custom:
+                suffix = token
+                break
+        if not suffix:
+            # Fallback: free-form custom name → sanitized token.
+            suffix = "".join(ch if ch.isalnum() else "_" for ch in custom)
+            suffix = "_".join(p for p in suffix.split("_") if p)
+
+    # Canonical room-type base.
+    base_map = {
+        Room.RoomType.LIVING_ROOM: "living",
+        Room.RoomType.KITCHEN:     "kitchen",
+        Room.RoomType.DINING_ROOM: "dining",
+        Room.RoomType.BEDROOM:     "bedroom",
+        Room.RoomType.BATHROOM:    "bathroom",
+        Room.RoomType.OFFICE:      "office",
+        Room.RoomType.GARAGE:      "garage",
+        Room.RoomType.BASEMENT:    "basement",
+        Room.RoomType.LAUNDRY:     "laundry",
+        Room.RoomType.HALLWAY:     "hallway",
+        Room.RoomType.ENTRYWAY:    "entry",
+        Room.RoomType.OUTDOOR:     "outdoor",
+        Room.RoomType.OTHER:       "room",
+    }
+    base = base_map.get(rt, rt)
+    return f"{base}_{suffix}" if suffix else base
+
+
+# Maps CatalogDevice.device_type → the {kind} token used in the formula.
+_DEVICE_KIND_TOKEN = {
+    CatalogDevice.DeviceType.RELAY:  "relay",
+    CatalogDevice.DeviceType.SENSOR: "sensor",
+    CatalogDevice.DeviceType.PLUG:   "plug",
+    CatalogDevice.DeviceType.CAMERA: "camera",
+    CatalogDevice.DeviceType.LOCK:   "lock",
+    CatalogDevice.DeviceType.SWITCH: "switch",
+    CatalogDevice.DeviceType.THERMOSTAT: "thermostat",
+    CatalogDevice.DeviceType.HUB:    "hub",
+    CatalogDevice.DeviceType.ACCESS_POINT: "ap",
+    CatalogDevice.DeviceType.NUC:    "nuc",
+    # KIT / OTHER intentionally absent — no canonical name.
+}
+
+
+def _device_kind_token(device):
+    return _DEVICE_KIND_TOKEN.get(device.device_type, "")
+
+
+def _ha_name_for(room, device, instance_index, instance_count):
+    """Return the formula-generated HA friendly name, or '' if any token is missing."""
+    room_part = _room_slug(room)
+    kind = _device_kind_token(device)
+    fn = (device.function_slug or "").strip()
+    if not (room_part and kind):
+        return ""
+    parts = [room_part, kind]
+    if fn:
+        parts.append(fn)
+    name = "_".join(parts)
+    if instance_count > 1:
+        name = f"{name}_{instance_index}"
+    return name
+
+
+def _get_or_init_pairing_sheet(job):
+    """Return the PairingSheet for this job, creating it if needed."""
+    ps, _ = PairingSheet.objects.get_or_create(job=job)
+    return ps
+
+
+def _sync_pairing_rows(ps):
+    """Ensure PairingSheetDevice rows mirror current RoomDevice quantities.
+
+    Adds missing rows (with formula-generated ha_name) and deletes orphans for
+    RoomDevices that were removed or had their quantity reduced. Never overrides
+    a row's ha_name once it's been edited; only the auto-filled empty rows pick
+    up a freshly-computed name. Skipped entirely when the sheet is locked.
+    """
+    if ps.locked:
+        return
+
+    job = ps.job
+    rooms = (
+        job.rooms
+        .prefetch_related("devices__device")
+        .order_by("order", "id")
+    )
+
+    existing = {
+        (psd.room_device_id, psd.instance_index): psd
+        for psd in ps.device_rows.all()
+    }
+    wanted_keys = set()
+
+    for room in rooms:
+        for rd in room.devices.select_related("device").all():
+            qty = max(rd.quantity, 1)
+            for idx in range(1, qty + 1):
+                wanted_keys.add((rd.id, idx))
+                if (rd.id, idx) in existing:
+                    continue
+                ha = _ha_name_for(room, rd.device, idx, qty)
+                PairingSheetDevice.objects.create(
+                    pairing_sheet=ps,
+                    room_device=rd,
+                    instance_index=idx,
+                    ha_name=ha,
+                )
+
+    # Remove rows that no longer correspond to a RoomDevice instance.
+    orphan_ids = [
+        psd.id for key, psd in existing.items()
+        if key not in wanted_keys
+    ]
+    if orphan_ids:
+        PairingSheetDevice.objects.filter(id__in=orphan_ids).delete()
+
+
+def _get_pairing_row(job, psd_id):
+    return get_object_or_404(
+        PairingSheetDevice.objects.select_related(
+            "pairing_sheet", "room_device__room", "room_device__device",
+        ),
+        pk=psd_id,
+        pairing_sheet__job=job,
+    )
+
+
+@login_required
+@staff_required
+def pairing_sheet_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ps = _get_or_init_pairing_sheet(job)
+    _sync_pairing_rows(ps)
+
+    rows_by_room: dict[int, dict] = {}
+    for psd in (
+        ps.device_rows
+        .select_related("room_device__room", "room_device__device")
+        .order_by("room_device__room__order", "room_device__room_id", "room_device_id", "instance_index")
+    ):
+        room = psd.room_device.room
+        bucket = rows_by_room.setdefault(
+            room.id,
+            {"room": room, "room_slug": _room_slug(room), "rows": []},
+        )
+        bucket["rows"].append(psd)
+
+    rooms = list(rows_by_room.values())
+    total_devices = sum(len(b["rows"]) for b in rooms)
+    paired_count = sum(1 for b in rooms for r in b["rows"] if r.paired)
+    remaining = total_devices - paired_count
+
+    return render(request, "jobs/pairing_sheet.html", {
+        "job": job,
+        "pairing_sheet": ps,
+        "rooms": rooms,
+        "total_devices": total_devices,
+        "paired_count": paired_count,
+        "remaining": remaining,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def pairing_sheet_toggle_paired(request, invoice_number, psd_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    psd = _get_pairing_row(job, psd_id)
+    if psd.pairing_sheet.locked:
+        return JsonResponse({"error": "Pairing sheet is locked."}, status=409)
+    paired = bool(_load_json(request).get("paired", False))
+    psd.paired = paired
+    psd.paired_at = now() if paired else None
+    psd.paired_by = request.user if paired else None
+    psd.save(update_fields=["paired", "paired_at", "paired_by"])
+    return JsonResponse({
+        "ok": True,
+        "paired": psd.paired,
+        "paired_at": psd.paired_at.isoformat() if psd.paired_at else None,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def pairing_sheet_save_name(request, invoice_number, psd_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    psd = _get_pairing_row(job, psd_id)
+    if psd.pairing_sheet.locked:
+        return JsonResponse({"error": "Pairing sheet is locked."}, status=409)
+    name = str(_load_json(request).get("ha_name", "")).strip()
+    psd.ha_name = name[:120]
+    psd.save(update_fields=["ha_name"])
+    return JsonResponse({"ok": True, "ha_name": psd.ha_name})
+
+
+@login_required
+@staff_required
+@require_POST
+def pairing_sheet_save_notes(request, invoice_number, psd_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    psd = _get_pairing_row(job, psd_id)
+    if psd.pairing_sheet.locked:
+        return JsonResponse({"error": "Pairing sheet is locked."}, status=409)
+    notes = str(_load_json(request).get("notes", ""))[:200]
+    psd.notes = notes
+    psd.save(update_fields=["notes"])
+    return JsonResponse({"ok": True, "notes": psd.notes})
+
+
+@login_required
+@staff_required
+@require_POST
+def pairing_sheet_regenerate_name(request, invoice_number, psd_id):
+    """Reset a single row's ha_name to the formula-generated value."""
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    psd = _get_pairing_row(job, psd_id)
+    if psd.pairing_sheet.locked:
+        return JsonResponse({"error": "Pairing sheet is locked."}, status=409)
+    rd = psd.room_device
+    qty = max(rd.quantity, 1)
+    psd.ha_name = _ha_name_for(rd.room, rd.device, psd.instance_index, qty)
+    psd.save(update_fields=["ha_name"])
+    return JsonResponse({"ok": True, "ha_name": psd.ha_name})
+
+
+@login_required
+@staff_required
+@require_POST
+def pairing_sheet_lock(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ps = _get_or_init_pairing_sheet(job)
+    if not ps.locked:
+        ps.locked = True
+        ps.locked_at = now()
+        ps.locked_by = request.user
+        if ps.completed_at is None:
+            ps.completed_at = ps.locked_at
+        ps.save(update_fields=["locked", "locked_at", "locked_by", "completed_at"])
+    return JsonResponse({
+        "ok": True,
+        "locked": True,
+        "locked_at": ps.locked_at.isoformat() if ps.locked_at else None,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def pairing_sheet_unlock(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ps = _get_or_init_pairing_sheet(job)
+    if ps.locked:
+        ps.locked = False
+        ps.locked_at = None
+        ps.locked_by = None
+        ps.save(update_fields=["locked", "locked_at", "locked_by"])
+    return JsonResponse({"ok": True, "locked": False})

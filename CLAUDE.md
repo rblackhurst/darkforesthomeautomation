@@ -6,12 +6,26 @@
 ## Where we are
 
 - Weeks 1–2 ✅ — Hetzner VPS, Django + Postgres, `app.darkforesthomeautomation.com`
-  live behind Cloudflare with SSL, Postmark sending domain verified.
+  live behind Cloudflare with SSL, Postmark sending domain verified. Employee
+  login + TOTP 2FA shipped (`accounts` app).
 - Weeks 3–4 ✅ — Data model in `app/jobs/` (Customer, Job, four install
   records, walkthrough sign-off, audit log, service subscription, trouble
   request, credential bundle). Django admin wired up as day-one internal CRUD.
-- Up next — Weeks 5–6: port `install.html` content into the BackendInstall
-  form; sales form + pre-install checklist.
+- Weeks 5–6 ✅ — Sales form, packages, edit-sale flow, pre-install checklist
+  with room walkthrough, CatalogDevice (46 seeded), internal prep page,
+  invoice auto-generation, finalize flow with Postmark quote email.
+- Weeks 6–7 ✅ — PickSheet computed live from SaleLine + confirmed RoomDevice,
+  grouped by device type, printable. `/jobs/<invoice>/pick-sheet/`.
+- Weeks 7–8 (in progress) — PairingSheet ✅ landed (per-room rows, formula HA/Z2M
+  names, paired ✓ with audit, lock/unlock). Still to do: AutomationConfig,
+  OnsiteInstall, walkthrough sign-off.
+- Up next — finish Weeks 7–8: AutomationConfig form, OnsiteInstall form,
+  walkthrough sign-off (locks protected sections, starts audit trail,
+  triggers post-install email).
+
+**Keep this section current** — update "Where we are" with any milestone-
+shifting commit so the next session inherits accurate state. PLANNING.md
+remains the long-form source of truth.
 
 ## Working in this repo
 

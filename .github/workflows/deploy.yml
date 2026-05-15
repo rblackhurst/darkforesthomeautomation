@@ -24,8 +24,12 @@
 #   #    actually executable.
 #   sudo -u dfha bash -c 'cat /home/dfha/.ssh/gh-deploy.pub >> /home/dfha/.ssh/authorized_keys'
 #
-#   # 3. Allow `dfha` to run dfha-deploy as root without a password:
-#   echo 'dfha ALL=(root) NOPASSWD: /usr/local/bin/dfha-deploy' \
+#   # 3. Allow `dfha` to run dfha-deploy as root without a password. The
+#   #    `SETENV:` tag is required so the workflow can pass `DFHA_BRANCH=...`
+#   #    through sudo for workflow_dispatch branch overrides — without it
+#   #    sudo rejects the env var with "not allowed to set the following
+#   #    environment variables: DFHA_BRANCH".
+#   echo 'dfha ALL=(root) NOPASSWD: SETENV: /usr/local/bin/dfha-deploy' \
 #     | sudo tee /etc/sudoers.d/dfha-deploy
 #   sudo chmod 0440 /etc/sudoers.d/dfha-deploy
 #

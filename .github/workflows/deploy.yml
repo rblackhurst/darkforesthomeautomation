@@ -1,0 +1,94 @@
+# Auto-deploy DFHA on every push to main.
+#
+# How it works
+# ────────────
+# 1. GitHub action SSHes to dfha-app-01 as the `dfha` user.
+# 2. Runs `sudo /usr/local/bin/dfha-deploy` (passwordless via a sudoers rule).
+# 3. dfha-deploy fetches origin/main, runs migrate + collectstatic, restarts
+#    gunicorn. Errors propagate (the script is `set -euo pipefail`).
+#
+# Manual override
+# ───────────────
+# Use the "Run workflow" button in the Actions tab to deploy a non-main branch.
+# Skipping the auto-trigger (push) on a regular commit: include "[skip ci]" in
+# the message.
+#
+# One-time server setup (run on dfha-app-01 as root, once)
+# ────────────────────────────────────────────────────────
+#   # 1. Generate an ed25519 key pair for this workflow:
+#   sudo -u dfha ssh-keygen -t ed25519 -f /home/dfha/.ssh/gh-deploy -N '' -C 'github-actions-deploy'
+#
+#   # 2. Authorise the public key. Restricting `command=` would be tighter, but
+#   #    we want `DFHA_BRANCH=...` overrides from workflow_dispatch to work, so
+#   #    leave it open and rely on the sudoers rule below to scope what's
+#   #    actually executable.
+#   sudo -u dfha bash -c 'cat /home/dfha/.ssh/gh-deploy.pub >> /home/dfha/.ssh/authorized_keys'
+#
+#   # 3. Allow `dfha` to run dfha-deploy as root without a password:
+#   echo 'dfha ALL=(root) NOPASSWD: /usr/local/bin/dfha-deploy' \
+#     | sudo tee /etc/sudoers.d/dfha-deploy
+#   sudo chmod 0440 /etc/sudoers.d/dfha-deploy
+#
+#   # 4. Capture host keys for known_hosts (run from any machine that can reach
+#   #    the server):
+#   ssh-keyscan -t ed25519,rsa dfha-app-01.<your-domain> 2>/dev/null
+#
+# Required GitHub repo secrets
+# ────────────────────────────
+#   DEPLOY_HOST         hostname or IP, e.g. dfha-app-01.example.com
+#   DEPLOY_USER         `dfha`
+#   DEPLOY_SSH_KEY      contents of /home/dfha/.ssh/gh-deploy (PRIVATE key)
+#   DEPLOY_KNOWN_HOSTS  output of step 4 above (so we don't trust on first use)
+
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy (defaults to main)"
+        required: false
+        default: main
+
+# Serialise deploys: never run two of these at once, but don't cancel an
+# in-flight deploy if a second push arrives — let it finish, then run the new
+# one.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Run dfha-deploy on the server
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_BRANCH: ${{ github.event.inputs.branch || 'main' }}
+        run: |
+          echo "Deploying ${GITHUB_SHA::12} from branch ${DEPLOY_BRANCH} to ${DEPLOY_HOST}"
+          ssh -i ~/.ssh/id_deploy \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "sudo DFHA_BRANCH=${DEPLOY_BRANCH} /usr/local/bin/dfha-deploy"

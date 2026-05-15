@@ -124,6 +124,43 @@ urlpatterns = [
         name="pick_sheet_render",
     ),
 
+    # ── Pairing sheet ────────────────────────────────────────────────────
+    path(
+        "jobs/<str:invoice_number>/pairing-sheet/",
+        views.pairing_sheet_render,
+        name="pairing_sheet_render",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pairing-sheet/row/<int:psd_id>/paired/",
+        views.pairing_sheet_toggle_paired,
+        name="pairing_sheet_toggle_paired",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pairing-sheet/row/<int:psd_id>/name/",
+        views.pairing_sheet_save_name,
+        name="pairing_sheet_save_name",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pairing-sheet/row/<int:psd_id>/notes/",
+        views.pairing_sheet_save_notes,
+        name="pairing_sheet_save_notes",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pairing-sheet/row/<int:psd_id>/regenerate-name/",
+        views.pairing_sheet_regenerate_name,
+        name="pairing_sheet_regenerate_name",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pairing-sheet/lock/",
+        views.pairing_sheet_lock,
+        name="pairing_sheet_lock",
+    ),
+    path(
+        "jobs/<str:invoice_number>/pairing-sheet/unlock/",
+        views.pairing_sheet_unlock,
+        name="pairing_sheet_unlock",
+    ),
+
     # ── Pre-install: custom integrations / automations + finalization ────
     path(
         "jobs/<str:invoice_number>/pre-install/job-text/",

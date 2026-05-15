@@ -168,7 +168,18 @@ class BackendInstall(InstallRecord):
 
 class PairingSheet(InstallRecord):
     job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="pairing_sheet")
-    devices = models.JSONField(default=list, blank=True)
+    locked = models.BooleanField(
+        default=False,
+        help_text="Locked once pairing is complete. Unlocking is audit-logged after walkthrough.",
+    )
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
 
     def __str__(self):
         return f"PairingSheet for {self.job_id}"
@@ -477,6 +488,13 @@ class CatalogDevice(models.Model):
     supplier_sku = models.CharField(max_length=100, blank=True)
     purchase_url = models.URLField(blank=True)
     default_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    function_slug = models.SlugField(
+        max_length=40, blank=True,
+        help_text="Function token used by the pairing sheet to generate HA entity names "
+                  "(e.g. 'door', 'presence', 'light', 'tilt'). The pairing sheet formula "
+                  "produces '{room_slug}_{device_kind}_{function_slug}'. Leave blank for "
+                  "devices that don't get a name (NUC, UPS, kits).",
+    )
     notes = models.TextField(blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -716,3 +734,52 @@ class RoomDevice(models.Model):
 
     def __str__(self):
         return f"{self.room}: {self.quantity}× {self.device.model_name}"
+
+
+# ── Pairing sheet rows ────────────────────────────────────────────────────────
+
+class PairingSheetDevice(models.Model):
+    """One row per individual paired device on a job's pairing sheet.
+
+    Generated from RoomDevice on first load of the pairing sheet: a RoomDevice
+    with quantity=3 becomes three PairingSheetDevice rows. The HA entity name
+    is pre-filled from the {room_slug}_{device_kind}_{function_slug} formula
+    and remains editable until the pairing sheet is locked.
+    """
+
+    pairing_sheet = models.ForeignKey(
+        PairingSheet, on_delete=models.CASCADE, related_name="device_rows",
+    )
+    room_device = models.ForeignKey(
+        RoomDevice, on_delete=models.CASCADE, related_name="pairing_rows",
+    )
+    instance_index = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="1-based index when a RoomDevice has quantity > 1. Used to disambiguate names.",
+    )
+    ha_name = models.CharField(
+        max_length=120, blank=True,
+        help_text="Home Assistant / Zigbee2MQTT friendly name. Editable by staff.",
+    )
+    paired = models.BooleanField(default=False)
+    paired_at = models.DateTimeField(null=True, blank=True)
+    paired_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pairing_sheet", "room_device", "instance_index"],
+                name="unique_pairing_row_per_instance",
+            ),
+        ]
+        ordering = ["room_device__room__order", "room_device_id", "instance_index"]
+
+    def __str__(self):
+        return f"{self.pairing_sheet.job_id}: {self.ha_name or '(unnamed)'}"

@@ -1,0 +1,136 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Pairing sheet</title>
+  <link rel="stylesheet" href="{% static 'jobs/pairing_sheet.css' %}">
+</head>
+<body class="{% if pairing_sheet.locked %}locked{% endif %}">
+{% csrf_token %}
+
+<header class="page-header">
+  <div class="header-row">
+    <div class="header-left">
+      <a class="back-link" href="{% url 'jobs:home' %}">← Active jobs</a>
+      <h1>Pairing sheet</h1>
+      <p class="header-sub">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · invoice {% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}{{ job.invoice_number }}{% endif %}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </div>
+    <div class="header-actions">
+      <span class="progress-pill">
+        <span id="paired-count">{{ paired_count }}</span> / {{ total_devices }} paired
+      </span>
+      {% if pairing_sheet.locked %}
+        <span class="lock-badge">🔒 Locked{% if pairing_sheet.locked_at %} · {{ pairing_sheet.locked_at|date:"M j, g:i a" }}{% endif %}</span>
+        <button type="button" class="unlock-btn" id="unlock-btn">Unlock</button>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+
+{% if rooms %}
+  {% for bucket in rooms %}
+    <section class="room-card" data-room-id="{{ bucket.room.id }}">
+      <header class="room-header">
+        <h2>{{ bucket.room.display_label }}</h2>
+        <span class="room-slug">{{ bucket.room_slug }}</span>
+        <span class="room-count">{{ bucket.rows|length }} device{{ bucket.rows|length|pluralize }}</span>
+      </header>
+
+      <table class="pair-table">
+        <thead>
+          <tr>
+            <th class="col-check">Paired</th>
+            <th>HA name (Z2M / HAOS)</th>
+            <th class="col-copy"></th>
+            <th>Hardware</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for psd in bucket.rows %}
+            <tr class="pair-row {% if psd.paired %}paired{% endif %}" data-psd-id="{{ psd.id }}">
+              <td class="col-check">
+                <label class="check-wrap">
+                  <input type="checkbox" class="paired-check"
+                         {% if psd.paired %}checked{% endif %}
+                         {% if pairing_sheet.locked %}disabled{% endif %}>
+                  <span class="check-mark"></span>
+                </label>
+                {% if psd.paired_at %}<div class="paired-when">{{ psd.paired_at|date:"M j, g:i a" }}</div>{% endif %}
+              </td>
+              <td class="col-name">
+                <div class="name-row">
+                  <input type="text" class="ha-name-input"
+                         value="{{ psd.ha_name }}"
+                         placeholder="(unnamed)"
+                         {% if pairing_sheet.locked %}readonly{% endif %}>
+                  {% if not pairing_sheet.locked %}
+                    <button type="button" class="regen-btn" title="Reset to formula-generated name">↺</button>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="col-copy">
+                <button type="button" class="copy-btn" title="Copy name to clipboard">⧉</button>
+              </td>
+              <td class="col-hw">
+                <span class="hw-type">{{ psd.room_device.device.get_device_type_display }}</span>
+                <span class="hw-model">{{ psd.room_device.device.model_name }}</span>
+              </td>
+              <td class="col-notes">
+                <input type="text" class="notes-input"
+                       value="{{ psd.notes }}"
+                       placeholder="—"
+                       {% if pairing_sheet.locked %}readonly{% endif %}>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endfor %}
+
+  <section class="lock-card">
+    {% if pairing_sheet.locked %}
+      <p class="lock-hint">This pairing sheet is locked. Unlock to make adjustments — changes will be audit-logged after the walkthrough sign-off.</p>
+    {% else %}
+      <p class="lock-hint">When every device is paired and named, lock the sheet to freeze the entity names that go into Home Assistant and the install record.</p>
+      <button type="button" class="lock-btn" id="lock-btn"
+              {% if remaining > 0 %}disabled{% endif %}>
+        Mark pairing sheet complete
+      </button>
+      {% if remaining > 0 %}
+        <p class="lock-pending">{{ remaining }} device{{ remaining|pluralize }} still need a paired ✓ before this can be locked.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+{% else %}
+  <section class="room-card empty">
+    <p class="empty-msg">No devices to pair yet. Complete the room walkthrough in the pre-install checklist and assign devices to rooms first.</p>
+  </section>
+{% endif %}
+
+</main>
+
+<div class="save-toast" id="save-toast">Saved</div>
+
+<script>
+  window.PS_URLS = {
+    paired:    (id) => `{% url 'jobs:pairing_sheet_toggle_paired'   job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    name:      (id) => `{% url 'jobs:pairing_sheet_save_name'       job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    notes:     (id) => `{% url 'jobs:pairing_sheet_save_notes'      job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    regenerate:(id) => `{% url 'jobs:pairing_sheet_regenerate_name' job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    lock:      "{% url 'jobs:pairing_sheet_lock'   job.invoice_number %}",
+    unlock:    "{% url 'jobs:pairing_sheet_unlock' job.invoice_number %}",
+  };
+  window.PS_TOTAL = {{ total_devices }};
+</script>
+<script src="{% static 'jobs/pairing_sheet.js' %}"></script>
+</body>
+</html>

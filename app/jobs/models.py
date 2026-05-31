@@ -22,6 +22,13 @@ class Customer(models.Model):
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=40, blank=True)
     postal_code = models.CharField(max_length=20, blank=True)
+    stripe_customer_id = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Stripe Customer ID (cus_...). Set on first Stripe interaction. Never set manually.",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -37,12 +44,14 @@ class Customer(models.Model):
 class Job(models.Model):
     class Status(models.TextChoices):
         SOLD = "sold", "Sold"
+        DEPOSIT_RECEIVED = "deposit_received", "Deposit Received"
         PRE_INSTALL = "pre_install", "Pre-install"
         BACKEND = "backend", "Backend prep"
         PAIRING = "pairing", "Pairing"
         AUTOMATION = "automation", "Automation config"
         ONSITE = "onsite", "On-site install"
         WALKTHROUGH = "walkthrough", "Walkthrough"
+        FINAL_PAID = "final_paid", "Final Paid"
         COMPLETE = "complete", "Complete"
         CANCELLED = "cancelled", "Cancelled"
 
@@ -108,6 +117,29 @@ class Job(models.Model):
     )
     payment_received = models.BooleanField(default=False)
     payment_received_at = models.DateTimeField(null=True, blank=True)
+
+    # ── Stripe: Quote ──────────────────────────────────────────────────────────
+    stripe_quote_id = models.CharField(max_length=255, null=True, blank=True)
+
+    # ── Stripe: Deposit Invoice (Invoice #1 — 50% of accepted quote) ───────────
+    stripe_deposit_invoice_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_deposit_invoice_url = models.URLField(null=True, blank=True)
+    deposit_paid = models.BooleanField(default=False)
+
+    # ── Stripe: Final Invoice (Invoice #2 — remaining balance + additions) ─────
+    stripe_final_invoice_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_final_invoice_url = models.URLField(null=True, blank=True)
+    final_paid = models.BooleanField(default=False)
+
+    # ── Stripe: Subscription ───────────────────────────────────────────────────
+    stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
+    plan_tier = models.CharField(max_length=50, null=True, blank=True)
+    subscription_status = models.CharField(max_length=50, null=True, blank=True)
+
+    # ── Stripe: Payment Health ─────────────────────────────────────────────────
+    payment_failed = models.BooleanField(default=False)
+    payment_failed_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

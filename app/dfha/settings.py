@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts",
     "jobs",
+    "stripe_integration",
 ]
 
 MIDDLEWARE = [

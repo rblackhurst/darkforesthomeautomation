@@ -11,17 +11,26 @@ logger = logging.getLogger(__name__)
 
 def _to_dict(obj):
     """
-    Recursively convert a Stripe SDK v7+ StripeObject (or any nested structure)
+    Recursively convert a Stripe SDK StripeObject (or any nested structure)
     to plain Python dicts/lists so all handlers can use .get() and [] safely.
-    Stripe SDK v7 returns StripeObject instances from event['data']['object']
-    which do not support .get() — they raise AttributeError instead.
-    Plain dicts and other types are returned unchanged.
+
+    Stripe SDK objects returned from event['data']['object'] do not support
+    .get() — they raise AttributeError instead. The exact API differs by
+    how the event was constructed:
+      - stripe.Webhook.construct_event() → may expose to_dict_recursive()
+      - stripe.Event.construct_from()   → exposes _data but not to_dict_recursive
+                                          and not .keys()
+    This function handles all three cases in order.
     """
+    if obj is None:
+        return {}
     if hasattr(obj, 'to_dict_recursive'):
-        # Stripe SDK v7+ StripeObject exposes to_dict_recursive()
         return obj.to_dict_recursive()
-    if hasattr(obj, 'keys'):
-        # dict-like fallback
+    if hasattr(obj, '_data'):
+        # StripeObject from construct_from(): _data is a plain dict whose
+        # values may themselves be StripeObjects — recurse to flatten them.
+        return _to_dict(dict(obj._data))
+    if isinstance(obj, dict):
         return {k: _to_dict(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_to_dict(i) for i in obj]

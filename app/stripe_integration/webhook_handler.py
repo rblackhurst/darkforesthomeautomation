@@ -9,6 +9,25 @@ from stripe_integration.services import PRICE_TO_TIER
 logger = logging.getLogger(__name__)
 
 
+def _to_dict(obj):
+    """
+    Recursively convert a Stripe SDK v7+ StripeObject (or any nested structure)
+    to plain Python dicts/lists so all handlers can use .get() and [] safely.
+    Stripe SDK v7 returns StripeObject instances from event['data']['object']
+    which do not support .get() — they raise AttributeError instead.
+    Plain dicts and other types are returned unchanged.
+    """
+    if hasattr(obj, 'to_dict_recursive'):
+        # Stripe SDK v7+ StripeObject exposes to_dict_recursive()
+        return obj.to_dict_recursive()
+    if hasattr(obj, 'keys'):
+        # dict-like fallback
+        return {k: _to_dict(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_to_dict(i) for i in obj]
+    return obj
+
+
 def handle_stripe_event(event):
     """Route inbound Stripe events. Unrecognized types are silently ignored."""
     event_type = event['type']
@@ -27,7 +46,7 @@ def handle_stripe_event(event):
 
 
 def _handle_invoice_paid(event):
-    invoice = event['data']['object']
+    invoice = _to_dict(event['data']['object'])
     job_id = invoice.get('metadata', {}).get('dfha_job_id')
     invoice_type = invoice.get('metadata', {}).get('invoice_type')
 
@@ -55,7 +74,7 @@ def _handle_invoice_paid(event):
 
 
 def _handle_invoice_payment_failed(event):
-    invoice = event['data']['object']
+    invoice = _to_dict(event['data']['object'])
     job_id = invoice.get('metadata', {}).get('dfha_job_id')
 
     if not job_id:
@@ -72,7 +91,7 @@ def _handle_invoice_payment_failed(event):
     job.save()
 
     # Determine which invoice failed for the alert message.
-    if job.stripe_deposit_invoice_id and invoice['id'] == job.stripe_deposit_invoice_id:
+    if job.stripe_deposit_invoice_id and invoice.get('id') == job.stripe_deposit_invoice_id:
         invoice_label = 'deposit'
     else:
         invoice_label = 'final'
@@ -89,27 +108,29 @@ def _handle_invoice_payment_failed(event):
 
 
 def _handle_subscription_updated(event):
-    subscription = event['data']['object']
+    subscription = _to_dict(event['data']['object'])
 
+    sub_id = subscription.get('id')
     try:
-        job = Job.objects.get(stripe_subscription_id=subscription['id'])
+        job = Job.objects.get(stripe_subscription_id=sub_id)
     except Job.DoesNotExist:
-        logger.warning("customer.subscription.updated: subscription %s not found", subscription['id'])
+        logger.warning("customer.subscription.updated: subscription %s not found", sub_id)
         return
 
-    job.subscription_status = subscription['status']
+    job.subscription_status = subscription.get('status')
     new_price_id = subscription['items']['data'][0]['price']['id']
     job.plan_tier = PRICE_TO_TIER.get(new_price_id, job.plan_tier)
     job.save()
 
 
 def _handle_subscription_deleted(event):
-    subscription = event['data']['object']
+    subscription = _to_dict(event['data']['object'])
 
+    sub_id = subscription.get('id')
     try:
-        job = Job.objects.get(stripe_subscription_id=subscription['id'])
+        job = Job.objects.get(stripe_subscription_id=sub_id)
     except Job.DoesNotExist:
-        logger.warning("customer.subscription.deleted: subscription %s not found", subscription['id'])
+        logger.warning("customer.subscription.deleted: subscription %s not found", sub_id)
         return
 
     job.subscription_status = 'cancelled'
@@ -122,7 +143,7 @@ def _handle_charge_refunded(event):
     # get_or_create on stripe_refund_id avoids duplicates.
     from stripe_integration.models import RefundRecord
 
-    charge = event['data']['object']
+    charge = _to_dict(event['data']['object'])
 
     # Attempt to resolve the job from charge metadata.
     job_id = charge.get('metadata', {}).get('dfha_job_id')
@@ -134,7 +155,10 @@ def _handle_charge_refunded(event):
             logger.warning("charge.refunded: Job %s not found in metadata", job_id)
 
     if job is None:
-        logger.warning("charge.refunded: could not resolve job for charge %s — skipping RefundRecord", charge.get('id'))
+        logger.warning(
+            "charge.refunded: could not resolve job for charge %s — skipping RefundRecord",
+            charge.get('id'),
+        )
         return
 
     for refund in charge.get('refunds', {}).get('data', []):

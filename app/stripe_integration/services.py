@@ -101,6 +101,23 @@ def void_quote(quote_id: str) -> stripe.Quote:
 
 # ── 7.3 Invoices ─────────────────────────────────────────────────────────────
 
+def _stamp_pi_metadata(invoice_id: str, job_pk: str) -> None:
+    """Stamp dfha_job_id on the PaymentIntent(s) for an invoice.
+
+    Stripe API >= 2025-03-31 ("basil") removed the payment_intent field from
+    Invoice; use InvoicePayment.list() to get the associated PaymentIntent IDs.
+    This stamp ensures charge.refunded webhooks can resolve the job — charges
+    inherit metadata from their PaymentIntent, not from the Invoice.
+    """
+    invoice_payments = stripe.InvoicePayment.list(invoice=invoice_id)
+    for ip in invoice_payments.data:
+        pi_id = ip.payment.payment_intent if ip.payment else None
+        if pi_id:
+            stripe.PaymentIntent.modify(
+                pi_id,
+                metadata={'dfha_job_id': job_pk},
+            )
+
 def create_deposit_invoice(job) -> stripe.Invoice:
     """Create Invoice #1 for 50% of the accepted quote total."""
     if not job.stripe_quote_id:
@@ -129,15 +146,7 @@ def create_deposit_invoice(job) -> stripe.Invoice:
         description='Installation Deposit (50%)',
     )
     finalized = stripe.Invoice.finalize_invoice(invoice.id)
-
-    # Stamp dfha_job_id onto the PaymentIntent so charge.refunded webhooks can
-    # resolve the job. Charges inherit metadata from their PaymentIntent (not
-    # from the Invoice), so this must happen before the customer pays.
-    if finalized.payment_intent:
-        stripe.PaymentIntent.modify(
-            finalized.payment_intent,
-            metadata={'dfha_job_id': str(job.pk)},
-        )
+    _stamp_pi_metadata(finalized.id, str(job.pk))
 
     job.stripe_deposit_invoice_id = finalized.id
     job.stripe_deposit_invoice_url = finalized.hosted_invoice_url
@@ -184,12 +193,7 @@ def create_and_send_deposit_invoice(job, total_cents: int, dfha_invoice_number: 
         description='Installation Deposit (50%)',
     )
     finalized = stripe.Invoice.finalize_invoice(invoice.id)
-
-    if finalized.payment_intent:
-        stripe.PaymentIntent.modify(
-            finalized.payment_intent,
-            metadata={'dfha_job_id': str(job.pk)},
-        )
+    _stamp_pi_metadata(finalized.id, str(job.pk))
 
     job.stripe_deposit_invoice_id = finalized.id
     job.stripe_deposit_invoice_url = finalized.hosted_invoice_url
@@ -238,12 +242,7 @@ def create_final_invoice(job, additional_line_items: list = None) -> stripe.Invo
             )
 
     finalized = stripe.Invoice.finalize_invoice(invoice.id)
-
-    if finalized.payment_intent:
-        stripe.PaymentIntent.modify(
-            finalized.payment_intent,
-            metadata={'dfha_job_id': str(job.pk)},
-        )
+    _stamp_pi_metadata(finalized.id, str(job.pk))
 
     job.stripe_final_invoice_id = finalized.id
     job.stripe_final_invoice_url = finalized.hosted_invoice_url

@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html, mark_safe
 
+from client_credentials.models import CredentialDeletionRequest, InstalledSystem as InstalledClientSystem
+
 from .models import (
     AuditLogEntry,
     AutomationConfig,
@@ -94,11 +96,73 @@ class SaleLineInline(admin.TabularInline):
     ordering = ("sort_order", "id")
 
 
+class InstalledSystemInline(admin.StackedInline):
+    model = InstalledClientSystem
+    extra = 0
+    show_change_link = True
+    fields = [
+        'system_type', 'name', 'manufacturer', 'job', 'notes',
+        'is_visible', 'credential_summary_col', 'device_summary_col',
+    ]
+    readonly_fields = ['credential_summary_col', 'device_summary_col']
+
+    @admin.display(description='Credentials')
+    def credential_summary_col(self, obj):
+        if obj.pk is None:
+            return '—'
+        count = obj.credentials.filter(is_visible=True).count()
+        if count == 0:
+            return 'No platform credentials'
+        change_url = reverse('admin:client_credentials_installedsystem_change', args=[obj.pk])
+        return format_html(
+            '{} platform credential{} &mdash; <a href="{}">&#8594; View in Credentials</a>',
+            count, 's' if count != 1 else '', change_url,
+        )
+
+    @admin.display(description='Devices')
+    def device_summary_col(self, obj):
+        if obj.pk is None:
+            return '—'
+        count = obj.devices.filter(is_visible=True).count()
+        if count == 0:
+            return 'No devices'
+        change_url = reverse('admin:client_credentials_installedsystem_change', args=[obj.pk])
+        return format_html(
+            '{} device{} &mdash; <a href="{}">&#8594; View in Credentials</a>',
+            count, 's' if count != 1 else '', change_url,
+        )
+
+
+class CredentialDeletionRequestInline(admin.StackedInline):
+    model = CredentialDeletionRequest
+    extra = 0
+    show_change_link = True
+    fields = [
+        'status', 'requested_at', 'requested_by', 'scope_notes',
+        'staff_assigned', 'staff_notes', 're_onboarding_fee_disclosed', 'resolved_at',
+    ]
+    readonly_fields = ['requested_at']
+
+
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ("last_name", "first_name", "email", "city", "state")
+    list_display = ("last_name", "first_name", "email", "city", "state", "system_count_col", "pending_deletion_col")
     search_fields = ("last_name", "first_name", "email", "phone")
     list_filter = ("state",)
+    inlines = [InstalledSystemInline, CredentialDeletionRequestInline]
+
+    @admin.display(description='Systems')
+    def system_count_col(self, obj):
+        count = obj.installed_systems.filter(is_visible=True).count()
+        return f'{count} system{"s" if count != 1 else ""}' if count else 'No systems'
+
+    @admin.display(description='Deletion requests')
+    def pending_deletion_col(self, obj):
+        if obj.deletion_requests.filter(status='pending').exists():
+            return format_html(
+                '<span style="color:#c62828;font-weight:bold">&#9888; Pending deletion request</span>'
+            )
+        return '—'
 
 
 @admin.register(Job)

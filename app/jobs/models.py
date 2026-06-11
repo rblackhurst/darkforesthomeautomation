@@ -279,29 +279,6 @@ class AuditLogEntry(models.Model):
         return f"{self.job_id}.{self.section}.{self.field} @ {self.changed_at:%Y-%m-%d}"
 
 
-class ServiceSubscription(models.Model):
-    class Tier(models.TextChoices):
-        BASIC = "basic", "Basic"
-        STANDARD = "standard", "Standard"
-        PREMIUM = "premium", "Premium"
-
-    class Status(models.TextChoices):
-        ACTIVE = "active", "Active"
-        PAST_DUE = "past_due", "Past due"
-        CANCELLED = "cancelled", "Cancelled"
-
-    job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="subscription")
-    tier = models.CharField(max_length=20, choices=Tier.choices)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
-    stripe_customer_id = models.CharField(max_length=80, blank=True)
-    stripe_subscription_id = models.CharField(max_length=80, blank=True)
-    started_at = models.DateField(null=True, blank=True)
-    cancelled_at = models.DateField(null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.get_tier_display()} for {self.job_id}"
-
-
 class TroubleRequest(models.Model):
     class Status(models.TextChoices):
         NEW = "new", "New"

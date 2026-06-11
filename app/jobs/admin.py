@@ -27,7 +27,6 @@ from .models import (
     Room,
     RoomDevice,
     SaleLine,
-    ServiceSubscription,
     TroubleRequest,
     WalkthroughSignoff,
     _fmt_order,
@@ -88,12 +87,6 @@ class WalkthroughSignoffInline(admin.StackedInline):
     can_delete = False
 
 
-class ServiceSubscriptionInline(admin.StackedInline):
-    model = ServiceSubscription
-    extra = 0
-    can_delete = False
-
-
 class SaleLineInline(admin.TabularInline):
     model = SaleLine
     extra = 0
@@ -124,7 +117,6 @@ class JobAdmin(admin.ModelAdmin):
         AutomationConfigInline,
         OnsiteInstallInline,
         WalkthroughSignoffInline,
-        ServiceSubscriptionInline,
     ]
 
     fieldsets = (

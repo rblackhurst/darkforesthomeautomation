@@ -794,27 +794,6 @@ class CreateAndSendFinalInvoiceTests(TestCase):
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Customer.retrieve')
-    def test_additional_price_ids_use_pricing_param(
-        self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_stamp, mock_send
-    ):
-        mock_cus_retrieve.return_value = MagicMock(id='cus_test')
-        mock_inv_create.return_value = MagicMock(id='in_fin')
-        mock_finalize.return_value = self._mock_finalize()
-
-        from stripe_integration.services import create_and_send_final_invoice
-        create_and_send_final_invoice(self.job, 100000, additional_price_ids=['price_tier3_annual'])
-
-        self.assertEqual(mock_item.call_count, 2)
-        extra_call = mock_item.call_args_list[1][1]
-        self.assertEqual(extra_call['pricing'], {'price': 'price_tier3_annual'})
-        self.assertNotIn('price', extra_call)
-
-    @patch('stripe_integration.services.stripe.Invoice.send_invoice')
-    @patch('stripe_integration.services._stamp_pi_metadata')
-    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
-    @patch('stripe_integration.services.stripe.InvoiceItem.create')
-    @patch('stripe_integration.services.stripe.Invoice.create')
-    @patch('stripe_integration.services.stripe.Customer.retrieve')
     def test_raises_when_final_already_exists(
         self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_stamp, mock_send
     ):

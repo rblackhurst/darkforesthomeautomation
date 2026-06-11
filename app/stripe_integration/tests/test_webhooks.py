@@ -168,6 +168,23 @@ class InvoicePaidFinalTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.status, Job.Status.FINAL_PAID)
 
+    @patch('stripe_integration.webhook_handler.create_subscription')
+    def test_starts_subscription_when_pending_price_id_set(self, mock_create_sub):
+        self.job.pending_subscription_price_id = 'price_tier3_annual'
+        self.job.final_paid = True
+        self.job.save()
+
+        self._handle({'id': 'in_fin', 'metadata': {'dfha_job_id': 'TEST-001', 'invoice_type': 'final'}})
+
+        mock_create_sub.assert_called_once_with(self.job, 'price_tier3_annual')
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.pending_subscription_price_id, '')
+
+    @patch('stripe_integration.webhook_handler.create_subscription')
+    def test_no_subscription_when_no_pending_price_id(self, mock_create_sub):
+        self._handle({'id': 'in_fin', 'metadata': {'dfha_job_id': 'TEST-001', 'invoice_type': 'final'}})
+        mock_create_sub.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # invoice.payment_failed

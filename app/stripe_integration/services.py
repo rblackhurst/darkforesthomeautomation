@@ -22,7 +22,7 @@ stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 #    record. No raw ID lookups that bypass ownership checks.
 
 # Map every known Price ID to its tier label.
-# Used for plan_tier derivation and price_id validation throughout this module.
+# Used for service_plan_tier derivation and price_id validation throughout this module.
 PRICE_TO_TIER = {
     k: v for k, v in {
         os.environ.get('STRIPE_PRICE_TIER1_MONTHLY'): 'tier1',
@@ -338,7 +338,7 @@ def create_subscription(job, price_id: str) -> stripe.Subscription:
         metadata={'dfha_job_id': str(job.pk)},
     )
     job.stripe_subscription_id = subscription.id
-    job.plan_tier = PRICE_TO_TIER[price_id]
+    job.service_plan_tier = PRICE_TO_TIER[price_id]
     job.subscription_status = subscription.status
     job.save()
     return subscription
@@ -372,7 +372,7 @@ def change_subscription_plan(job, new_price_id: str) -> stripe.Subscription:
             billing_cycle_anchor='unchanged',
         )
 
-    job.plan_tier = new_tier
+    job.service_plan_tier = new_tier
     job.subscription_status = updated.status
     job.save()
     return updated
@@ -399,7 +399,7 @@ def get_subscription_status(job) -> dict:
     subscription = stripe.Subscription.retrieve(job.stripe_subscription_id)
     return {
         'status': subscription.status,
-        'plan_tier': PRICE_TO_TIER.get(subscription.items.data[0].price.id),
+        'service_plan_tier': PRICE_TO_TIER.get(subscription.items.data[0].price.id),
         'current_period_end': subscription.current_period_end,
         'cancel_at_period_end': subscription.cancel_at_period_end,
     }

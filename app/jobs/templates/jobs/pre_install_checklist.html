@@ -208,10 +208,10 @@
       <div class="capture-row" id="service-plan-row">
         <label for="service-plan-select">Service plan</label>
         <select id="service-plan-select" data-action="save-job-text" data-field="service_plan_tier" {% if job.finalized_at %}disabled{% endif %}>
-          <option value="0" {% if job.service_plan_tier == 0 %}selected{% endif %}>None / not selected</option>
-          <option value="1" {% if job.service_plan_tier == 1 %}selected{% endif %}>Basic ($29/mo — uptime checks + low-battery alerts)</option>
-          <option value="2" {% if job.service_plan_tier == 2 %}selected{% endif %}>Standard ($49/mo — Basic + updates + automation tweaks)</option>
-          <option value="3" {% if job.service_plan_tier == 3 %}selected{% endif %}>Premium ($79/mo — Standard + priority response + annual visit)</option>
+          <option value="none" {% if job.service_plan_tier == 'none' %}selected{% endif %}>No Service Plan</option>
+          <option value="tier1" {% if job.service_plan_tier == 'tier1' %}selected{% endif %}>Basic ($29/mo — uptime checks + low-battery alerts)</option>
+          <option value="tier2" {% if job.service_plan_tier == 'tier2' %}selected{% endif %}>Standard ($49/mo — Basic + updates + automation tweaks)</option>
+          <option value="tier3" {% if job.service_plan_tier == 'tier3' %}selected{% endif %}>Premium ($79/mo — Standard + priority response + annual visit)</option>
         </select>
       </div>
 

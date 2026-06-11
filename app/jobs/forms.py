@@ -52,17 +52,16 @@ class SalesForm(forms.Form):
     )
 
     # ── Service plan ──────────────────────────────────────────────────────
-    service_plan_tier = forms.TypedChoiceField(
+    service_plan_tier = forms.ChoiceField(
         required=False,
         label="Service plan",
-        coerce=int,
         choices=[
-            (0, "None / not selected"),
-            (1, "Basic ($29/mo — uptime checks + low-battery alerts)"),
-            (2, "Standard ($49/mo — Basic + updates + automation tweaks)"),
-            (3, "Premium ($79/mo — Standard + priority response + annual visit)"),
+            ('none', "No Service Plan"),
+            ('tier1', "Basic ($29/mo — uptime checks + low-battery alerts)"),
+            ('tier2', "Standard ($49/mo — Basic + updates + automation tweaks)"),
+            ('tier3', "Premium ($79/mo — Standard + priority response + annual visit)"),
         ],
-        initial=0,
+        initial='none',
         help_text="The uptime service plan the customer is signing up for.",
     )
 

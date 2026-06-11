@@ -395,7 +395,7 @@ def pre_install_checklist_render(request, invoice_number):
 
     service_plan_choices = [
         {"value": v, "label": l}
-        for v, l in Job.ServicePlan.choices
+        for v, l in Job.ServiceTier.choices
     ]
 
     return render(request, "jobs/pre_install_checklist.html", {
@@ -708,17 +708,14 @@ def _draft_invoice_number():
 def _generate_display_invoice_number(job):
     """
     Build the formatted customer-facing invoice code:
-      YYMMDD + M(1) + RR(2) + AAA(3) + SS(2) = 14 chars
+      YYMMDD + RR(2) + AAA(3) + SS(2) = 13 chars
 
-    M   — service plan tier on the job (0=none, 1=Basic, 2=Standard, 3=Premium)
     RR  — room count from the pre-install walkthrough (01–99)
     AAA — number of à-la-carte (non-package) sale lines (001–999)
     SS  — sequence of finalized jobs today (01–99)
     """
     today = date.today()
     date_part = today.strftime("%y%m%d")
-
-    tier = min(9, job.service_plan_tier or 0)
 
     room_count = min(99, job.rooms.count())
     adhoc_count = min(999, job.sale_lines.filter(from_package=False).count())
@@ -729,7 +726,7 @@ def _generate_display_invoice_number(job):
     ).count()
     sequence = min(99, today_seq + 1)
 
-    return f"{date_part}{tier:01d}{room_count:02d}{adhoc_count:03d}{sequence:02d}"
+    return f"{date_part}{room_count:02d}{adhoc_count:03d}{sequence:02d}"
 
 
 def _fmt_adhoc(value):
@@ -811,7 +808,7 @@ def sales_form(request):
                 notes=d.get("notes", ""),
                 custom_integrations=d.get("custom_integrations", ""),
                 custom_automations=d.get("custom_automations", ""),
-                service_plan_tier=d.get("service_plan_tier") or 0,
+                service_plan_tier=d.get("service_plan_tier") or Job.ServiceTier.NONE,
             )
             _create_sale_lines(job, d.get("package_id"), d.get("devices_json") or [])
             return redirect(
@@ -855,7 +852,7 @@ def sales_form_edit(request, invoice_number):
             job.notes = d.get("notes", "")
             job.custom_integrations = d.get("custom_integrations", "")
             job.custom_automations = d.get("custom_automations", "")
-            job.service_plan_tier = d.get("service_plan_tier") or 0
+            job.service_plan_tier = d.get("service_plan_tier") or Job.ServiceTier.NONE
             job.save(update_fields=[
                 "sold_on", "install_date", "notes",
                 "custom_integrations", "custom_automations", "service_plan_tier",
@@ -1181,20 +1178,10 @@ def pre_install_save_job_text(request, invoice_number):
     data = _load_json(request)
     field = data.get("field")
 
-    TEXT_FIELDS = {"custom_integrations", "custom_automations"}
-    INT_FIELDS = {"service_plan_tier"}
+    TEXT_FIELDS = {"custom_integrations", "custom_automations", "service_plan_tier"}
 
     if field in TEXT_FIELDS:
         value = str(data.get("value", ""))
-        setattr(job, field, value)
-        job.save(update_fields=[field])
-        return JsonResponse({"ok": True})
-
-    if field in INT_FIELDS:
-        try:
-            value = int(data.get("value", 0))
-        except (TypeError, ValueError):
-            return JsonResponse({"error": "Invalid value"}, status=400)
         setattr(job, field, value)
         job.save(update_fields=[field])
         return JsonResponse({"ok": True})

@@ -55,11 +55,11 @@ class Job(models.Model):
         COMPLETE = "complete", "Complete"
         CANCELLED = "cancelled", "Cancelled"
 
-    class ServicePlan(models.IntegerChoices):
-        NONE = 0, "None / not selected"
-        BASIC = 1, "Basic ($29/mo)"
-        STANDARD = 2, "Standard ($49/mo)"
-        PREMIUM = 3, "Premium ($79/mo)"
+    class ServiceTier(models.TextChoices):
+        NONE = 'none', 'No Service Plan'
+        BASIC = 'tier1', 'Basic'
+        STANDARD = 'tier2', 'Standard'
+        PREMIUM = 'tier3', 'Premium'
 
     invoice_number = models.CharField(max_length=40, primary_key=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="jobs")
@@ -71,12 +71,13 @@ class Job(models.Model):
         related_name="jobs",
         help_text="Install package selected at sale time.",
     )
-    service_plan_tier = models.PositiveSmallIntegerField(
-        choices=ServicePlan.choices,
-        default=ServicePlan.NONE,
+    service_plan_tier = models.CharField(
+        max_length=10,
+        choices=ServiceTier.choices,
+        default=ServiceTier.NONE,
+        blank=True,
         help_text="Uptime service plan the customer signed up for "
-                  "(uptime checks, updates, battery kits, on-site visits). "
-                  "Encodes as the M digit in the invoice number.",
+                  "(uptime checks, updates, battery kits, on-site visits).",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SOLD)
     sold_on = models.DateField(null=True, blank=True)
@@ -100,7 +101,7 @@ class Job(models.Model):
         blank=True,
         unique=True,
         help_text="System-generated customer-facing invoice code "
-                  "(YYMMDD + service-plan-tier + rooms + adhoc + seq). "
+                  "(YYMMDD + rooms + adhoc + seq, 13 chars). "
                   "Set when the pre-install walkthrough is finalized.",
     )
     finalized_at = models.DateTimeField(
@@ -133,7 +134,6 @@ class Job(models.Model):
 
     # ── Stripe: Subscription ───────────────────────────────────────────────────
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
-    plan_tier = models.CharField(max_length=50, null=True, blank=True)
     subscription_status = models.CharField(max_length=50, null=True, blank=True)
     # Set before sending final invoice; webhook clears it after creating the subscription.
     pending_subscription_price_id = models.CharField(max_length=255, blank=True, default='')
@@ -601,11 +601,6 @@ class Package(models.Model):
     base_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Base sale price for this package.",
-    )
-    monitoring_tier = models.PositiveSmallIntegerField(
-        default=0,
-        help_text="Monitoring tier digit encoded in the invoice number (0–9). "
-                  "0 = no monitoring, 1 = basic, 2 = standard, 3 = premium, etc.",
     )
     default_rooms = models.JSONField(
         null=True, blank=True,

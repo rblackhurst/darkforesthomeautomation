@@ -137,7 +137,7 @@ def _handle_subscription_updated(event):
 
     job.subscription_status = subscription.get('status')
     new_price_id = subscription['items']['data'][0]['price']['id']
-    job.plan_tier = PRICE_TO_TIER.get(new_price_id, job.plan_tier)
+    job.service_plan_tier = PRICE_TO_TIER.get(new_price_id, job.service_plan_tier)
     job.save()
 
 

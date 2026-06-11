@@ -125,6 +125,9 @@ def _handle_invoice_payment_failed(event):
     )
 
 
+_INTERVAL_MAP = {'month': 'monthly', 'year': 'annual'}
+
+
 def _handle_subscription_updated(event):
     subscription = _to_dict(event['data']['object'])
 
@@ -136,9 +139,12 @@ def _handle_subscription_updated(event):
         return
 
     job.subscription_status = subscription.get('status')
-    new_price_id = subscription['items']['data'][0]['price']['id']
+    price = subscription['items']['data'][0]['price']
+    new_price_id = price['id']
     job.service_plan_tier = PRICE_TO_TIER.get(new_price_id, job.service_plan_tier)
-    job.save()
+    raw_interval = (price.get('recurring') or {}).get('interval', '')
+    job.billing_interval = _INTERVAL_MAP.get(raw_interval, 'none')
+    job.save(update_fields=['subscription_status', 'service_plan_tier', 'billing_interval'])
 
 
 def _handle_subscription_deleted(event):

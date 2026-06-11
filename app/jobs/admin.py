@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 
 from .models import (
     AuditLogEntry,
@@ -104,11 +104,19 @@ class CustomerAdmin(admin.ModelAdmin):
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
     list_display = ("invoice_label_col", "customer", "status", "install_date", "finalized_at", "service_tier_col", "is_locked")
-    list_filter = ("status", "install_date", "service_plan_tier", "payment_received", "payment_override")
+    list_filter = ("status", "install_date", "service_plan_tier", "deposit_paid", "final_paid", "payment_override")
     search_fields = ("invoice_number", "display_invoice_number", "customer__last_name", "customer__first_name")
     autocomplete_fields = ("customer", "package")
     date_hierarchy = "install_date"
-    readonly_fields = ("invoice_number", "display_invoice_number", "finalized_at", "payment_received_at", "install_links")
+    readonly_fields = (
+        "invoice_number",
+        "display_invoice_number",
+        "finalized_at",
+        "payment_received_at",
+        "install_links",
+        "stripe_payment_status_panel",
+        "stripe_subscription_status_panel",
+    )
     inlines = [
         SaleLineInline,
         PreInstallChecklistInline,
@@ -124,6 +132,7 @@ class JobAdmin(admin.ModelAdmin):
             "fields": (
                 "invoice_number", "display_invoice_number", "customer", "package", "status",
                 "sold_on", "install_date",
+                "service_plan_tier", "billing_interval",
                 "package_summary", "notes",
                 "custom_integrations", "custom_automations",
             ),
@@ -131,6 +140,16 @@ class JobAdmin(admin.ModelAdmin):
         ("Payment", {
             "fields": ("finalized_at", "payment_override", "payment_override_amount", "payment_received", "payment_received_at"),
             "classes": ("collapse",),
+        }),
+        ("Stripe Payment Status", {
+            "fields": ("stripe_payment_status_panel",),
+            "classes": ("collapse",),
+            "description": "Live payment status from Stripe. Open Stripe Dashboard for real-time detail.",
+        }),
+        ("Subscription Status", {
+            "fields": ("stripe_subscription_status_panel",),
+            "classes": ("collapse",),
+            "description": "Current service plan subscription from Stripe.",
         }),
         ("Install forms", {
             "fields": ("install_links",),
@@ -163,6 +182,155 @@ class JobAdmin(admin.ModelAdmin):
             'Backend install →</a>',
             pi_url, btn,
             bi_url, btn,
+        )
+
+    @admin.display(description="Payment status")
+    def stripe_payment_status_panel(self, obj):
+        _ID = 'font-family:monospace;font-size:0.85em;color:#666'
+        _GREEN = 'color:#2e7d32;font-weight:bold'
+        _RED = 'color:#c62828'
+        _RED_BOLD = 'color:#c62828;font-weight:bold'
+        _TD = 'padding:6px 4px'
+
+        has_data = any([
+            obj.stripe_deposit_invoice_id,
+            obj.stripe_final_invoice_url,
+            obj.stripe_final_invoice_id,
+            obj.stripe_deposit_invoice_url,
+            obj.stripe_quote_id,
+            obj.deposit_paid,
+            obj.final_paid,
+            obj.payment_failed,
+        ])
+        if not has_data:
+            return "No Stripe payment activity recorded for this job."
+
+        rows = []
+
+        # Deposit Invoice
+        dep_status = format_html('<span style="{}">{}</span>',
+                                 _GREEN if obj.deposit_paid else _RED,
+                                 "Paid" if obj.deposit_paid else "Unpaid")
+        dep_link = (format_html('<a href="{}" target="_blank" rel="noopener">Open in Stripe ↗</a>',
+                                obj.stripe_deposit_invoice_url)
+                    if obj.stripe_deposit_invoice_url else "—")
+        dep_id = (format_html(' <span style="{}">{}</span>', _ID, obj.stripe_deposit_invoice_id)
+                  if obj.stripe_deposit_invoice_id else "")
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Deposit Invoice</strong></td>'
+            '<td style="{td}">{status}</td>'
+            '<td style="{td}">{link}{id}</td></tr>',
+            td=_TD, status=dep_status, link=dep_link, id=dep_id,
+        ))
+
+        # Final Invoice
+        fin_status = format_html('<span style="{}">{}</span>',
+                                 _GREEN if obj.final_paid else _RED,
+                                 "Paid" if obj.final_paid else "Unpaid")
+        fin_link = (format_html('<a href="{}" target="_blank" rel="noopener">Open in Stripe ↗</a>',
+                                obj.stripe_final_invoice_url)
+                    if obj.stripe_final_invoice_url else "—")
+        fin_id = (format_html(' <span style="{}">{}</span>', _ID, obj.stripe_final_invoice_id)
+                  if obj.stripe_final_invoice_id else "")
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Final Invoice</strong></td>'
+            '<td style="{td}">{status}</td>'
+            '<td style="{td}">{link}{id}</td></tr>',
+            td=_TD, status=fin_status, link=fin_link, id=fin_id,
+        ))
+
+        # Payment Failed (conditional)
+        if obj.payment_failed:
+            failed_text = "Payment failed"
+            if obj.payment_failed_at:
+                failed_text += " — " + obj.payment_failed_at.strftime("%Y-%m-%d %H:%M")
+            rows.append(format_html(
+                '<tr><td style="{td}"><strong>Payment Failed</strong></td>'
+                '<td style="{td}" colspan="2"><span style="{s}">{t}</span></td></tr>',
+                td=_TD, s=_RED_BOLD, t=failed_text,
+            ))
+
+        # Quote
+        if obj.stripe_quote_id:
+            quote_content = format_html(
+                '<span style="{}">{}</span> (finalized quotes live in Stripe Dashboard)',
+                _ID, obj.stripe_quote_id,
+            )
+        else:
+            quote_content = "No quote on file"
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Quote</strong></td>'
+            '<td style="{td}" colspan="2">{c}</td></tr>',
+            td=_TD, c=quote_content,
+        ))
+
+        table = mark_safe(
+            '<table style="border-collapse:collapse;width:100%">'
+            + "".join(rows)
+            + "</table>"
+        )
+        return table
+
+    @admin.display(description="Subscription")
+    def stripe_subscription_status_panel(self, obj):
+        if not obj.stripe_subscription_id:
+            return "No active subscription."
+
+        _ID = 'font-family:monospace;font-size:0.85em;color:#666'
+        _TD = 'padding:6px 4px'
+        _GREY = 'color:#666'
+
+        STATUS_STYLES = {
+            'active': 'color:#2e7d32;font-weight:bold',
+            'past_due': 'color:#e65100;font-weight:bold',
+            'canceled': 'color:#666',
+            'cancelled': 'color:#666',
+            'unpaid': 'color:#c62828;font-weight:bold',
+            'trialing': 'color:#1565c0',
+        }
+
+        rows = []
+
+        # Service Plan
+        tier_display = obj.get_service_plan_tier_display()
+        if not obj.service_plan_tier or obj.service_plan_tier == 'none':
+            plan_cell = format_html('<span style="{}">{}</span>', _GREY, tier_display)
+        else:
+            plan_cell = mark_safe(tier_display)
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Service Plan</strong></td><td style="{td}">{v}</td></tr>',
+            td=_TD, v=plan_cell,
+        ))
+
+        # Status
+        sub_status = obj.subscription_status or ''
+        status_style = STATUS_STYLES.get(sub_status, '')
+        if status_style:
+            status_cell = format_html('<span style="{}">{}</span>', status_style, sub_status.replace('_', ' ').title())
+        else:
+            status_cell = format_html('<span style="{}">{}</span>', _ID, sub_status)
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Status</strong></td><td style="{td}">{v}</td></tr>',
+            td=_TD, v=status_cell,
+        ))
+
+        # Billing Interval
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Billing</strong></td><td style="{td}">{v}</td></tr>',
+            td=_TD, v=obj.get_billing_interval_display(),
+        ))
+
+        # Subscription ID
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Subscription ID</strong></td>'
+            '<td style="{td}"><span style="{id}">{v}</span></td></tr>',
+            td=_TD, id=_ID, v=obj.stripe_subscription_id,
+        ))
+
+        return mark_safe(
+            '<table style="border-collapse:collapse;width:100%">'
+            + "".join(rows)
+            + "</table>"
         )
 
 

@@ -569,14 +569,19 @@
         return;
       }
 
-      _showFinalizeToast(data.invoice_number, data.stripe_invoice_sent, data.stripe_invoice_error);
-      setTimeout(() => window.location.reload(), 2200);
+      if (data.stripe_invoice_sent && data.stripe_invoice_url) {
+        _showFinalizeToast(data.invoice_number, true, null);
+        setTimeout(() => openQrModal(data.stripe_invoice_url, `Deposit invoice — ${data.invoice_number}`), 400);
+      } else {
+        _showFinalizeToast(data.invoice_number, data.stripe_invoice_sent, data.stripe_invoice_error);
+        setTimeout(() => window.location.reload(), 2200);
+      }
     });
   }
 
   function _showFinalizeToast(invoiceNumber, invoiceSent, invoiceError) {
     const msg = invoiceSent
-      ? "Stripe invoice sent — customer will receive payment link by email."
+      ? "Invoice sent — show QR code to customer."
       : invoiceError
         ? `Stripe invoice error: ${invoiceError}`
         : "Invoice skipped (manual payment).";
@@ -590,6 +595,30 @@
     requestAnimationFrame(() => toast.classList.add("show"));
     setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 2000);
   }
+
+  // ── QR code modal ──
+  function openQrModal(url, title) {
+    const modal = document.getElementById("qr-modal");
+    const titleEl = document.getElementById("qr-modal-title");
+    const container = document.getElementById("qr-code-container");
+    if (!modal || !container) return;
+
+    container.innerHTML = "";
+    if (titleEl) titleEl.textContent = title || "";
+
+    new QRCode(container, { text: url, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M });
+    modal.hidden = false;
+  }
+
+  document.getElementById("qr-modal-done")?.addEventListener("click", () => {
+    document.getElementById("qr-modal").hidden = true;
+    window.location.reload();
+  });
+
+  document.getElementById("show-deposit-qr-btn")?.addEventListener("click", () => {
+    const url = window.DEPOSIT_INVOICE_URL;
+    if (url) openQrModal(url, "Deposit invoice");
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // ── Payment received toggle ──

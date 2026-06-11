@@ -135,7 +135,7 @@ def create_deposit_invoice(job) -> stripe.Invoice:
     invoice = stripe.Invoice.create(
         customer=job.customer.stripe_customer_id,
         collection_method='send_invoice',
-        days_until_due=7,
+        days_until_due=0,
         metadata={'dfha_job_id': str(job.pk), 'invoice_type': 'deposit'},
     )
     stripe.InvoiceItem.create(
@@ -178,7 +178,7 @@ def create_and_send_deposit_invoice(job, total_cents: int, dfha_invoice_number: 
     invoice = stripe.Invoice.create(
         customer=job.customer.stripe_customer_id,
         collection_method='send_invoice',
-        days_until_due=7,
+        days_until_due=0,
         description=(
             f"Installation Deposit — Invoice {dfha_invoice_number}"
             if dfha_invoice_number else "Installation Deposit"
@@ -225,7 +225,7 @@ def create_and_send_final_invoice(job, total_cents: int) -> stripe.Invoice:
     invoice = stripe.Invoice.create(
         customer=job.customer.stripe_customer_id,
         collection_method='send_invoice',
-        days_until_due=7,
+        days_until_due=0,
         description=(
             f"Installation Balance — Invoice {job.display_invoice_number}"
             if job.display_invoice_number else "Installation Balance"
@@ -269,7 +269,7 @@ def create_final_invoice(job, additional_line_items: list = None) -> stripe.Invo
     invoice = stripe.Invoice.create(
         customer=job.customer.stripe_customer_id,
         collection_method='send_invoice',
-        days_until_due=7,
+        days_until_due=0,
         metadata={'dfha_job_id': str(job.pk), 'invoice_type': 'final'},
     )
     stripe.InvoiceItem.create(

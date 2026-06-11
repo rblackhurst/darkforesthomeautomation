@@ -226,6 +226,12 @@
             {% if job.payment_override %}&nbsp;· <em>Email skipped (manual payment)</em>{% endif %}
           </div>
 
+          {% if job.stripe_deposit_invoice_url %}
+          <div class="finalize-qr-row">
+            <button type="button" id="show-deposit-qr-btn" class="show-qr-btn">Show QR code to pay</button>
+          </div>
+          {% endif %}
+
           <!-- Payment received -->
           <div class="payment-received-row">
             <label class="payment-toggle">
@@ -333,6 +339,16 @@
   </div>
 </div>
 
+<!-- QR code modal -->
+<div id="qr-modal" class="qr-modal" hidden>
+  <div class="qr-modal-inner">
+    <div class="qr-modal-title" id="qr-modal-title"></div>
+    <div id="qr-code-container"></div>
+    <p class="qr-modal-hint">Customer can scan to pay now</p>
+    <button type="button" id="qr-modal-done" class="qr-modal-done-btn">Done</button>
+  </div>
+</div>
+
 <script>
   window.PI_BASE_URL        = "{% url 'jobs:pre_install_checklist_render' job.invoice_number %}";
   window.PI_CUSTOMER_LABEL  = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
@@ -343,7 +359,9 @@
   window.PAYMENT_URL        = "{% url 'jobs:pre_install_payment_received' job.invoice_number %}";
   window.INVOICE_SENT_URL   = "{% url 'jobs:pre_install_toggle_invoice_sent' job.invoice_number %}";
   window.ALREADY_FINALIZED  = {{ job.finalized_at|yesno:"true,false" }};
+  window.DEPOSIT_INVOICE_URL = "{{ job.stripe_deposit_invoice_url|default:'' }}";
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSe2s9eW0RFmFr3yy3GaJmMYrFDwJ7uXBrKA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="{% static 'jobs/pre_install_checklist.js' %}"></script>
 </body>
 </html>

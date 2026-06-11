@@ -6,9 +6,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core.mail import EmailMessage
 from django.db.models import Count, Max
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -785,42 +783,6 @@ def _sale_line_sum(job):
     )
 
 
-def _send_payment_email(job, invoice_code, override_amount=None):
-    """Send the quote / payment options email to the customer."""
-    total = _sale_total(job, override_amount)
-    half = (total / 2).quantize(Decimal("0.01"))
-    total = total.quantize(Decimal("0.01"))
-
-    subject = f"Dark Forest Home Automation — Your quote (Invoice {invoice_code})"
-    body = (
-        f"Hi {job.customer.first_name},\n\n"
-        f"Thank you for choosing Dark Forest Home Automation! "
-        f"Here's a summary of your installation quote.\n\n"
-        f"Invoice: {invoice_code}\n\n"
-        f"Payment options\n"
-        f"───────────────────────────────────\n"
-        f"  50% deposit:    ${half}\n"
-        f"  Full payment:   ${total}\n"
-        f"  Other amount:   Reply to discuss — we're happy to work with you.\n"
-        f"───────────────────────────────────\n\n"
-        f"To confirm your booking, reply to this email with your preferred "
-        f"payment amount and we'll send payment instructions.\n\n"
-        f"A reminder of our core promise: all devices and accounts are registered "
-        f"in your name from day one. You own everything — credentials, hardware, "
-        f"and your Home Assistant instance.\n\n"
-        f"Questions? Just reply to this email.\n\n"
-        f"— Ron\n"
-        f"Dark Forest Home Automation\n"
-    )
-
-    email = EmailMessage(
-        subject=subject,
-        body=body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[job.customer.email],
-        reply_to=[settings.DFHA_REPLY_TO_EMAIL],
-    )
-    email.send(fail_silently=False)
 
 
 @login_required
@@ -1277,14 +1239,17 @@ def pre_install_finalize(request, invoice_number):
 
     display_inv = _generate_display_invoice_number(job)
 
-    email_sent = False
-    email_error = None
+    stripe_invoice_sent = False
+    stripe_invoice_error = None
     if not payment_override:
         try:
-            _send_payment_email(job, display_inv, override_amount)
-            email_sent = True
+            from stripe_integration.services import create_and_send_deposit_invoice
+            total_decimal = _sale_total(job, override_amount)
+            total_cents = int(total_decimal * 100)
+            create_and_send_deposit_invoice(job, total_cents, display_inv)
+            stripe_invoice_sent = True
         except Exception as exc:
-            email_error = str(exc)
+            stripe_invoice_error = str(exc)
 
     job.display_invoice_number = display_inv
     job.finalized_at = now()
@@ -1302,8 +1267,8 @@ def pre_install_finalize(request, invoice_number):
     return JsonResponse({
         "ok": True,
         "invoice_number": display_inv,
-        "email_sent": email_sent,
-        "email_error": email_error,
+        "stripe_invoice_sent": stripe_invoice_sent,
+        "stripe_invoice_error": stripe_invoice_error,
         "total": str(total.quantize(Decimal("0.01"))),
         "deposit": str(half),
     })

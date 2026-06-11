@@ -24,12 +24,14 @@ stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 # Map every known Price ID to its tier label.
 # Used for plan_tier derivation and price_id validation throughout this module.
 PRICE_TO_TIER = {
-    os.environ.get('STRIPE_PRICE_TIER1_MONTHLY'): 'tier1',
-    os.environ.get('STRIPE_PRICE_TIER1_ANNUAL'):  'tier1',
-    os.environ.get('STRIPE_PRICE_TIER2_MONTHLY'): 'tier2',
-    os.environ.get('STRIPE_PRICE_TIER2_ANNUAL'):  'tier2',
-    os.environ.get('STRIPE_PRICE_TIER3_MONTHLY'): 'tier3',
-    os.environ.get('STRIPE_PRICE_TIER3_ANNUAL'):  'tier3',
+    k: v for k, v in {
+        os.environ.get('STRIPE_PRICE_TIER1_MONTHLY'): 'tier1',
+        os.environ.get('STRIPE_PRICE_TIER1_ANNUAL'):  'tier1',
+        os.environ.get('STRIPE_PRICE_TIER2_MONTHLY'): 'tier2',
+        os.environ.get('STRIPE_PRICE_TIER2_ANNUAL'):  'tier2',
+        os.environ.get('STRIPE_PRICE_TIER3_MONTHLY'): 'tier3',
+        os.environ.get('STRIPE_PRICE_TIER3_ANNUAL'):  'tier3',
+    }.items() if k is not None
 }
 
 # Used to determine upgrade vs. downgrade direction in change_subscription_plan().
@@ -128,6 +130,15 @@ def create_deposit_invoice(job) -> stripe.Invoice:
     )
     finalized = stripe.Invoice.finalize_invoice(invoice.id)
 
+    # Stamp dfha_job_id onto the PaymentIntent so charge.refunded webhooks can
+    # resolve the job. Charges inherit metadata from their PaymentIntent (not
+    # from the Invoice), so this must happen before the customer pays.
+    if finalized.payment_intent:
+        stripe.PaymentIntent.modify(
+            finalized.payment_intent,
+            metadata={'dfha_job_id': str(job.pk)},
+        )
+
     job.stripe_deposit_invoice_id = finalized.id
     job.stripe_deposit_invoice_url = finalized.hosted_invoice_url
     job.save()
@@ -140,6 +151,52 @@ def send_deposit_invoice(job) -> str:
         raise ValueError("No deposit invoice on this job")
     stripe.Invoice.send_invoice(job.stripe_deposit_invoice_id)
     return job.stripe_deposit_invoice_url
+
+
+def create_and_send_deposit_invoice(job, total_cents: int, dfha_invoice_number: str = None) -> stripe.Invoice:
+    """Create a deposit invoice from a sale total and send it entirely through Stripe.
+
+    Stripe emails the customer directly with a hosted invoice page and payment link.
+    No quote is required — the total is supplied by the caller (e.g. from sale lines).
+    """
+    get_or_create_stripe_customer(job.customer)
+    deposit_cents = math.ceil(total_cents / 2)
+
+    metadata = {'dfha_job_id': str(job.pk), 'invoice_type': 'deposit'}
+    if dfha_invoice_number:
+        metadata['dfha_invoice_number'] = dfha_invoice_number
+
+    invoice = stripe.Invoice.create(
+        customer=job.customer.stripe_customer_id,
+        collection_method='send_invoice',
+        days_until_due=7,
+        description=(
+            f"Installation Deposit — Invoice {dfha_invoice_number}"
+            if dfha_invoice_number else "Installation Deposit"
+        ),
+        metadata=metadata,
+    )
+    stripe.InvoiceItem.create(
+        customer=job.customer.stripe_customer_id,
+        invoice=invoice.id,
+        amount=deposit_cents,
+        currency='usd',
+        description='Installation Deposit (50%)',
+    )
+    finalized = stripe.Invoice.finalize_invoice(invoice.id)
+
+    if finalized.payment_intent:
+        stripe.PaymentIntent.modify(
+            finalized.payment_intent,
+            metadata={'dfha_job_id': str(job.pk)},
+        )
+
+    job.stripe_deposit_invoice_id = finalized.id
+    job.stripe_deposit_invoice_url = finalized.hosted_invoice_url
+    job.save()
+
+    stripe.Invoice.send_invoice(finalized.id)
+    return finalized
 
 
 def create_final_invoice(job, additional_line_items: list = None) -> stripe.Invoice:
@@ -181,6 +238,13 @@ def create_final_invoice(job, additional_line_items: list = None) -> stripe.Invo
             )
 
     finalized = stripe.Invoice.finalize_invoice(invoice.id)
+
+    if finalized.payment_intent:
+        stripe.PaymentIntent.modify(
+            finalized.payment_intent,
+            metadata={'dfha_job_id': str(job.pk)},
+        )
+
     job.stripe_final_invoice_id = finalized.id
     job.stripe_final_invoice_url = finalized.hosted_invoice_url
     job.save()
@@ -343,3 +407,40 @@ def create_billing_portal_session(customer, return_url: str) -> str:
         return_url=return_url,
     )
     return session.url
+
+
+# ── 7.7 Payment State Recovery ────────────────────────────────────────────────
+
+def sync_payment_status(job) -> dict:
+    """Poll Stripe invoice state and update job payment flags.
+
+    Use when a webhook was missed — e.g. during local dev without the stripe
+    CLI running, or after a webhook outage. Only advances state forward; never
+    reverts a flag that is already True. Returns a dict of fields that changed.
+    """
+    from jobs.models import Job as JobModel
+
+    changed = {}
+
+    if job.stripe_deposit_invoice_id and not job.deposit_paid:
+        inv = stripe.Invoice.retrieve(job.stripe_deposit_invoice_id)
+        if inv.status == 'paid':
+            job.deposit_paid = True
+            job.payment_failed = False
+            job.payment_failed_at = None
+            job.status = JobModel.Status.DEPOSIT_RECEIVED
+            changed['deposit_paid'] = True
+
+    if job.stripe_final_invoice_id and not job.final_paid:
+        inv = stripe.Invoice.retrieve(job.stripe_final_invoice_id)
+        if inv.status == 'paid':
+            job.final_paid = True
+            job.payment_failed = False
+            job.payment_failed_at = None
+            job.status = JobModel.Status.FINAL_PAID
+            changed['final_paid'] = True
+
+    if changed:
+        job.save()
+
+    return changed

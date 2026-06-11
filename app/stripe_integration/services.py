@@ -203,6 +203,61 @@ def create_and_send_deposit_invoice(job, total_cents: int, dfha_invoice_number: 
     return finalized
 
 
+def create_and_send_final_invoice(job, total_cents: int, additional_price_ids: list = None) -> stripe.Invoice:
+    """Create the final invoice (remaining 50% balance + optional extras) and send via Stripe.
+
+    Does not require a pre-existing Stripe Quote — total_cents is the original
+    installation total supplied by the caller. additional_price_ids is a list
+    of Stripe Price IDs to attach as extra InvoiceItems (e.g. a service plan).
+    """
+    if job.stripe_final_invoice_id:
+        raise ValueError("Final invoice already exists for this job")
+
+    get_or_create_stripe_customer(job.customer)
+
+    deposit_cents = math.ceil(total_cents / 2)
+    remaining_cents = total_cents - deposit_cents
+
+    metadata = {'dfha_job_id': str(job.pk), 'invoice_type': 'final'}
+    if job.display_invoice_number:
+        metadata['dfha_invoice_number'] = job.display_invoice_number
+
+    invoice = stripe.Invoice.create(
+        customer=job.customer.stripe_customer_id,
+        collection_method='send_invoice',
+        days_until_due=7,
+        description=(
+            f"Installation Balance — Invoice {job.display_invoice_number}"
+            if job.display_invoice_number else "Installation Balance"
+        ),
+        metadata=metadata,
+    )
+    stripe.InvoiceItem.create(
+        customer=job.customer.stripe_customer_id,
+        invoice=invoice.id,
+        amount=remaining_cents,
+        currency='usd',
+        description='Installation Balance (50%)',
+    )
+    if additional_price_ids:
+        for price_id in additional_price_ids:
+            stripe.InvoiceItem.create(
+                customer=job.customer.stripe_customer_id,
+                invoice=invoice.id,
+                price=price_id,
+            )
+
+    finalized = stripe.Invoice.finalize_invoice(invoice.id)
+    _stamp_pi_metadata(finalized.id, str(job.pk))
+
+    job.stripe_final_invoice_id = finalized.id
+    job.stripe_final_invoice_url = finalized.hosted_invoice_url
+    job.save()
+
+    stripe.Invoice.send_invoice(finalized.id)
+    return finalized
+
+
 def create_final_invoice(job, additional_line_items: list = None) -> stripe.Invoice:
     """Create Invoice #2 for the remaining balance plus any additions."""
     if not job.stripe_quote_id:

@@ -1303,6 +1303,64 @@ def pre_install_toggle_invoice_sent(request, invoice_number):
     return JsonResponse({"ok": True, "sent": sent})
 
 
+# Map human-readable plan keys to env var names for the final invoice endpoint.
+_PLAN_ENV_KEYS = {
+    'tier1_monthly': 'STRIPE_PRICE_TIER1_MONTHLY',
+    'tier1_annual':  'STRIPE_PRICE_TIER1_ANNUAL',
+    'tier2_monthly': 'STRIPE_PRICE_TIER2_MONTHLY',
+    'tier2_annual':  'STRIPE_PRICE_TIER2_ANNUAL',
+    'tier3_monthly': 'STRIPE_PRICE_TIER3_MONTHLY',
+    'tier3_annual':  'STRIPE_PRICE_TIER3_ANNUAL',
+}
+
+
+@login_required
+@staff_required
+@require_POST
+def final_invoice_send(request, invoice_number):
+    """
+    Create and send the final Stripe invoice for a finalized job.
+
+    POST body (JSON):
+      service_plan   str  — optional plan key, e.g. "tier3_annual"; adds the
+                            corresponding Stripe Price as an extra InvoiceItem
+    """
+    import os
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+
+    if not job.finalized_at:
+        return JsonResponse({"ok": False, "error": "Job is not finalized"}, status=400)
+    if job.stripe_final_invoice_id:
+        return JsonResponse({"ok": False, "error": "Final invoice already exists",
+                             "stripe_final_invoice_url": job.stripe_final_invoice_url}, status=400)
+
+    data = _load_json(request)
+    service_plan = str(data.get("service_plan", "")).strip()
+
+    additional_price_ids = []
+    if service_plan:
+        env_key = _PLAN_ENV_KEYS.get(service_plan)
+        if not env_key:
+            return JsonResponse({"ok": False, "error": f"Unknown service_plan: {service_plan}"}, status=400)
+        price_id = os.environ.get(env_key)
+        if not price_id:
+            return JsonResponse({"ok": False, "error": f"Stripe price not configured for {service_plan}"}, status=400)
+        additional_price_ids.append(price_id)
+
+    try:
+        from stripe_integration.services import create_and_send_final_invoice
+        total = _sale_total(job, job.payment_override_amount if job.payment_override else None)
+        total_cents = int(total * 100)
+        inv = create_and_send_final_invoice(job, total_cents, additional_price_ids or None)
+        return JsonResponse({
+            "ok": True,
+            "stripe_invoice_sent": True,
+            "stripe_invoice_url": inv.hosted_invoice_url,
+        })
+    except Exception as exc:
+        return JsonResponse({"ok": True, "stripe_invoice_sent": False, "stripe_invoice_error": str(exc)})
+
+
 # ── Installer home / pipeline view ──────────────────────────────────────
 
 # Stages shown as expanded sections, in the order a job progresses.

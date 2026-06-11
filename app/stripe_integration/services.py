@@ -244,7 +244,7 @@ def create_and_send_final_invoice(job, total_cents: int, additional_price_ids: l
             stripe.InvoiceItem.create(
                 customer=job.customer.stripe_customer_id,
                 invoice=invoice.id,
-                price=price_id,
+                pricing={'price': price_id},
             )
 
     finalized = stripe.Invoice.finalize_invoice(invoice.id)

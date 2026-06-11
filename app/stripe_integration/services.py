@@ -203,12 +203,12 @@ def create_and_send_deposit_invoice(job, total_cents: int, dfha_invoice_number: 
     return finalized
 
 
-def create_and_send_final_invoice(job, total_cents: int, additional_price_ids: list = None) -> stripe.Invoice:
-    """Create the final invoice (remaining 50% balance + optional extras) and send via Stripe.
+def create_and_send_final_invoice(job, total_cents: int) -> stripe.Invoice:
+    """Create the final invoice (remaining 50% balance) and send via Stripe.
 
     Does not require a pre-existing Stripe Quote — total_cents is the original
-    installation total supplied by the caller. additional_price_ids is a list
-    of Stripe Price IDs to attach as extra InvoiceItems (e.g. a service plan).
+    installation total supplied by the caller. Any service plan subscription is
+    started separately by the invoice.paid webhook after the customer pays.
     """
     if job.stripe_final_invoice_id:
         raise ValueError("Final invoice already exists for this job")
@@ -239,13 +239,6 @@ def create_and_send_final_invoice(job, total_cents: int, additional_price_ids: l
         currency='usd',
         description='Installation Balance (50%)',
     )
-    if additional_price_ids:
-        for price_id in additional_price_ids:
-            stripe.InvoiceItem.create(
-                customer=job.customer.stripe_customer_id,
-                invoice=invoice.id,
-                pricing={'price': price_id},
-            )
 
     finalized = stripe.Invoice.finalize_invoice(invoice.id)
     _stamp_pi_metadata(finalized.id, str(job.pk))

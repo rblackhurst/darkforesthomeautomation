@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from jobs.models import Job
 from stripe_integration.models import InternalAlert
-from stripe_integration.services import PRICE_TO_TIER
+from stripe_integration.services import PRICE_TO_TIER, create_subscription
 
 logger = logging.getLogger(__name__)
 
@@ -73,13 +73,22 @@ def _handle_invoice_paid(event):
         job.payment_failed = False
         job.payment_failed_at = None
         job.status = Job.Status.DEPOSIT_RECEIVED
+        job.save()
     elif invoice_type == 'final':
         job.final_paid = True
         job.payment_failed = False
         job.payment_failed_at = None
         job.status = Job.Status.FINAL_PAID
+        job.save()
 
-    job.save()
+        pending_price_id = job.pending_subscription_price_id
+        if pending_price_id:
+            job.pending_subscription_price_id = ''
+            job.save(update_fields=['pending_subscription_price_id'])
+            try:
+                create_subscription(job, pending_price_id)
+            except Exception:
+                logger.exception("invoice.paid: failed to start subscription for job %s", job.pk)
 
 
 def _handle_invoice_payment_failed(event):

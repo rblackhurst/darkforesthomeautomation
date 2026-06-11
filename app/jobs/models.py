@@ -135,6 +135,8 @@ class Job(models.Model):
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
     plan_tier = models.CharField(max_length=50, null=True, blank=True)
     subscription_status = models.CharField(max_length=50, null=True, blank=True)
+    # Set before sending final invoice; webhook clears it after creating the subscription.
+    pending_subscription_price_id = models.CharField(max_length=255, blank=True, default='')
 
     # ── Stripe: Payment Health ─────────────────────────────────────────────────
     payment_failed = models.BooleanField(default=False)

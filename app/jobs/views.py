@@ -1322,8 +1322,9 @@ def final_invoice_send(request, invoice_number):
     Create and send the final Stripe invoice for a finalized job.
 
     POST body (JSON):
-      service_plan   str  — optional plan key, e.g. "tier3_annual"; adds the
-                            corresponding Stripe Price as an extra InvoiceItem
+      service_plan   str  — optional plan key, e.g. "tier3_annual"; queued on
+                            the job so the webhook starts the subscription after
+                            the customer pays
     """
     import os
     job = get_object_or_404(Job, invoice_number=invoice_number)
@@ -1337,7 +1338,6 @@ def final_invoice_send(request, invoice_number):
     data = _load_json(request)
     service_plan = str(data.get("service_plan", "")).strip()
 
-    additional_price_ids = []
     if service_plan:
         env_key = _PLAN_ENV_KEYS.get(service_plan)
         if not env_key:
@@ -1345,13 +1345,14 @@ def final_invoice_send(request, invoice_number):
         price_id = os.environ.get(env_key)
         if not price_id:
             return JsonResponse({"ok": False, "error": f"Stripe price not configured for {service_plan}"}, status=400)
-        additional_price_ids.append(price_id)
+        job.pending_subscription_price_id = price_id
+        job.save(update_fields=['pending_subscription_price_id'])
 
     try:
         from stripe_integration.services import create_and_send_final_invoice
         total = _sale_total(job, job.payment_override_amount if job.payment_override else None)
         total_cents = int(total * 100)
-        inv = create_and_send_final_invoice(job, total_cents, additional_price_ids or None)
+        inv = create_and_send_final_invoice(job, total_cents)
         return JsonResponse({
             "ok": True,
             "stripe_invoice_sent": True,

@@ -250,6 +250,24 @@ class SubscriptionUpdatedTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.service_plan_tier, 'tier2')
 
+    def test_monthly_price_sets_billing_interval_monthly(self):
+        with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {'price_t1_mo': 'tier1'}):
+            self._handle({
+                'id': 'sub_abc', 'status': 'active',
+                'items': {'data': [{'price': {'id': 'price_t1_mo', 'recurring': {'interval': 'month'}}}]},
+            })
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.billing_interval, 'monthly')
+
+    def test_annual_price_sets_billing_interval_annual(self):
+        with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {'price_t1_yr': 'tier1'}):
+            self._handle({
+                'id': 'sub_abc', 'status': 'active',
+                'items': {'data': [{'price': {'id': 'price_t1_yr', 'recurring': {'interval': 'year'}}}]},
+            })
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.billing_interval, 'annual')
+
     def test_nonexistent_subscription_returns_silently(self):
         with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {}):
             self._handle({

@@ -61,6 +61,11 @@ class Job(models.Model):
         STANDARD = 'tier2', 'Standard'
         PREMIUM = 'tier3', 'Premium'
 
+    class BillingInterval(models.TextChoices):
+        NONE = 'none', 'N/A'
+        MONTHLY = 'monthly', 'Monthly'
+        ANNUAL = 'annual', 'Annual'
+
     invoice_number = models.CharField(max_length=40, primary_key=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="jobs")
     package = models.ForeignKey(
@@ -135,6 +140,12 @@ class Job(models.Model):
     # ── Stripe: Subscription ───────────────────────────────────────────────────
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
     subscription_status = models.CharField(max_length=50, null=True, blank=True)
+    billing_interval = models.CharField(
+        max_length=10,
+        choices=BillingInterval.choices,
+        default=BillingInterval.NONE,
+        blank=True,
+    )
     # Set before sending final invoice; webhook clears it after creating the subscription.
     pending_subscription_price_id = models.CharField(max_length=255, blank=True, default='')
 

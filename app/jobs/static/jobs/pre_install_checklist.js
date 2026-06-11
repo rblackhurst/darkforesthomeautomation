@@ -569,17 +569,17 @@
         return;
       }
 
-      _showFinalizeToast(data.invoice_number, data.email_sent, data.email_error);
+      _showFinalizeToast(data.invoice_number, data.stripe_invoice_sent, data.stripe_invoice_error);
       setTimeout(() => window.location.reload(), 2200);
     });
   }
 
-  function _showFinalizeToast(invoiceNumber, emailSent, emailError) {
-    const msg = emailSent
-      ? "Payment quote sent to customer."
-      : emailError
-        ? `Email error: ${emailError}`
-        : "Email skipped (manual payment).";
+  function _showFinalizeToast(invoiceNumber, invoiceSent, invoiceError) {
+    const msg = invoiceSent
+      ? "Stripe invoice sent — customer will receive payment link by email."
+      : invoiceError
+        ? `Stripe invoice error: ${invoiceError}`
+        : "Invoice skipped (manual payment).";
     const toast = document.createElement("div");
     toast.className = "finalize-toast";
     toast.innerHTML =

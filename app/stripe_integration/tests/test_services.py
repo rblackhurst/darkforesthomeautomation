@@ -104,14 +104,15 @@ class CreateDepositInvoiceTests(TestCase):
         self.customer = make_customer(stripe_customer_id='cus_test')
         self.job = make_job(self.customer, stripe_quote_id='qt_abc', final_paid=False)
 
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
     @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Quote.retrieve')
-    def test_creates_and_saves(self, mock_quote, mock_inv_create, mock_item, mock_finalize):
+    def test_creates_and_saves(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
         mock_quote.return_value = MagicMock(amount_total=100000)
         mock_inv_create.return_value = MagicMock(id='in_dep')
-        mock_finalize.return_value = MagicMock(id='in_dep', hosted_invoice_url='https://pay.stripe.com/dep')
+        mock_finalize.return_value = MagicMock(id='in_dep', hosted_invoice_url='https://pay.stripe.com/dep', payment_intent='pi_dep')
 
         from stripe_integration.services import create_deposit_invoice
         create_deposit_invoice(self.job)
@@ -120,20 +121,51 @@ class CreateDepositInvoiceTests(TestCase):
         self.assertEqual(self.job.stripe_deposit_invoice_id, 'in_dep')
         self.assertEqual(self.job.stripe_deposit_invoice_url, 'https://pay.stripe.com/dep')
 
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
     @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Quote.retrieve')
-    def test_deposit_amount_is_ceil(self, mock_quote, mock_inv_create, mock_item, mock_finalize):
+    def test_deposit_amount_is_ceil(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
         mock_quote.return_value = MagicMock(amount_total=99999)
         mock_inv_create.return_value = MagicMock(id='in_x')
-        mock_finalize.return_value = MagicMock(id='in_x', hosted_invoice_url='https://pay.stripe.com/x')
+        mock_finalize.return_value = MagicMock(id='in_x', hosted_invoice_url='https://pay.stripe.com/x', payment_intent='pi_x')
 
         from stripe_integration.services import create_deposit_invoice
         create_deposit_invoice(self.job)
 
         item_call = mock_item.call_args[1]
         self.assertEqual(item_call['amount'], 50000)
+
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Quote.retrieve')
+    def test_stamps_payment_intent_metadata(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
+        mock_quote.return_value = MagicMock(amount_total=100000)
+        mock_inv_create.return_value = MagicMock(id='in_dep')
+        mock_finalize.return_value = MagicMock(id='in_dep', hosted_invoice_url='https://pay.stripe.com/dep', payment_intent='pi_dep')
+
+        from stripe_integration.services import create_deposit_invoice
+        create_deposit_invoice(self.job)
+
+        mock_pi_modify.assert_called_once_with('pi_dep', metadata={'dfha_job_id': self.job.invoice_number})
+
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Quote.retrieve')
+    def test_skips_payment_intent_stamp_when_none(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
+        mock_quote.return_value = MagicMock(amount_total=100000)
+        mock_inv_create.return_value = MagicMock(id='in_dep')
+        mock_finalize.return_value = MagicMock(id='in_dep', hosted_invoice_url='https://pay.stripe.com/dep', payment_intent=None)
+
+        from stripe_integration.services import create_deposit_invoice
+        create_deposit_invoice(self.job)
+
+        mock_pi_modify.assert_not_called()
 
     def test_raises_when_no_quote(self):
         self.job.stripe_quote_id = None
@@ -151,24 +183,26 @@ class CreateFinalInvoiceTests(TestCase):
     def _mock_finalize(self, mock_quote, mock_inv_create, mock_item, mock_finalize, total):
         mock_quote.return_value = MagicMock(amount_total=total)
         mock_inv_create.return_value = MagicMock(id='in_fin')
-        mock_finalize.return_value = MagicMock(id='in_fin', hosted_invoice_url='https://pay.stripe.com/fin')
+        mock_finalize.return_value = MagicMock(id='in_fin', hosted_invoice_url='https://pay.stripe.com/fin', payment_intent='pi_fin')
 
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
     @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Quote.retrieve')
-    def test_final_is_remainder(self, mock_quote, mock_inv_create, mock_item, mock_finalize):
+    def test_final_is_remainder(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
         self._mock_finalize(mock_quote, mock_inv_create, mock_item, mock_finalize, 100000)
         from stripe_integration.services import create_final_invoice
         create_final_invoice(self.job)
         item_call = mock_item.call_args_list[0][1]
         self.assertEqual(item_call['amount'], 50000)
 
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
     @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Quote.retrieve')
-    def test_odd_total_remainder(self, mock_quote, mock_inv_create, mock_item, mock_finalize):
+    def test_odd_total_remainder(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
         self._mock_finalize(mock_quote, mock_inv_create, mock_item, mock_finalize, 99999)
         from stripe_integration.services import create_final_invoice
         create_final_invoice(self.job)
@@ -177,37 +211,51 @@ class CreateFinalInvoiceTests(TestCase):
         self.assertEqual(item_call['amount'], 49999)
         self.assertEqual(50000 + 49999, 99999)
 
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
     @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Quote.retrieve')
-    def test_additional_line_items_added(self, mock_quote, mock_inv_create, mock_item, mock_finalize):
+    def test_additional_line_items_added(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
         self._mock_finalize(mock_quote, mock_inv_create, mock_item, mock_finalize, 100000)
         extras = [{'price_data': {'unit_amount': 5000, 'product_data': {'name': 'Extra work'}}}]
         from stripe_integration.services import create_final_invoice
         create_final_invoice(self.job, additional_line_items=extras)
         self.assertEqual(mock_item.call_count, 2)
 
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
     @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Quote.retrieve')
-    def test_no_extra_items_only_balance(self, mock_quote, mock_inv_create, mock_item, mock_finalize):
+    def test_no_extra_items_only_balance(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
         self._mock_finalize(mock_quote, mock_inv_create, mock_item, mock_finalize, 100000)
         from stripe_integration.services import create_final_invoice
         create_final_invoice(self.job)
         self.assertEqual(mock_item.call_count, 1)
 
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
     @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
     @patch('stripe_integration.services.stripe.InvoiceItem.create')
     @patch('stripe_integration.services.stripe.Invoice.create')
     @patch('stripe_integration.services.stripe.Quote.retrieve')
-    def test_saves_ids_to_job(self, mock_quote, mock_inv_create, mock_item, mock_finalize):
+    def test_saves_ids_to_job(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
         self._mock_finalize(mock_quote, mock_inv_create, mock_item, mock_finalize, 100000)
         from stripe_integration.services import create_final_invoice
         create_final_invoice(self.job)
         self.job.refresh_from_db()
         self.assertEqual(self.job.stripe_final_invoice_id, 'in_fin')
+
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Quote.retrieve')
+    def test_stamps_payment_intent_metadata(self, mock_quote, mock_inv_create, mock_item, mock_finalize, mock_pi_modify):
+        self._mock_finalize(mock_quote, mock_inv_create, mock_item, mock_finalize, 100000)
+        from stripe_integration.services import create_final_invoice
+        create_final_invoice(self.job)
+        mock_pi_modify.assert_called_once_with('pi_fin', metadata={'dfha_job_id': self.job.invoice_number})
 
     def test_raises_when_no_quote(self):
         self.job.stripe_quote_id = None
@@ -245,6 +293,13 @@ class CreateSubscriptionTests(TestCase):
         from stripe_integration.services import create_subscription
         with self.assertRaises(ValueError):
             create_subscription(self.job, 'price_unknown')
+
+    @patch('stripe_integration.services.stripe.Subscription.create')
+    def test_raises_on_none_price_id(self, mock_create):
+        """None price_id (unset env var) must not slip past the validation guard."""
+        from stripe_integration.services import create_subscription
+        with self.assertRaises(ValueError):
+            create_subscription(self.job, None)
 
     @patch('stripe_integration.services.PRICE_TO_TIER', {VALID_PRICE: 'tier1'})
     @patch('stripe_integration.services.stripe.Subscription.create')
@@ -328,6 +383,12 @@ class ChangeSubscriptionPlanTests(TestCase):
         from stripe_integration.services import change_subscription_plan
         with self.assertRaises(ValueError):
             change_subscription_plan(self.job, 'price_unknown')
+
+    def test_raises_on_none_price_id(self):
+        """None price_id (unset env var) must not slip past the validation guard."""
+        from stripe_integration.services import change_subscription_plan
+        with self.assertRaises(ValueError):
+            change_subscription_plan(self.job, None)
 
     @patch('stripe_integration.services.stripe.Subscription.modify')
     @patch('stripe_integration.services.stripe.Subscription.retrieve')
@@ -486,3 +547,234 @@ class BillingPortalTests(TestCase):
         self.assertIsNone(self.customer.stripe_customer_id if False else None or None)
         # Confirm session was not written to any Job field
         self.assertFalse(hasattr(self.customer, 'portal_url'))
+
+
+class SyncPaymentStatusTests(TestCase):
+    def setUp(self):
+        self.customer = make_customer(stripe_customer_id='cus_test')
+        self.job = make_job(
+            self.customer,
+            stripe_deposit_invoice_id='in_dep',
+            stripe_final_invoice_id='in_fin',
+            final_paid=False,
+        )
+
+    @patch('stripe_integration.services.stripe.Invoice.retrieve')
+    def test_sets_deposit_paid_when_invoice_is_paid(self, mock_retrieve):
+        mock_retrieve.return_value = MagicMock(status='paid')
+        # Only deposit invoice — clear final so it's skipped.
+        self.job.stripe_final_invoice_id = None
+        self.job.save()
+
+        from stripe_integration.services import sync_payment_status
+        changed = sync_payment_status(self.job)
+
+        self.assertIn('deposit_paid', changed)
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.deposit_paid)
+        self.assertEqual(self.job.status, 'deposit_received')
+
+    @patch('stripe_integration.services.stripe.Invoice.retrieve')
+    def test_sets_final_paid_when_invoice_is_paid(self, mock_retrieve):
+        mock_retrieve.return_value = MagicMock(status='paid')
+        self.job.stripe_deposit_invoice_id = None
+        self.job.save()
+
+        from stripe_integration.services import sync_payment_status
+        changed = sync_payment_status(self.job)
+
+        self.assertIn('final_paid', changed)
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.final_paid)
+        self.assertEqual(self.job.status, 'final_paid')
+
+    @patch('stripe_integration.services.stripe.Invoice.retrieve')
+    def test_clears_payment_failed_on_deposit_paid(self, mock_retrieve):
+        self.job.payment_failed = True
+        self.job.stripe_final_invoice_id = None
+        self.job.save()
+        mock_retrieve.return_value = MagicMock(status='paid')
+
+        from stripe_integration.services import sync_payment_status
+        sync_payment_status(self.job)
+
+        self.job.refresh_from_db()
+        self.assertFalse(self.job.payment_failed)
+        self.assertIsNone(self.job.payment_failed_at)
+
+    @patch('stripe_integration.services.stripe.Invoice.retrieve')
+    def test_does_nothing_when_already_paid(self, mock_retrieve):
+        self.job.deposit_paid = True
+        self.job.final_paid = True
+        self.job.save()
+
+        from stripe_integration.services import sync_payment_status
+        changed = sync_payment_status(self.job)
+
+        mock_retrieve.assert_not_called()
+        self.assertEqual(changed, {})
+
+    @patch('stripe_integration.services.stripe.Invoice.retrieve')
+    def test_skips_missing_invoice_ids(self, mock_retrieve):
+        self.job.stripe_deposit_invoice_id = None
+        self.job.stripe_final_invoice_id = None
+        self.job.save()
+
+        from stripe_integration.services import sync_payment_status
+        changed = sync_payment_status(self.job)
+
+        mock_retrieve.assert_not_called()
+        self.assertEqual(changed, {})
+
+    @patch('stripe_integration.services.stripe.Invoice.retrieve')
+    def test_no_change_when_invoice_not_yet_paid(self, mock_retrieve):
+        mock_retrieve.return_value = MagicMock(status='open')
+        self.job.stripe_final_invoice_id = None
+        self.job.save()
+
+        from stripe_integration.services import sync_payment_status
+        changed = sync_payment_status(self.job)
+
+        self.assertEqual(changed, {})
+        self.job.refresh_from_db()
+        self.assertFalse(self.job.deposit_paid)
+
+    @patch('stripe_integration.services.stripe.Invoice.retrieve')
+    def test_both_invoices_paid_returns_both_changed(self, mock_retrieve):
+        mock_retrieve.return_value = MagicMock(status='paid')
+
+        from stripe_integration.services import sync_payment_status
+        changed = sync_payment_status(self.job)
+
+        self.assertIn('deposit_paid', changed)
+        self.assertIn('final_paid', changed)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, 'final_paid')  # final wins
+
+
+class CreateAndSendDepositInvoiceTests(TestCase):
+    def setUp(self):
+        self.customer = make_customer(stripe_customer_id='cus_test')
+        self.job = make_job(self.customer, final_paid=False)
+
+    def _mock_finalize(self):
+        return MagicMock(
+            id='in_new',
+            hosted_invoice_url='https://invoice.stripe.com/new',
+            payment_intent='pi_new',
+        )
+
+    @patch('stripe_integration.services.stripe.Invoice.send_invoice')
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Customer.retrieve')
+    def test_creates_invoice_and_saves_to_job(
+        self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_pi_modify, mock_send
+    ):
+        mock_cus_retrieve.return_value = MagicMock(id='cus_test')
+        mock_inv_create.return_value = MagicMock(id='in_new')
+        mock_finalize.return_value = self._mock_finalize()
+
+        from stripe_integration.services import create_and_send_deposit_invoice
+        create_and_send_deposit_invoice(self.job, 75500)
+
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.stripe_deposit_invoice_id, 'in_new')
+        self.assertEqual(self.job.stripe_deposit_invoice_url, 'https://invoice.stripe.com/new')
+
+    @patch('stripe_integration.services.stripe.Invoice.send_invoice')
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Customer.retrieve')
+    def test_deposit_is_ceil_of_half(
+        self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_pi_modify, mock_send
+    ):
+        mock_cus_retrieve.return_value = MagicMock(id='cus_test')
+        mock_inv_create.return_value = MagicMock(id='in_new')
+        mock_finalize.return_value = self._mock_finalize()
+
+        from stripe_integration.services import create_and_send_deposit_invoice
+        create_and_send_deposit_invoice(self.job, 75501)  # odd total
+
+        item_call = mock_item.call_args[1]
+        self.assertEqual(item_call['amount'], 37751)  # ceil(75501 / 2)
+
+    @patch('stripe_integration.services.stripe.Invoice.send_invoice')
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Customer.retrieve')
+    def test_stamps_payment_intent_metadata(
+        self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_pi_modify, mock_send
+    ):
+        mock_cus_retrieve.return_value = MagicMock(id='cus_test')
+        mock_inv_create.return_value = MagicMock(id='in_new')
+        mock_finalize.return_value = self._mock_finalize()
+
+        from stripe_integration.services import create_and_send_deposit_invoice
+        create_and_send_deposit_invoice(self.job, 75500)
+
+        mock_pi_modify.assert_called_once_with('pi_new', metadata={'dfha_job_id': self.job.invoice_number})
+
+    @patch('stripe_integration.services.stripe.Invoice.send_invoice')
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Customer.retrieve')
+    def test_calls_send_invoice(
+        self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_pi_modify, mock_send
+    ):
+        mock_cus_retrieve.return_value = MagicMock(id='cus_test')
+        mock_inv_create.return_value = MagicMock(id='in_new')
+        mock_finalize.return_value = self._mock_finalize()
+
+        from stripe_integration.services import create_and_send_deposit_invoice
+        create_and_send_deposit_invoice(self.job, 75500)
+
+        mock_send.assert_called_once_with('in_new')
+
+    @patch('stripe_integration.services.stripe.Invoice.send_invoice')
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Customer.retrieve')
+    def test_includes_dfha_invoice_number_in_metadata(
+        self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_pi_modify, mock_send
+    ):
+        mock_cus_retrieve.return_value = MagicMock(id='cus_test')
+        mock_inv_create.return_value = MagicMock(id='in_new')
+        mock_finalize.return_value = self._mock_finalize()
+
+        from stripe_integration.services import create_and_send_deposit_invoice
+        create_and_send_deposit_invoice(self.job, 75500, dfha_invoice_number='26061100000501')
+
+        inv_create_kwargs = mock_inv_create.call_args[1]
+        self.assertEqual(inv_create_kwargs['metadata']['dfha_invoice_number'], '26061100000501')
+        self.assertIn('26061100000501', inv_create_kwargs['description'])
+
+    @patch('stripe_integration.services.stripe.Invoice.send_invoice')
+    @patch('stripe_integration.services.stripe.PaymentIntent.modify')
+    @patch('stripe_integration.services.stripe.Invoice.finalize_invoice')
+    @patch('stripe_integration.services.stripe.InvoiceItem.create')
+    @patch('stripe_integration.services.stripe.Invoice.create')
+    @patch('stripe_integration.services.stripe.Customer.retrieve')
+    def test_skips_pi_stamp_when_payment_intent_is_none(
+        self, mock_cus_retrieve, mock_inv_create, mock_item, mock_finalize, mock_pi_modify, mock_send
+    ):
+        mock_cus_retrieve.return_value = MagicMock(id='cus_test')
+        mock_inv_create.return_value = MagicMock(id='in_new')
+        mock_finalize.return_value = MagicMock(
+            id='in_new', hosted_invoice_url='https://invoice.stripe.com/new', payment_intent=None
+        )
+
+        from stripe_integration.services import create_and_send_deposit_invoice
+        create_and_send_deposit_invoice(self.job, 75500)
+
+        mock_pi_modify.assert_not_called()

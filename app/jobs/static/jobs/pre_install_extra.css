@@ -423,3 +423,68 @@
   text-decoration: none;
 }
 .internal-prep-link:hover { background: var(--accent); color: #fff; }
+
+/* ── QR code modal ── */
+.qr-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.qr-modal[hidden] { display: none; }
+.qr-modal-inner {
+  background: var(--surface, #fff);
+  border-radius: var(--radius, 8px);
+  padding: 32px 40px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  max-width: 340px;
+  width: 90vw;
+}
+.qr-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  letter-spacing: 0.03em;
+}
+#qr-code-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+#qr-code-container canvas,
+#qr-code-container img { border-radius: 4px; }
+.qr-modal-hint {
+  font-size: 13px;
+  color: var(--muted, #666);
+  margin: 0 0 20px;
+}
+.qr-modal-done-btn {
+  background: var(--accent, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius, 8px);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 32px;
+  cursor: pointer;
+  width: 100%;
+}
+.qr-modal-done-btn:hover { opacity: 0.88; }
+
+/* ── Show QR button (finalized state) ── */
+.finalize-qr-row { margin: 10px 0 4px; }
+.show-qr-btn {
+  background: none;
+  border: 1px solid var(--accent-dim, #93c5fd);
+  color: var(--accent, #2563eb);
+  border-radius: var(--radius, 8px);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 7px 18px;
+  cursor: pointer;
+}
+.show-qr-btn:hover { background: var(--accent-bg, #eff6ff); }

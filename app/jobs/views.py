@@ -1241,6 +1241,7 @@ def pre_install_finalize(request, invoice_number):
 
     stripe_invoice_sent = False
     stripe_invoice_error = None
+    stripe_invoice_url = None
     if not payment_override:
         try:
             from stripe_integration.services import create_and_send_deposit_invoice
@@ -1248,6 +1249,8 @@ def pre_install_finalize(request, invoice_number):
             total_cents = int(total_decimal * 100)
             create_and_send_deposit_invoice(job, total_cents, display_inv)
             stripe_invoice_sent = True
+            job.refresh_from_db()
+            stripe_invoice_url = job.stripe_deposit_invoice_url
         except Exception as exc:
             stripe_invoice_error = str(exc)
 
@@ -1269,6 +1272,7 @@ def pre_install_finalize(request, invoice_number):
         "invoice_number": display_inv,
         "stripe_invoice_sent": stripe_invoice_sent,
         "stripe_invoice_error": stripe_invoice_error,
+        "stripe_invoice_url": stripe_invoice_url,
         "total": str(total.quantize(Decimal("0.01"))),
         "deposit": str(half),
     })

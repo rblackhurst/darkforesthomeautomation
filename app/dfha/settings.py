@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "accounts",
     "jobs",
     "stripe_integration",
+    "client_credentials",
 ]
 
 MIDDLEWARE = [
@@ -152,6 +153,12 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ── Credential encryption ─────────────────────────────────────────────────────
+# Fernet key used by django-encrypted-model-fields. Must be set in the
+# environment on every host — dev, staging, and production. Generate with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
 # ── Email (Postmark via SMTP) ─────────────────────────────────────────────────
 # Postmark treats the SMTP username and password both as the server API token.

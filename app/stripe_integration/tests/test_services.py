@@ -475,9 +475,11 @@ class IssueRefundTests(TestCase):
             issue_refund(self.job, 'other', 1000, 'refund', None)
 
     @patch('stripe_integration.services.stripe.Refund.create')
-    @patch('stripe_integration.services.stripe.Invoice.retrieve')
-    def test_creates_refund_record(self, mock_invoice, mock_refund):
-        mock_invoice.return_value = MagicMock(payment_intent='pi_abc')
+    @patch('stripe_integration.services.stripe.InvoicePayment.list')
+    def test_creates_refund_record(self, mock_ip_list, mock_refund):
+        mock_ip_list.return_value = MagicMock(
+            data=[MagicMock(payment=MagicMock(payment_intent='pi_abc'))]
+        )
         mock_refund.return_value = MagicMock(id='re_abc')
 
         from stripe_integration.services import issue_refund
@@ -486,9 +488,11 @@ class IssueRefundTests(TestCase):
         self.assertEqual(RefundRecord.objects.filter(stripe_refund_id='re_abc').count(), 1)
 
     @patch('stripe_integration.services.stripe.Refund.create')
-    @patch('stripe_integration.services.stripe.Invoice.retrieve')
-    def test_returns_refund_object(self, mock_invoice, mock_refund):
-        mock_invoice.return_value = MagicMock(payment_intent='pi_abc')
+    @patch('stripe_integration.services.stripe.InvoicePayment.list')
+    def test_returns_refund_object(self, mock_ip_list, mock_refund):
+        mock_ip_list.return_value = MagicMock(
+            data=[MagicMock(payment=MagicMock(payment_intent='pi_abc'))]
+        )
         refund_obj = MagicMock(id='re_abc')
         mock_refund.return_value = refund_obj
 

@@ -424,9 +424,16 @@ def issue_refund(job, invoice_type: str, amount_cents: int, reason: str, issued_
     if not invoice_id:
         raise ValueError(f"No {invoice_type} invoice found on this job")
 
-    invoice = stripe.Invoice.retrieve(invoice_id)
+    invoice_payments = stripe.InvoicePayment.list(invoice=invoice_id)
+    if not invoice_payments.data:
+        raise ValueError(f"No payment found for {invoice_type} invoice")
+    ip = invoice_payments.data[0]
+    pi_id = ip.payment.payment_intent if ip.payment else None
+    if not pi_id:
+        raise ValueError(f"No payment intent found for {invoice_type} invoice")
+
     refund = stripe.Refund.create(
-        payment_intent=invoice.payment_intent,
+        payment_intent=pi_id,
         amount=amount_cents,
         reason='requested_by_customer',
     )

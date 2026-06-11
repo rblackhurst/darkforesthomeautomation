@@ -103,8 +103,8 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ("invoice_label_col", "customer", "status", "install_date", "finalized_at", "payment_received", "is_locked")
-    list_filter = ("status", "install_date", "payment_received", "payment_override")
+    list_display = ("invoice_label_col", "customer", "status", "install_date", "finalized_at", "service_tier_col", "is_locked")
+    list_filter = ("status", "install_date", "service_plan_tier", "payment_received", "payment_override")
     search_fields = ("invoice_number", "display_invoice_number", "customer__last_name", "customer__first_name")
     autocomplete_fields = ("customer", "package")
     date_hierarchy = "install_date"
@@ -141,6 +141,10 @@ class JobAdmin(admin.ModelAdmin):
     @admin.display(description="Invoice", ordering="display_invoice_number")
     def invoice_label_col(self, obj):
         return obj.display_invoice_number or f"[draft {obj.invoice_number[-8:]}]"
+
+    @admin.display(description="Service tier", ordering="service_plan_tier")
+    def service_tier_col(self, obj):
+        return obj.get_service_plan_tier_display()
 
     @admin.display(description="Open")
     def install_links(self, obj):
@@ -304,7 +308,7 @@ class PackageDeviceInline(admin.TabularInline):
 
 @admin.register(Package)
 class PackageAdmin(admin.ModelAdmin):
-    list_display = ("name", "base_price", "monitoring_tier", "device_count", "active")
+    list_display = ("name", "base_price", "device_count", "active")
     list_filter = ("active",)
     search_fields = ("name", "description")
     list_editable = ("active",)

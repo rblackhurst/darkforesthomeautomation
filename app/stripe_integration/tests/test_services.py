@@ -386,7 +386,7 @@ class ChangeSubscriptionPlanTests(TestCase):
             change_subscription_plan(self.job, 'price_t2')
 
         self.job.refresh_from_db()
-        self.assertEqual(self.job.plan_tier, 'tier2')
+        self.assertEqual(self.job.service_plan_tier, 'tier2')
         self.assertEqual(self.job.subscription_status, 'active')
 
 
@@ -864,3 +864,98 @@ class StampPiMetadataTests(TestCase):
         _stamp_pi_metadata('in_test', 'JOB-001')
 
         mock_pi_modify.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Invoice number format (Change 2)
+# ---------------------------------------------------------------------------
+
+class InvoiceNumberFormatTests(TestCase):
+    def setUp(self):
+        self.customer = make_customer()
+        self.job = make_job(self.customer)
+
+    def _generate(self):
+        from jobs.views import _generate_display_invoice_number
+        return _generate_display_invoice_number(self.job)
+
+    def test_length_is_13(self):
+        result = self._generate()
+        self.assertEqual(len(result), 13)
+
+    def test_no_tier_digit(self):
+        # Format is YYMMDD(6) + RR(2) + AAA(3) + SS(2) = 13 chars.
+        # The old format was 14 chars with a tier digit after the date.
+        result = self._generate()
+        self.assertEqual(len(result), 13)
+
+    def test_format_structure(self):
+        from datetime import date
+        from unittest.mock import patch
+        fixed_date = date(2026, 6, 11)
+        with patch('jobs.views.date') as mock_date:
+            mock_date.today.return_value = fixed_date
+            mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+            result = self._generate()
+        # Date part is '260611', rooms=0 → '00', adhoc=0 → '000', seq=1 → '01'
+        self.assertEqual(result[:6], '260611')
+        self.assertEqual(result[6:8], '00')   # room count
+        self.assertEqual(result[8:11], '000')  # adhoc count
+        self.assertEqual(result[11:], '01')    # sequence
+
+
+# ---------------------------------------------------------------------------
+# service_plan_tier field validation (Change 1)
+# ---------------------------------------------------------------------------
+
+class ServicePlanTierFieldTests(TestCase):
+    def setUp(self):
+        self.customer = make_customer()
+
+    def _make_job_with_tier(self, tier):
+        return Job.objects.create(
+            customer=self.customer,
+            invoice_number=f'TEST-{tier}',
+            service_plan_tier=tier,
+        )
+
+    def test_accepts_none_value(self):
+        job = self._make_job_with_tier('none')
+        job.refresh_from_db()
+        self.assertEqual(job.service_plan_tier, 'none')
+
+    def test_accepts_tier1(self):
+        job = self._make_job_with_tier('tier1')
+        job.refresh_from_db()
+        self.assertEqual(job.service_plan_tier, 'tier1')
+
+    def test_accepts_tier2(self):
+        job = self._make_job_with_tier('tier2')
+        job.refresh_from_db()
+        self.assertEqual(job.service_plan_tier, 'tier2')
+
+    def test_accepts_tier3(self):
+        job = self._make_job_with_tier('tier3')
+        job.refresh_from_db()
+        self.assertEqual(job.service_plan_tier, 'tier3')
+
+    def test_default_is_none_string(self):
+        job = Job.objects.create(
+            customer=self.customer,
+            invoice_number='TEST-default',
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.service_plan_tier, 'none')
+
+    def test_rejects_integer_values(self):
+        from django.core.exceptions import ValidationError
+        job = Job(
+            customer=self.customer,
+            invoice_number='TEST-int',
+            service_plan_tier=1,
+        )
+        with self.assertRaises(ValidationError):
+            job.full_clean()
+
+    def test_plan_tier_field_removed(self):
+        self.assertFalse(hasattr(Job(), 'plan_tier'))

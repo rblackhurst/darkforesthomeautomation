@@ -241,14 +241,14 @@ class SubscriptionUpdatedTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.subscription_status, 'past_due')
 
-    def test_updates_plan_tier(self):
+    def test_updates_service_plan_tier(self):
         with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {'price_t2': 'tier2'}):
             self._handle({
                 'id': 'sub_abc', 'status': 'active',
                 'items': {'data': [{'price': {'id': 'price_t2'}}]},
             })
         self.job.refresh_from_db()
-        self.assertEqual(self.job.plan_tier, 'tier2')
+        self.assertEqual(self.job.service_plan_tier, 'tier2')
 
     def test_nonexistent_subscription_returns_silently(self):
         with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {}):

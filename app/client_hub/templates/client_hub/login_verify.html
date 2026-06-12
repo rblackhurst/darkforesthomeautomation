@@ -1,0 +1,15 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Login Link — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<div style="max-width:420px;margin:3rem auto;">
+  <div class="card" style="text-align:center;padding:2rem;">
+    {% if error %}
+      <div style="font-size:2rem;margin-bottom:1rem;">⚠️</div>
+      <h1>Login link invalid</h1>
+      <p>This login link has expired or has already been used. Login links are valid for 20 minutes and can only be used once.</p>
+      <a href="{% url 'client_hub:login' %}" class="btn btn-primary">Request a new link</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Account Closure — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'client_hub:dashboard' %}">&larr; My Properties</a></p>
+<h1>Account Closure Request</h1>
+
+<div class="card">
+  <h2>Before you proceed</h2>
+  <p><strong>All credential data belongs to you.</strong> You can request a full copy of your credentials at any time — before or after closure.</p>
+  <p><strong>DFHA remote access will be revoked.</strong> We will no longer be able to provide remote monitoring or support for your system.</p>
+  <p><strong>Re-establishing service may incur a setup fee.</strong> If you decide to return to a DFHA service plan in the future, a new setup fee may apply.</p>
+  <p><strong>This is not immediate.</strong> Submitting this form sends a request to our team for review. A team member will contact you to confirm next steps before anything is changed.</p>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card">
+    <div class="form-group" style="display:flex;gap:0.75rem;align-items:flex-start;">
+      {{ form.confirm }}
+      <label for="id_confirm" style="font-weight:normal;">{{ form.confirm.label }}</label>
+    </div>
+    {% if form.confirm.errors %}<ul class="errorlist">{% for e in form.confirm.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+
+  <button type="submit" class="btn btn-danger">Submit account closure request</button>
+  &nbsp;
+  <a href="{% url 'client_hub:dashboard' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

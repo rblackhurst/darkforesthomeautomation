@@ -1,0 +1,54 @@
+{% extends "client_hub/base.html" %}
+{% block title %}{{ system.name }} — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'client_hub:property_detail' system.property.pk %}">&larr; {{ system.property.name }}</a></p>
+
+<h1>{{ system.name }}</h1>
+<p class="meta">{{ system.get_system_type_display }}{% if system.manufacturer %} &mdash; {{ system.manufacturer }}{% endif %}</p>
+
+{% if credentials %}
+<div class="card">
+  <h2>Platform Credentials</h2>
+  {% for cred in credentials %}
+  <div style="padding:0.6rem 0;border-bottom:1px solid #eee;">
+    <strong>{{ cred.label }}</strong>
+    {% if cred.username %}<span class="meta"> &mdash; {{ cred.username }}</span>{% endif %}
+    {% if cred.portal_url %}<br><a href="{{ cred.portal_url }}" target="_blank" rel="noopener noreferrer">{{ cred.portal_url }}</a>{% endif %}
+    <br>
+    <a href="{% url 'client_hub:system_credential_detail' cred.pk %}">View credentials &rarr;</a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if devices %}
+<div class="card">
+  <h2>Devices</h2>
+  {% for device in devices %}
+  <div style="padding:0.75rem 0;border-bottom:1px solid #eee;">
+    <h3>{{ device.name }}</h3>
+    <p class="meta">
+      {% if device.device_type %}{{ device.device_type }}{% endif %}
+      {% if device.location %} &mdash; {{ device.location }}{% endif %}
+      {% if device.ip_address %} &mdash; {{ device.ip_address }}{% endif %}
+    </p>
+    {% for dcred in device.credentials.all %}
+      {% if dcred.is_visible %}
+      <div style="margin-top:0.4rem;">
+        <span class="meta">{{ dcred.label }}</span>
+        &nbsp;<a href="{% url 'client_hub:device_credential_detail' dcred.pk %}">View credentials &rarr;</a>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not credentials and not devices %}
+<div class="card">
+  <p>No credentials or devices on record for this system.</p>
+</div>
+{% endif %}
+{% endblock %}

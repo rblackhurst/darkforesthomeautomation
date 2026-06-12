@@ -1,0 +1,61 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Submit a Work Request — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'client_hub:dashboard' %}">&larr; My Properties</a></p>
+<h1>Submit a Work Request</h1>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card">
+
+    {% if form.property %}
+    <div class="form-group">
+      <label for="id_property">Property</label>
+      {{ form.property }}
+      {% if form.property.errors %}<ul class="errorlist">{% for e in form.property.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="form-group">
+      <label>{{ form.request_types.label }}</label>
+      {{ form.request_types }}
+      {% if form.request_types.errors %}<ul class="errorlist">{% for e in form.request_types.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="id_description">{{ form.description.label }}</label>
+      {{ form.description }}
+      {% if form.description.errors %}<ul class="errorlist">{% for e in form.description.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Contact Information</h2>
+    <p class="meta" style="margin-bottom:1rem;">We've pre-filled this from your account. Update it if you'd like us to reach you differently.</p>
+
+    <div class="form-group">
+      <label for="id_contact_name">Name</label>
+      {{ form.contact_name }}
+      {% if form.contact_name.errors %}<ul class="errorlist">{% for e in form.contact_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label for="id_contact_email">Email</label>
+      {{ form.contact_email }}
+      {% if form.contact_email.errors %}<ul class="errorlist">{% for e in form.contact_email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label for="id_contact_phone">Phone</label>
+      {{ form.contact_phone }}
+      {% if form.contact_phone.errors %}<ul class="errorlist">{% for e in form.contact_phone.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label>Preferred contact method</label>
+      {{ form.preferred_contact }}
+      {% if form.preferred_contact.errors %}<ul class="errorlist">{% for e in form.preferred_contact.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Submit request</button>
+</form>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "client_hub/base.html" %}
+{% block title %}My Profile — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<h1>My Profile</h1>
+
+{% if message %}
+<div class="alert alert-success">{{ message }}</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+
+  <div class="card">
+    <h2>Contact Information</h2>
+    <p class="meta" style="margin-bottom:1rem;">These fields update immediately when you save.</p>
+
+    <div class="form-group">
+      <label for="id_first_name">First name</label>
+      {{ form.first_name }}
+      {% if form.first_name.errors %}<ul class="errorlist">{% for e in form.first_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label for="id_last_name">Last name</label>
+      {{ form.last_name }}
+      {% if form.last_name.errors %}<ul class="errorlist">{% for e in form.last_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="form-group">
+      <label for="id_phone">Phone</label>
+      {{ form.phone }}
+      {% if form.phone.errors %}<ul class="errorlist">{% for e in form.phone.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Change Email Address</h2>
+    <p class="meta" style="margin-bottom:1rem;">
+      Your current email is <strong>{{ request.customer.email }}</strong>.
+      Entering a new address will send a confirmation link to that address before anything changes.
+    </p>
+    <div class="form-group">
+      <label for="id_new_email">{{ form.new_email.label }}</label>
+      {{ form.new_email }}
+      {% if form.new_email.errors %}<ul class="errorlist">{% for e in form.new_email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save changes</button>
+</form>
+{% endblock %}

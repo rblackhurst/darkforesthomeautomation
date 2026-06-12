@@ -1,0 +1,45 @@
+{% extends "client_hub/base.html" %}
+{% block title %}My Properties — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<h1>Welcome back, {{ request.customer.first_name }}.</h1>
+
+<div style="margin-bottom:1.5rem;">
+  <a href="{% url 'client_hub:work_request_form' %}" class="btn btn-primary">+ Submit a Work Request</a>
+</div>
+
+{% if properties %}
+  {% for prop in properties %}
+  <div class="card">
+    <h2><a href="{% url 'client_hub:property_detail' prop.pk %}">{{ prop.name }}</a></h2>
+    {% if prop.address_line1 %}
+    <p class="meta">
+      {{ prop.address_line1 }}{% if prop.address_line2 %}, {{ prop.address_line2 }}{% endif %}<br>
+      {{ prop.city }}{% if prop.city and prop.state %}, {% endif %}{{ prop.state }} {{ prop.postal_code }}
+    </p>
+    {% endif %}
+    <hr class="divider">
+    <p>
+      <strong>Service plan:</strong>
+      {% if prop.service_plan_tier and prop.service_plan_tier != 'none' %}
+        {{ prop.get_service_plan_tier_display }}
+        {% if prop.billing_interval and prop.billing_interval != 'none' %}
+          ({{ prop.get_billing_interval_display }})
+        {% endif %}
+        {% if prop.subscription_status %}
+          &mdash; <span style="color:#555;">{{ prop.subscription_status }}</span>
+        {% endif %}
+      {% else %}
+        No active service plan
+      {% endif %}
+    </p>
+    <p><strong>Systems:</strong> {{ prop.installed_systems.count }} installed</p>
+    <a href="{% url 'client_hub:property_detail' prop.pk %}">View property &rarr;</a>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card">
+    <p>No properties found on your account. Contact us if you believe this is an error.</p>
+  </div>
+{% endif %}
+{% endblock %}

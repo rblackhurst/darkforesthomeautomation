@@ -1,0 +1,12 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Request Submitted — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align:center;padding:2rem;">
+  <div style="font-size:2rem;margin-bottom:1rem;">✓</div>
+  <h1>Request received</h1>
+  <p>We've received your account closure request. A team member will review it and contact you to confirm next steps.</p>
+  <p class="meta">Remember: your credential data belongs to you. Contact us any time to request a copy.</p>
+  <a href="{% url 'client_hub:dashboard' %}" class="btn btn-secondary">Back to my properties</a>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Request Submitted — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align:center;padding:2rem;">
+  <div style="font-size:2rem;margin-bottom:1rem;">✓</div>
+  <h1>Request submitted</h1>
+  <p>We've received your service plan change request. A team member will review it and be in touch soon.</p>
+  <a href="{% url 'client_hub:dashboard' %}" class="btn btn-primary">Back to my properties</a>
+</div>
+{% endblock %}

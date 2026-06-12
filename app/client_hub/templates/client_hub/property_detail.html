@@ -1,0 +1,53 @@
+{% extends "client_hub/base.html" %}
+{% block title %}{{ property.name }} — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'client_hub:dashboard' %}">&larr; My Properties</a></p>
+
+<h1>{{ property.name }}</h1>
+{% if property.address_line1 %}
+<p class="meta">
+  {{ property.address_line1 }}{% if property.address_line2 %}, {{ property.address_line2 }}{% endif %}<br>
+  {{ property.city }}{% if property.city and property.state %}, {% endif %}{{ property.state }} {{ property.postal_code }}
+</p>
+{% endif %}
+
+<div class="card">
+  <h2>Service Plan</h2>
+  {% if property.service_plan_tier and property.service_plan_tier != 'none' %}
+    <p><strong>Plan:</strong> {{ property.get_service_plan_tier_display }}</p>
+    {% if property.billing_interval and property.billing_interval != 'none' %}
+    <p><strong>Billing:</strong> {{ property.get_billing_interval_display }}</p>
+    {% endif %}
+    {% if property.subscription_status %}
+    <p><strong>Status:</strong> {{ property.subscription_status }}</p>
+    {% endif %}
+    {% if property.stripe_subscription_id %}
+    <p><a href="{% url 'client_hub:service_plan_change' property.pk %}">Request service plan change &rarr;</a></p>
+    {% endif %}
+  {% else %}
+    <p>No active service plan.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Installed Systems</h2>
+  {% if systems %}
+    {% for system in systems %}
+    <div style="padding:0.75rem 0;border-bottom:1px solid #eee;">
+      <h3><a href="{% url 'client_hub:system_detail' system.pk %}">{{ system.name }}</a></h3>
+      <p class="meta">{{ system.get_system_type_display }} &mdash; {{ system.devices.count }} device{{ system.devices.count|pluralize }}</p>
+      <a href="{% url 'client_hub:system_detail' system.pk %}">View system &rarr;</a>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p>No systems on record for this property.</p>
+  {% endif %}
+</div>
+
+<div style="margin-top:1rem;">
+  <a href="{% url 'client_hub:work_request_form' %}" class="btn btn-primary">Submit a Work Request</a>
+  &nbsp;
+  <a href="{% url 'client_hub:account_closure' %}" style="font-size:0.85rem;color:#888;">Account closure</a>
+</div>
+{% endblock %}

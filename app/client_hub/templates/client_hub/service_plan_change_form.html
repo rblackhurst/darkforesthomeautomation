@@ -1,0 +1,59 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Service Plan Change — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'client_hub:property_detail' property.pk %}">&larr; {{ property.name }}</a></p>
+<h1>Request Service Plan Change</h1>
+
+<div class="card">
+  <h2>Current Plan</h2>
+  <p>
+    <strong>{{ property.get_service_plan_tier_display }}</strong>
+    {% if property.billing_interval and property.billing_interval != 'none' %}
+      &mdash; {{ property.get_billing_interval_display }}
+    {% endif %}
+  </p>
+</div>
+
+<div class="alert alert-warning">
+  <strong>Cancelling your service plan</strong> means DFHA will no longer provide remote monitoring or support for your system. Your credentials and system data remain yours and will stay in your account.
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card">
+
+    <div class="form-group">
+      <label for="id_request_type">{{ form.request_type.label }}</label>
+      {{ form.request_type }}
+      {% if form.request_type.errors %}<ul class="errorlist">{% for e in form.request_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+
+    <div class="form-group" id="tier-group">
+      <label for="id_requested_tier">{{ form.requested_tier.label }}</label>
+      {{ form.requested_tier }}
+      {% if form.requested_tier.errors %}<ul class="errorlist">{% for e in form.requested_tier.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="id_reason">{{ form.reason.label }}</label>
+      {{ form.reason }}
+      {% if form.reason.errors %}<ul class="errorlist">{% for e in form.reason.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Submit request</button>
+</form>
+
+<script>
+  (function() {
+    var typeSelect = document.getElementById('id_request_type');
+    var tierGroup = document.getElementById('tier-group');
+    function toggle() {
+      tierGroup.style.display = typeSelect.value === 'cancel' ? 'none' : '';
+    }
+    typeSelect.addEventListener('change', toggle);
+    toggle();
+  })();
+</script>
+{% endblock %}

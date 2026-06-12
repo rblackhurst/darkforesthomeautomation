@@ -1,0 +1,20 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Email Address Updated — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<div style="max-width:420px;margin:3rem auto;">
+  <div class="card" style="text-align:center;padding:2rem;">
+    {% if success %}
+      <div style="font-size:2rem;margin-bottom:1rem;">✓</div>
+      <h1>Email updated</h1>
+      <p>Your email address has been changed. Please log in with your new address.</p>
+      <a href="{% url 'client_hub:login' %}" class="btn btn-primary">Sign in</a>
+    {% elif error %}
+      <div style="font-size:2rem;margin-bottom:1rem;">⚠️</div>
+      <h1>Link invalid</h1>
+      <p>This confirmation link has expired or is invalid. Please request a new email change from your profile.</p>
+      <a href="{% url 'client_hub:login' %}" class="btn btn-secondary">Sign in</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

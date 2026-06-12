@@ -42,10 +42,12 @@ INSTALLED_APPS = [
     "jobs",
     "stripe_integration",
     "client_credentials",
+    "client_hub",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "client_hub.middleware.SubdomainRoutingMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -183,6 +185,21 @@ DFHA_REPLY_TO_EMAIL = os.environ.get(
     "DFHA_REPLY_TO_EMAIL",
     "hello@darkforesthomeautomation.com",
 )
+
+# ── Client Hub ────────────────────────────────────────────────────────────────
+MAGIC_LINK_EXPIRY_SECONDS = 1200  # 20 minutes
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+
+STAFF_NOTIFICATION_EMAIL = os.environ.get(
+    "STAFF_NOTIFICATION_EMAIL",
+    "ron@dfha.net",
+)
+
+# ID of the Django superuser named "system" used to log credential access when
+# the customer has no linked Django User. Create with:
+#   python manage.py createsuperuser --username system
+# Then set SYSTEM_USER_ID=<id> in the environment.
+SYSTEM_USER_ID = os.environ.get("SYSTEM_USER_ID")
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

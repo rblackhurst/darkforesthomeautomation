@@ -19,9 +19,12 @@
 - Weeks 7–8 (in progress) — PairingSheet ✅ landed (per-room rows, formula HA/Z2M
   names, paired ✓ with audit, lock/unlock). Still to do: AutomationConfig,
   OnsiteInstall, walkthrough sign-off.
-- Up next — finish Weeks 7–8: AutomationConfig form, OnsiteInstall form,
-  walkthrough sign-off (locks protected sections, starts audit trail,
-  triggers post-install email).
+- Phase 5 (in progress) — `client_hub` app created. Magic link auth, all views,
+  forms, templates, admin registrations, and 26 new tests (223 total passing).
+  Infrastructure steps still needed before go-live (see below).
+- Up next — finish Weeks 7–8 (AutomationConfig, OnsiteInstall, walkthrough sign-off)
+  AND complete Phase 5 infrastructure: DNS A record, certbot SSL, nginx server block,
+  DJANGO_ALLOWED_HOSTS env var update, STAFF_NOTIFICATION_EMAIL env var, system user.
 
 **Keep this section current** — update "Where we are" with any milestone-
 shifting commit so the next session inherits accurate state. PLANNING.md

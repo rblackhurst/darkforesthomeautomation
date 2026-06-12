@@ -53,14 +53,22 @@ class DeviceInline(admin.StackedInline):
 
 @admin.register(InstalledSystem)
 class InstalledSystemAdmin(admin.ModelAdmin):
-    list_display = ['customer', 'system_type', 'name', 'is_visible', 'device_count_col', 'credential_count_col']
+    list_display = ['property_col', 'customer_col', 'system_type', 'name', 'is_visible', 'device_count_col', 'credential_count_col']
     list_filter = ['system_type', 'is_visible']
-    search_fields = ['name', 'customer__last_name', 'customer__first_name']
-    list_select_related = True
+    search_fields = ['name', 'property__customer__last_name', 'property__customer__first_name', 'property__name']
+    list_select_related = ['property__customer']
     inlines = [SystemCredentialInline, DeviceInline]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(is_visible=True)
+        return super().get_queryset(request).filter(is_visible=True).select_related('property__customer')
+
+    @admin.display(description='Property', ordering='property__name')
+    def property_col(self, obj):
+        return obj.property.name
+
+    @admin.display(description='Customer', ordering='property__customer__last_name')
+    def customer_col(self, obj):
+        return str(obj.property.customer)
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -94,7 +102,7 @@ class DeviceCredentialInline(admin.StackedInline):
 class DeviceAdmin(admin.ModelAdmin):
     list_display = ['name', 'system', 'device_type', 'location', 'ip_address', 'is_visible']
     list_filter = ['is_visible', 'device_type']
-    search_fields = ['name', 'system__customer__last_name', 'serial_number', 'mac_address']
+    search_fields = ['name', 'system__property__customer__last_name', 'serial_number', 'mac_address']
     list_select_related = True
     inlines = [DeviceCredentialInline]
 

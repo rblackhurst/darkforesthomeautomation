@@ -17,7 +17,7 @@ from client_credentials.models import (
     InstalledSystem,
     SystemCredential,
 )
-from jobs.models import Customer
+from jobs.models import Customer, Property
 
 User = get_user_model()
 
@@ -27,8 +27,9 @@ def make_customer():
 
 
 def make_system(customer):
+    prop = customer.properties.first() or Property.objects.create(customer=customer)
     return InstalledSystem.objects.create(
-        customer=customer,
+        property=prop,
         system_type=InstalledSystem.SystemType.NETWORKING,
         name='Main Network',
     )

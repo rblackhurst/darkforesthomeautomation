@@ -12,22 +12,37 @@ def _fmt_order(value):
     return str(value.normalize())
 
 
+class ServiceTier(models.TextChoices):
+    NONE = 'none', 'No Service Plan'
+    BASIC = 'tier1', 'Basic'
+    STANDARD = 'tier2', 'Standard'
+    PREMIUM = 'tier3', 'Premium'
+
+
+class BillingInterval(models.TextChoices):
+    NONE = 'none', 'N/A'
+    MONTHLY = 'monthly', 'Monthly'
+    ANNUAL = 'annual', 'Annual'
+
+
 class Customer(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    email = models.EmailField()
+    email = models.EmailField(unique=True)
     phone = models.CharField(max_length=40, blank=True)
-    address_line1 = models.CharField(max_length=200, blank=True)
-    address_line2 = models.CharField(max_length=200, blank=True)
-    city = models.CharField(max_length=100, blank=True)
-    state = models.CharField(max_length=40, blank=True)
-    postal_code = models.CharField(max_length=20, blank=True)
     stripe_customer_id = models.CharField(
         max_length=255,
         unique=True,
         null=True,
         blank=True,
         help_text="Stripe Customer ID (cus_...). Set on first Stripe interaction. Never set manually.",
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='customer_profile',
     )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -42,6 +57,10 @@ class Customer(models.Model):
 
 
 class Job(models.Model):
+    # Save Python's built-in before the `property` FK field shadows it inside
+    # this class body, so @_property still works as a descriptor decorator.
+    _property = property
+
     class Status(models.TextChoices):
         SOLD = "sold", "Sold"
         DEPOSIT_RECEIVED = "deposit_received", "Deposit Received"
@@ -55,19 +74,18 @@ class Job(models.Model):
         COMPLETE = "complete", "Complete"
         CANCELLED = "cancelled", "Cancelled"
 
-    class ServiceTier(models.TextChoices):
-        NONE = 'none', 'No Service Plan'
-        BASIC = 'tier1', 'Basic'
-        STANDARD = 'tier2', 'Standard'
-        PREMIUM = 'tier3', 'Premium'
-
-    class BillingInterval(models.TextChoices):
-        NONE = 'none', 'N/A'
-        MONTHLY = 'monthly', 'Monthly'
-        ANNUAL = 'annual', 'Annual'
+    ServiceTier = ServiceTier
+    BillingInterval = BillingInterval
 
     invoice_number = models.CharField(max_length=40, primary_key=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="jobs")
+    property = models.ForeignKey(
+        'Property',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='jobs',
+    )
     package = models.ForeignKey(
         "Package",
         on_delete=models.SET_NULL,
@@ -75,14 +93,6 @@ class Job(models.Model):
         blank=True,
         related_name="jobs",
         help_text="Install package selected at sale time.",
-    )
-    service_plan_tier = models.CharField(
-        max_length=10,
-        choices=ServiceTier.choices,
-        default=ServiceTier.NONE,
-        blank=True,
-        help_text="Uptime service plan the customer signed up for "
-                  "(uptime checks, updates, battery kits, on-site visits).",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SOLD)
     sold_on = models.DateField(null=True, blank=True)
@@ -137,18 +147,6 @@ class Job(models.Model):
     stripe_final_invoice_url = models.URLField(null=True, blank=True)
     final_paid = models.BooleanField(default=False)
 
-    # ── Stripe: Subscription ───────────────────────────────────────────────────
-    stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
-    subscription_status = models.CharField(max_length=50, null=True, blank=True)
-    billing_interval = models.CharField(
-        max_length=10,
-        choices=BillingInterval.choices,
-        default=BillingInterval.NONE,
-        blank=True,
-    )
-    # Set before sending final invoice; webhook clears it after creating the subscription.
-    pending_subscription_price_id = models.CharField(max_length=255, blank=True, default='')
-
     # ── Stripe: Payment Health ─────────────────────────────────────────────────
     payment_failed = models.BooleanField(default=False)
     payment_failed_at = models.DateTimeField(null=True, blank=True)
@@ -167,17 +165,56 @@ class Job(models.Model):
         ref = self.display_invoice_number or self.invoice_number
         return f"Job {ref} — {self.customer}"
 
-    @property
+    @_property
     def invoice_label(self):
         """Human-readable invoice reference for UI and emails."""
         return self.display_invoice_number or "Pending"
 
-    @property
+    @_property
     def is_locked(self):
         return (
             hasattr(self, "walkthrough_signoff")
             and self.walkthrough_signoff.signed_at is not None
         )
+
+
+class Property(models.Model):
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.PROTECT,
+        related_name='properties',
+    )
+    name = models.CharField(max_length=200, default='Primary Residence')
+    address_line1 = models.CharField(max_length=200, blank=True)
+    address_line2 = models.CharField(max_length=200, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=40, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
+    stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
+    subscription_status = models.CharField(max_length=50, null=True, blank=True)
+    service_plan_tier = models.CharField(
+        max_length=10,
+        choices=ServiceTier.choices,
+        default=ServiceTier.NONE,
+        blank=True,
+    )
+    billing_interval = models.CharField(
+        max_length=10,
+        choices=BillingInterval.choices,
+        default=BillingInterval.NONE,
+        blank=True,
+    )
+    pending_subscription_price_id = models.CharField(max_length=255, blank=True, default='')
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['customer', 'name']
+        verbose_name_plural = 'properties'
+
+    def __str__(self):
+        return f"{self.customer} — {self.name}"
 
 
 class InstallRecord(models.Model):
@@ -800,3 +837,18 @@ class PairingSheetDevice(models.Model):
 
     def __str__(self):
         return f"{self.pairing_sheet.job_id}: {self.ha_name or '(unnamed)'}"
+
+
+# ── Signals ───────────────────────────────────────────────────────────────────
+
+from django.db.models.signals import post_save  # noqa: E402
+from django.dispatch import receiver  # noqa: E402
+
+
+@receiver(post_save, sender=Customer)
+def create_primary_property(sender, instance, created, **kwargs):
+    if created:
+        Property.objects.get_or_create(
+            customer=instance,
+            defaults={'name': 'Primary Residence'},
+        )

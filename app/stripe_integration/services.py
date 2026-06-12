@@ -325,6 +325,8 @@ def _first_of_next_month_timestamp() -> int:
 
 def create_subscription(job, price_id: str) -> stripe.Subscription:
     """Start a service plan subscription after the final invoice is paid."""
+    if job.property is None:
+        raise ValueError("Job has no associated property")
     if not job.final_paid:
         raise ValueError("Cannot start subscription before final invoice is paid")
     if price_id not in PRICE_TO_TIER:
@@ -337,19 +339,21 @@ def create_subscription(job, price_id: str) -> stripe.Subscription:
         proration_behavior='none',
         metadata={'dfha_job_id': str(job.pk)},
     )
-    job.stripe_subscription_id = subscription.id
-    job.service_plan_tier = PRICE_TO_TIER[price_id]
-    job.subscription_status = subscription.status
-    job.save()
+    job.property.stripe_subscription_id = subscription.id
+    job.property.service_plan_tier = PRICE_TO_TIER[price_id]
+    job.property.subscription_status = subscription.status
+    job.property.save()
     return subscription
 
 
 def change_subscription_plan(job, new_price_id: str) -> stripe.Subscription:
     """Admin-initiated plan change. Upgrades apply immediately; downgrades at period end."""
+    if job.property is None:
+        raise ValueError("Job has no associated property")
     if new_price_id not in PRICE_TO_TIER:
         raise ValueError(f"Invalid price_id: {new_price_id}")
 
-    subscription = stripe.Subscription.retrieve(job.stripe_subscription_id)
+    subscription = stripe.Subscription.retrieve(job.property.stripe_subscription_id)
     item_id = subscription.items.data[0].id
     current_price_id = subscription.items.data[0].price.id
 
@@ -359,44 +363,48 @@ def change_subscription_plan(job, new_price_id: str) -> stripe.Subscription:
 
     if is_upgrade:
         updated = stripe.Subscription.modify(
-            job.stripe_subscription_id,
+            job.property.stripe_subscription_id,
             items=[{'id': item_id, 'price': new_price_id}],
             proration_behavior='create_prorations',
         )
     else:
         # Downgrade or same-tier interval change: takes effect at next billing cycle.
         updated = stripe.Subscription.modify(
-            job.stripe_subscription_id,
+            job.property.stripe_subscription_id,
             items=[{'id': item_id, 'price': new_price_id}],
             proration_behavior='none',
             billing_cycle_anchor='unchanged',
         )
 
-    job.service_plan_tier = new_tier
-    job.subscription_status = updated.status
-    job.save()
+    job.property.service_plan_tier = new_tier
+    job.property.subscription_status = updated.status
+    job.property.save()
     return updated
 
 
 def cancel_subscription(job, immediate: bool = False) -> stripe.Subscription:
     """Cancel a customer's service plan."""
+    if job.property is None:
+        raise ValueError("Job has no associated property")
     if immediate:
-        subscription = stripe.Subscription.cancel(job.stripe_subscription_id)
+        subscription = stripe.Subscription.cancel(job.property.stripe_subscription_id)
     else:
         subscription = stripe.Subscription.modify(
-            job.stripe_subscription_id,
+            job.property.stripe_subscription_id,
             cancel_at_period_end=True,
         )
-    job.subscription_status = subscription.status
-    job.save()
+    job.property.subscription_status = subscription.status
+    job.property.save()
     return subscription
 
 
 def get_subscription_status(job) -> dict:
     """Return current subscription state from Stripe (source of truth, not the DB)."""
-    if not job.stripe_subscription_id:
-        raise ValueError("No subscription on this job")
-    subscription = stripe.Subscription.retrieve(job.stripe_subscription_id)
+    if job.property is None:
+        raise ValueError("Job has no associated property")
+    if not job.property.stripe_subscription_id:
+        raise ValueError("No subscription on this job's property")
+    subscription = stripe.Subscription.retrieve(job.property.stripe_subscription_id)
     return {
         'status': subscription.status,
         'service_plan_tier': PRICE_TO_TIER.get(subscription.items.data[0].price.id),

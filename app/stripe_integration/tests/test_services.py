@@ -2,7 +2,7 @@ import math
 from unittest.mock import MagicMock, patch, call
 from django.test import TestCase
 
-from jobs.models import Customer, Job
+from jobs.models import Customer, Job, Property
 from stripe_integration.models import RefundRecord
 
 
@@ -263,6 +263,9 @@ class CreateSubscriptionTests(TestCase):
     def setUp(self):
         self.customer = make_customer(stripe_customer_id='cus_test')
         self.job = make_job(self.customer, final_paid=True)
+        self.prop = self.customer.properties.first() or Property.objects.create(customer=self.customer)
+        self.job.property = self.prop
+        self.job.save(update_fields=['property'])
 
     @patch('stripe_integration.services.PRICE_TO_TIER', {VALID_PRICE: 'tier1'})
     @patch('stripe_integration.services.stripe.Subscription.create')
@@ -293,8 +296,8 @@ class CreateSubscriptionTests(TestCase):
         from stripe_integration.services import create_subscription
         with patch('stripe_integration.services.PRICE_TO_TIER', {self.VALID_PRICE: 'tier1'}):
             create_subscription(self.job, self.VALID_PRICE)
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.stripe_subscription_id, 'sub_abc')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.stripe_subscription_id, 'sub_abc')
 
     @patch('stripe_integration.services.stripe.Subscription.create')
     def test_billing_cycle_anchor_is_first_of_next_month(self, mock_create):
@@ -314,7 +317,12 @@ class CreateSubscriptionTests(TestCase):
 class ChangeSubscriptionPlanTests(TestCase):
     def setUp(self):
         self.customer = make_customer(stripe_customer_id='cus_test')
-        self.job = make_job(self.customer, stripe_subscription_id='sub_abc')
+        self.job = make_job(self.customer)
+        self.prop = self.customer.properties.first() or Property.objects.create(customer=self.customer)
+        self.prop.stripe_subscription_id = 'sub_abc'
+        self.prop.save(update_fields=['stripe_subscription_id'])
+        self.job.property = self.prop
+        self.job.save(update_fields=['property'])
 
     def _mock_sub(self, current_price):
         sub = MagicMock()
@@ -385,15 +393,20 @@ class ChangeSubscriptionPlanTests(TestCase):
         with patch('stripe_integration.services.PRICE_TO_TIER', {'price_t1': 'tier1', 'price_t2': 'tier2'}):
             change_subscription_plan(self.job, 'price_t2')
 
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.service_plan_tier, 'tier2')
-        self.assertEqual(self.job.subscription_status, 'active')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.service_plan_tier, 'tier2')
+        self.assertEqual(self.prop.subscription_status, 'active')
 
 
 class CancelSubscriptionTests(TestCase):
     def setUp(self):
         self.customer = make_customer(stripe_customer_id='cus_test')
-        self.job = make_job(self.customer, stripe_subscription_id='sub_abc')
+        self.job = make_job(self.customer)
+        self.prop = self.customer.properties.first() or Property.objects.create(customer=self.customer)
+        self.prop.stripe_subscription_id = 'sub_abc'
+        self.prop.save(update_fields=['stripe_subscription_id'])
+        self.job.property = self.prop
+        self.job.save(update_fields=['property'])
 
     @patch('stripe_integration.services.stripe.Subscription.modify')
     def test_at_period_end_by_default(self, mock_modify):
@@ -414,16 +427,16 @@ class CancelSubscriptionTests(TestCase):
         mock_modify.return_value = MagicMock(status='active')
         from stripe_integration.services import cancel_subscription
         cancel_subscription(self.job)
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.subscription_status, 'active')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.subscription_status, 'active')
 
     @patch('stripe_integration.services.stripe.Subscription.cancel')
     def test_updates_subscription_status_immediate(self, mock_cancel):
         mock_cancel.return_value = MagicMock(status='canceled')
         from stripe_integration.services import cancel_subscription
         cancel_subscription(self.job, immediate=True)
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.subscription_status, 'canceled')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.subscription_status, 'canceled')
 
 
 class IssueRefundTests(TestCase):
@@ -912,50 +925,44 @@ class ServicePlanTierFieldTests(TestCase):
     def setUp(self):
         self.customer = make_customer()
 
-    def _make_job_with_tier(self, tier):
-        return Job.objects.create(
-            customer=self.customer,
-            invoice_number=f'TEST-{tier}',
-            service_plan_tier=tier,
-        )
+    def _make_prop_with_tier(self, tier):
+        prop = self.customer.properties.first()
+        if prop is None:
+            prop = Property.objects.create(customer=self.customer)
+        prop.service_plan_tier = tier
+        prop.save(update_fields=['service_plan_tier'])
+        return prop
 
     def test_accepts_none_value(self):
-        job = self._make_job_with_tier('none')
-        job.refresh_from_db()
-        self.assertEqual(job.service_plan_tier, 'none')
+        prop = self._make_prop_with_tier('none')
+        prop.refresh_from_db()
+        self.assertEqual(prop.service_plan_tier, 'none')
 
     def test_accepts_tier1(self):
-        job = self._make_job_with_tier('tier1')
-        job.refresh_from_db()
-        self.assertEqual(job.service_plan_tier, 'tier1')
+        prop = self._make_prop_with_tier('tier1')
+        prop.refresh_from_db()
+        self.assertEqual(prop.service_plan_tier, 'tier1')
 
     def test_accepts_tier2(self):
-        job = self._make_job_with_tier('tier2')
-        job.refresh_from_db()
-        self.assertEqual(job.service_plan_tier, 'tier2')
+        prop = self._make_prop_with_tier('tier2')
+        prop.refresh_from_db()
+        self.assertEqual(prop.service_plan_tier, 'tier2')
 
     def test_accepts_tier3(self):
-        job = self._make_job_with_tier('tier3')
-        job.refresh_from_db()
-        self.assertEqual(job.service_plan_tier, 'tier3')
+        prop = self._make_prop_with_tier('tier3')
+        prop.refresh_from_db()
+        self.assertEqual(prop.service_plan_tier, 'tier3')
 
     def test_default_is_none_string(self):
-        job = Job.objects.create(
-            customer=self.customer,
-            invoice_number='TEST-default',
-        )
-        job.refresh_from_db()
-        self.assertEqual(job.service_plan_tier, 'none')
+        prop = self.customer.properties.first() or Property.objects.create(customer=self.customer)
+        prop.refresh_from_db()
+        self.assertEqual(prop.service_plan_tier, 'none')
 
     def test_rejects_integer_values(self):
         from django.core.exceptions import ValidationError
-        job = Job(
-            customer=self.customer,
-            invoice_number='TEST-int',
-            service_plan_tier=1,
-        )
+        prop = Property(customer=self.customer, service_plan_tier=1)
         with self.assertRaises(ValidationError):
-            job.full_clean()
+            prop.full_clean()
 
-    def test_plan_tier_field_removed(self):
-        self.assertFalse(hasattr(Job(), 'plan_tier'))
+    def test_service_plan_tier_not_on_job(self):
+        self.assertFalse(hasattr(Job(), 'service_plan_tier'))

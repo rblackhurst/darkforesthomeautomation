@@ -31,9 +31,11 @@ from .models import (
     PreInstallCapture,
     PreInstallChecklist,
     PreInstallItemState,
+    Property,
     Room,
     RoomDevice,
     SaleLine,
+    ServiceTier,
 )
 
 
@@ -799,17 +801,22 @@ def sales_form(request):
                 phone=d.get("phone", ""),
             )
             invoice_number = _draft_invoice_number()
+            # Signal auto-creates a "Primary Residence" Property on Customer save.
+            prop = customer.properties.first()
             job = Job.objects.create(
                 invoice_number=invoice_number,
                 customer=customer,
+                property=prop,
                 status=Job.Status.SOLD,
                 sold_on=d["sold_on"],
                 install_date=d.get("install_date"),
                 notes=d.get("notes", ""),
                 custom_integrations=d.get("custom_integrations", ""),
                 custom_automations=d.get("custom_automations", ""),
-                service_plan_tier=d.get("service_plan_tier") or Job.ServiceTier.NONE,
             )
+            if prop:
+                prop.service_plan_tier = d.get("service_plan_tier") or ServiceTier.NONE
+                prop.save(update_fields=["service_plan_tier"])
             _create_sale_lines(job, d.get("package_id"), d.get("devices_json") or [])
             return redirect(
                 "jobs:pre_install_checklist_render",
@@ -852,11 +859,13 @@ def sales_form_edit(request, invoice_number):
             job.notes = d.get("notes", "")
             job.custom_integrations = d.get("custom_integrations", "")
             job.custom_automations = d.get("custom_automations", "")
-            job.service_plan_tier = d.get("service_plan_tier") or Job.ServiceTier.NONE
             job.save(update_fields=[
                 "sold_on", "install_date", "notes",
-                "custom_integrations", "custom_automations", "service_plan_tier",
+                "custom_integrations", "custom_automations",
             ])
+            if job.property:
+                job.property.service_plan_tier = d.get("service_plan_tier") or ServiceTier.NONE
+                job.property.save(update_fields=["service_plan_tier"])
             old_package_id = job.package_id
             _update_sale(job, d.get("package_id"), d.get("devices_json") or [])
             # If the package changed, refresh the package_summary capture so
@@ -888,7 +897,7 @@ def sales_form_edit(request, invoice_number):
             "notes": job.notes,
             "custom_integrations": job.custom_integrations,
             "custom_automations": job.custom_automations,
-            "service_plan_tier": job.service_plan_tier,
+            "service_plan_tier": job.property.service_plan_tier if job.property else "",
             "package_id": job.package_id or "",
         })
 
@@ -1178,7 +1187,14 @@ def pre_install_save_job_text(request, invoice_number):
     data = _load_json(request)
     field = data.get("field")
 
-    TEXT_FIELDS = {"custom_integrations", "custom_automations", "service_plan_tier"}
+    if field == "service_plan_tier":
+        if job.property is None:
+            return JsonResponse({"error": "Job has no associated property"}, status=400)
+        job.property.service_plan_tier = str(data.get("value", ""))
+        job.property.save(update_fields=["service_plan_tier"])
+        return JsonResponse({"ok": True})
+
+    TEXT_FIELDS = {"custom_integrations", "custom_automations"}
 
     if field in TEXT_FIELDS:
         value = str(data.get("value", ""))
@@ -1336,8 +1352,10 @@ def final_invoice_send(request, invoice_number):
         price_id = os.environ.get(env_key)
         if not price_id:
             return JsonResponse({"ok": False, "error": f"Stripe price not configured for {service_plan}"}, status=400)
-        job.pending_subscription_price_id = price_id
-        job.save(update_fields=['pending_subscription_price_id'])
+        if job.property is None:
+            return JsonResponse({"ok": False, "error": "Job has no associated property"}, status=400)
+        job.property.pending_subscription_price_id = price_id
+        job.property.save(update_fields=['pending_subscription_price_id'])
 
     try:
         from stripe_integration.services import create_and_send_final_invoice

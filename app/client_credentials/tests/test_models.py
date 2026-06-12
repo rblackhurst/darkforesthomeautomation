@@ -12,7 +12,7 @@ from client_credentials.models import (
     InstalledSystem,
     SystemCredential,
 )
-from jobs.models import Customer, Job
+from jobs.models import Customer, Job, Property
 
 User = get_user_model()
 
@@ -34,7 +34,8 @@ def make_job(customer, **kwargs):
 def make_system(customer, **kwargs):
     defaults = dict(system_type=InstalledSystem.SystemType.NETWORKING, name='Main Network')
     defaults.update(kwargs)
-    return InstalledSystem.objects.create(customer=customer, **defaults)
+    prop = customer.properties.first()
+    return InstalledSystem.objects.create(property=prop, **defaults)
 
 
 def make_device(system, **kwargs):
@@ -55,7 +56,7 @@ class InstalledSystemCreationTests(TestCase):
     def test_creates_with_required_fields(self):
         customer = make_customer()
         system = make_system(customer)
-        self.assertEqual(system.customer, customer)
+        self.assertEqual(system.property.customer, customer)
         self.assertEqual(system.system_type, InstalledSystem.SystemType.NETWORKING)
         self.assertEqual(system.name, 'Main Network')
         self.assertTrue(system.is_visible)

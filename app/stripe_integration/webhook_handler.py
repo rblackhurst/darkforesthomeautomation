@@ -2,7 +2,7 @@ import logging
 
 from django.utils import timezone
 
-from jobs.models import Job
+from jobs.models import Job, Property
 from stripe_integration.models import InternalAlert
 from stripe_integration.services import PRICE_TO_TIER, create_subscription
 
@@ -81,10 +81,12 @@ def _handle_invoice_paid(event):
         job.status = Job.Status.FINAL_PAID
         job.save()
 
-        pending_price_id = job.pending_subscription_price_id
+        pending_price_id = (
+            job.property.pending_subscription_price_id if job.property else ''
+        )
         if pending_price_id:
-            job.pending_subscription_price_id = ''
-            job.save(update_fields=['pending_subscription_price_id'])
+            job.property.pending_subscription_price_id = ''
+            job.property.save(update_fields=['pending_subscription_price_id'])
             try:
                 create_subscription(job, pending_price_id)
             except Exception:
@@ -133,18 +135,18 @@ def _handle_subscription_updated(event):
 
     sub_id = subscription.get('id')
     try:
-        job = Job.objects.get(stripe_subscription_id=sub_id)
-    except Job.DoesNotExist:
+        prop = Property.objects.get(stripe_subscription_id=sub_id)
+    except Property.DoesNotExist:
         logger.warning("customer.subscription.updated: subscription %s not found", sub_id)
         return
 
-    job.subscription_status = subscription.get('status')
+    prop.subscription_status = subscription.get('status')
     price = subscription['items']['data'][0]['price']
     new_price_id = price['id']
-    job.service_plan_tier = PRICE_TO_TIER.get(new_price_id, job.service_plan_tier)
+    prop.service_plan_tier = PRICE_TO_TIER.get(new_price_id, prop.service_plan_tier)
     raw_interval = (price.get('recurring') or {}).get('interval', '')
-    job.billing_interval = _INTERVAL_MAP.get(raw_interval, 'none')
-    job.save(update_fields=['subscription_status', 'service_plan_tier', 'billing_interval'])
+    prop.billing_interval = _INTERVAL_MAP.get(raw_interval, 'none')
+    prop.save(update_fields=['subscription_status', 'service_plan_tier', 'billing_interval'])
 
 
 def _handle_subscription_deleted(event):
@@ -152,13 +154,13 @@ def _handle_subscription_deleted(event):
 
     sub_id = subscription.get('id')
     try:
-        job = Job.objects.get(stripe_subscription_id=sub_id)
-    except Job.DoesNotExist:
+        prop = Property.objects.get(stripe_subscription_id=sub_id)
+    except Property.DoesNotExist:
         logger.warning("customer.subscription.deleted: subscription %s not found", sub_id)
         return
 
-    job.subscription_status = 'cancelled'
-    job.save()
+    prop.subscription_status = 'cancelled'
+    prop.save(update_fields=['subscription_status'])
 
 
 def _handle_charge_refunded(event):

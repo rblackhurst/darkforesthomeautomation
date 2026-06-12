@@ -7,7 +7,7 @@ from accounts.models import EmployeeTOTP
 from client_credentials.admin import CredentialDeletionRequestAdmin
 from client_credentials.models import CredentialDeletionRequest, InstalledSystem
 from jobs.admin import CustomerAdmin
-from jobs.models import Customer
+from jobs.models import Customer, Property
 
 User = get_user_model()
 
@@ -49,28 +49,23 @@ class CustomerAdminCredentialTests(TestCase):
         result = self.admin.pending_deletion_col(self.customer)
         self.assertEqual(result, '—')
 
-    def test_system_count_col_returns_correct_count(self):
-        InstalledSystem.objects.create(
-            customer=self.customer,
-            system_type=InstalledSystem.SystemType.NETWORKING,
-            name='Test System',
-        )
-        result = str(self.admin.system_count_col(self.customer))
+    def test_property_count_col_returns_correct_count(self):
+        result = str(self.admin.property_count_col(self.customer))
+        # Signal auto-creates "Primary Residence" on customer creation.
         self.assertIn('1', result)
 
-    def test_system_count_col_returns_no_systems_when_empty(self):
-        result = self.admin.system_count_col(self.customer)
-        self.assertEqual(result, 'No systems')
+    def test_property_count_col_shows_no_properties_when_zero(self):
+        # Delete the auto-created property so we get zero.
+        self.customer.properties.all().delete()
+        result = self.admin.property_count_col(self.customer)
+        self.assertEqual(result, 'No properties')
 
-    def test_system_count_col_excludes_hidden_systems(self):
-        InstalledSystem.objects.create(
-            customer=self.customer,
-            system_type=InstalledSystem.SystemType.NETWORKING,
-            name='Hidden System',
-            is_visible=False,
-        )
-        result = self.admin.system_count_col(self.customer)
-        self.assertEqual(result, 'No systems')
+    def test_property_count_col_shows_plural_for_multiple(self):
+        Property.objects.create(customer=self.customer, name='Vacation Home')
+        result = str(self.admin.property_count_col(self.customer))
+        # 2 properties: "Primary Residence" (signal) + "Vacation Home".
+        self.assertIn('2', result)
+        self.assertIn('propert', result)
 
 
 class CredentialDeletionRequestAdminTests(TestCase):

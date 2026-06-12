@@ -2,8 +2,8 @@ from django.contrib.admin.sites import AdminSite
 from django.test import TestCase, RequestFactory
 from django.contrib.auth import get_user_model
 
-from jobs.models import Customer, Job
-from jobs.admin import JobAdmin
+from jobs.models import Customer, Job, Property
+from jobs.admin import JobAdmin, PropertyAdmin
 
 User = get_user_model()
 
@@ -24,24 +24,36 @@ class BillingIntervalFieldTests(TestCase):
     def setUp(self):
         self.customer = make_customer()
 
+    def _get_or_create_prop(self):
+        return self.customer.properties.first() or Property.objects.create(customer=self.customer)
+
     def test_default_is_none(self):
-        job = make_job(self.customer)
-        self.assertEqual(job.billing_interval, "none")
+        prop = self._get_or_create_prop()
+        self.assertEqual(prop.billing_interval, "none")
 
     def test_accepts_monthly(self):
-        job = make_job(self.customer, billing_interval="monthly")
-        job.refresh_from_db()
-        self.assertEqual(job.billing_interval, "monthly")
+        prop = self._get_or_create_prop()
+        prop.billing_interval = "monthly"
+        prop.save(update_fields=["billing_interval"])
+        prop.refresh_from_db()
+        self.assertEqual(prop.billing_interval, "monthly")
 
     def test_accepts_annual(self):
-        job = make_job(self.customer, billing_interval="annual")
-        job.refresh_from_db()
-        self.assertEqual(job.billing_interval, "annual")
+        prop = self._get_or_create_prop()
+        prop.billing_interval = "annual"
+        prop.save(update_fields=["billing_interval"])
+        prop.refresh_from_db()
+        self.assertEqual(prop.billing_interval, "annual")
 
     def test_accepts_none(self):
-        job = make_job(self.customer, billing_interval="none")
-        job.refresh_from_db()
-        self.assertEqual(job.billing_interval, "none")
+        prop = self._get_or_create_prop()
+        prop.billing_interval = "none"
+        prop.save(update_fields=["billing_interval"])
+        prop.refresh_from_db()
+        self.assertEqual(prop.billing_interval, "none")
+
+    def test_billing_interval_not_on_job(self):
+        self.assertFalse(hasattr(Job(), "billing_interval"))
 
 
 class StripePaymentStatusPanelTests(TestCase):
@@ -97,46 +109,58 @@ class StripeSubscriptionStatusPanelTests(TestCase):
     def setUp(self):
         self.customer = make_customer()
         self.site = AdminSite()
-        self.ma = JobAdmin(Job, self.site)
+        self.ma = PropertyAdmin(Property, self.site)
+
+    def _make_prop(self, **kwargs):
+        prop = self.customer.properties.first() or Property.objects.create(customer=self.customer)
+        for k, v in kwargs.items():
+            setattr(prop, k, v)
+        if kwargs:
+            prop.save()
+        return prop
 
     def test_no_subscription_id_returns_placeholder(self):
-        job = make_job(self.customer)
-        result = str(self.ma.stripe_subscription_status_panel(job))
+        prop = self._make_prop()
+        result = str(self.ma.stripe_subscription_status_panel(prop))
         self.assertIn("No active subscription", result)
 
     def test_active_status_shows_green(self):
-        job = make_job(self.customer,
-                       stripe_subscription_id="sub_abc",
-                       subscription_status="active",
-                       service_plan_tier="tier1",
-                       billing_interval="monthly")
-        result = str(self.ma.stripe_subscription_status_panel(job))
+        prop = self._make_prop(
+            stripe_subscription_id="sub_abc",
+            subscription_status="active",
+            service_plan_tier="tier1",
+            billing_interval="monthly",
+        )
+        result = str(self.ma.stripe_subscription_status_panel(prop))
         self.assertIn("#2e7d32", result)
         self.assertIn("Active", result)
 
     def test_past_due_status_renders(self):
-        job = make_job(self.customer,
-                       stripe_subscription_id="sub_abc",
-                       subscription_status="past_due",
-                       service_plan_tier="tier2",
-                       billing_interval="monthly")
-        result = str(self.ma.stripe_subscription_status_panel(job))
+        prop = self._make_prop(
+            stripe_subscription_id="sub_abc",
+            subscription_status="past_due",
+            service_plan_tier="tier2",
+            billing_interval="monthly",
+        )
+        result = str(self.ma.stripe_subscription_status_panel(prop))
         self.assertIn("Past Due", result)
 
     def test_service_plan_display_label(self):
-        job = make_job(self.customer,
-                       stripe_subscription_id="sub_abc",
-                       subscription_status="active",
-                       service_plan_tier="tier3",
-                       billing_interval="annual")
-        result = str(self.ma.stripe_subscription_status_panel(job))
+        prop = self._make_prop(
+            stripe_subscription_id="sub_abc",
+            subscription_status="active",
+            service_plan_tier="tier3",
+            billing_interval="annual",
+        )
+        result = str(self.ma.stripe_subscription_status_panel(prop))
         self.assertIn("Premium", result)
 
     def test_billing_interval_display_label(self):
-        job = make_job(self.customer,
-                       stripe_subscription_id="sub_abc",
-                       subscription_status="active",
-                       service_plan_tier="tier2",
-                       billing_interval="annual")
-        result = str(self.ma.stripe_subscription_status_panel(job))
+        prop = self._make_prop(
+            stripe_subscription_id="sub_abc",
+            subscription_status="active",
+            service_plan_tier="tier2",
+            billing_interval="annual",
+        )
+        result = str(self.ma.stripe_subscription_status_panel(prop))
         self.assertIn("Annual", result)

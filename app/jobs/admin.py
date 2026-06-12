@@ -26,6 +26,7 @@ from .models import (
     PreInstallCapture,
     PreInstallChecklist,
     PreInstallItemState,
+    Property,
     Room,
     RoomDevice,
     SaleLine,
@@ -144,17 +145,48 @@ class CredentialDeletionRequestInline(admin.StackedInline):
     readonly_fields = ['requested_at']
 
 
+_SUB_STATUS_STYLES = {
+    'active': 'color:#2e7d32;font-weight:bold',
+    'past_due': 'color:#e65100;font-weight:bold',
+    'canceled': 'color:#666',
+    'cancelled': 'color:#666',
+    'unpaid': 'color:#c62828;font-weight:bold',
+    'trialing': 'color:#1565c0',
+}
+
+
+class PropertyInline(admin.StackedInline):
+    model = Property
+    extra = 0
+    show_change_link = True
+    fields = [
+        'name', 'address_line1', 'address_line2', 'city', 'state',
+        'postal_code', 'notes', 'subscription_status_col',
+        'service_plan_tier', 'billing_interval',
+    ]
+    readonly_fields = ['subscription_status_col']
+
+    @admin.display(description='Subscription status')
+    def subscription_status_col(self, obj):
+        if not obj.pk or not obj.subscription_status:
+            return '—'
+        style = _SUB_STATUS_STYLES.get(obj.subscription_status, 'color:#666')
+        label = obj.subscription_status.replace('_', ' ').title()
+        return format_html('<span style="{}">{}</span>', style, label)
+
+
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ("last_name", "first_name", "email", "city", "state", "system_count_col", "pending_deletion_col")
+    list_display = ("last_name", "first_name", "email", "property_count_col", "pending_deletion_col")
     search_fields = ("last_name", "first_name", "email", "phone")
-    list_filter = ("state",)
-    inlines = [InstalledSystemInline, CredentialDeletionRequestInline]
+    inlines = [PropertyInline, CredentialDeletionRequestInline]
 
-    @admin.display(description='Systems')
-    def system_count_col(self, obj):
-        count = obj.installed_systems.filter(is_visible=True).count()
-        return f'{count} system{"s" if count != 1 else ""}' if count else 'No systems'
+    @admin.display(description='Properties')
+    def property_count_col(self, obj):
+        count = obj.properties.count()
+        if count == 0:
+            return 'No properties'
+        return f'{count} propert{"ies" if count != 1 else "y"}'
 
     @admin.display(description='Deletion requests')
     def pending_deletion_col(self, obj):
@@ -165,12 +197,89 @@ class CustomerAdmin(admin.ModelAdmin):
         return '—'
 
 
+@admin.register(Property)
+class PropertyAdmin(admin.ModelAdmin):
+    list_display = ['name', 'customer', 'city', 'state', 'service_tier_col', 'subscription_status']
+    list_filter = ['service_plan_tier', 'subscription_status', 'state']
+    search_fields = ['name', 'customer__last_name', 'customer__first_name', 'address_line1']
+    autocomplete_fields = ['customer']
+    inlines = [InstalledSystemInline]
+    fieldsets = (
+        (None, {
+            'fields': ('customer', 'name', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'notes')
+        }),
+        ('Subscription Status', {
+            'fields': ('stripe_subscription_status_panel',),
+            'classes': ('collapse',),
+            'description': 'Current service plan subscription from Stripe.',
+        }),
+    )
+    readonly_fields = ['stripe_subscription_status_panel']
+
+    @admin.display(description="Service tier", ordering="service_plan_tier")
+    def service_tier_col(self, obj):
+        return obj.get_service_plan_tier_display()
+
+    @admin.display(description="Subscription")
+    def stripe_subscription_status_panel(self, obj):
+        if not obj.stripe_subscription_id:
+            return "No active subscription."
+
+        _ID = 'font-family:monospace;font-size:0.85em;color:#666'
+        _TD = 'padding:6px 4px'
+        _GREY = 'color:#666'
+
+        rows = []
+
+        # Service Plan
+        tier_display = obj.get_service_plan_tier_display()
+        if not obj.service_plan_tier or obj.service_plan_tier == 'none':
+            plan_cell = format_html('<span style="{}">{}</span>', _GREY, tier_display)
+        else:
+            plan_cell = mark_safe(tier_display)
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Service Plan</strong></td><td style="{td}">{v}</td></tr>',
+            td=_TD, v=plan_cell,
+        ))
+
+        # Status
+        sub_status = obj.subscription_status or ''
+        status_style = _SUB_STATUS_STYLES.get(sub_status, '')
+        if status_style:
+            status_cell = format_html('<span style="{}">{}</span>', status_style, sub_status.replace('_', ' ').title())
+        else:
+            status_cell = format_html('<span style="{}">{}</span>', _ID, sub_status)
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Status</strong></td><td style="{td}">{v}</td></tr>',
+            td=_TD, v=status_cell,
+        ))
+
+        # Billing Interval
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Billing</strong></td><td style="{td}">{v}</td></tr>',
+            td=_TD, v=obj.get_billing_interval_display(),
+        ))
+
+        # Subscription ID
+        rows.append(format_html(
+            '<tr><td style="{td}"><strong>Subscription ID</strong></td>'
+            '<td style="{td}"><span style="{id}">{v}</span></td></tr>',
+            td=_TD, id=_ID, v=obj.stripe_subscription_id,
+        ))
+
+        return mark_safe(
+            '<table style="border-collapse:collapse;width:100%">'
+            + "".join(rows)
+            + "</table>"
+        )
+
+
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ("invoice_label_col", "customer", "status", "install_date", "finalized_at", "service_tier_col", "is_locked")
-    list_filter = ("status", "install_date", "service_plan_tier", "deposit_paid", "final_paid", "payment_override")
+    list_display = ("invoice_label_col", "customer", "status", "install_date", "finalized_at", "is_locked")
+    list_filter = ("status", "install_date", "deposit_paid", "final_paid", "payment_override")
     search_fields = ("invoice_number", "display_invoice_number", "customer__last_name", "customer__first_name")
-    autocomplete_fields = ("customer", "package")
+    autocomplete_fields = ("customer", "package", "property")
     date_hierarchy = "install_date"
     readonly_fields = (
         "invoice_number",
@@ -179,7 +288,6 @@ class JobAdmin(admin.ModelAdmin):
         "payment_received_at",
         "install_links",
         "stripe_payment_status_panel",
-        "stripe_subscription_status_panel",
     )
     inlines = [
         SaleLineInline,
@@ -194,9 +302,8 @@ class JobAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             "fields": (
-                "invoice_number", "display_invoice_number", "customer", "package", "status",
+                "invoice_number", "display_invoice_number", "customer", "property", "package", "status",
                 "sold_on", "install_date",
-                "service_plan_tier", "billing_interval",
                 "package_summary", "notes",
                 "custom_integrations", "custom_automations",
             ),
@@ -210,11 +317,6 @@ class JobAdmin(admin.ModelAdmin):
             "classes": ("collapse",),
             "description": "Live payment status from Stripe. Open Stripe Dashboard for real-time detail.",
         }),
-        ("Subscription Status", {
-            "fields": ("stripe_subscription_status_panel",),
-            "classes": ("collapse",),
-            "description": "Current service plan subscription from Stripe.",
-        }),
         ("Install forms", {
             "fields": ("install_links",),
             "description": "Open a fillable form for this job.",
@@ -224,10 +326,6 @@ class JobAdmin(admin.ModelAdmin):
     @admin.display(description="Invoice", ordering="display_invoice_number")
     def invoice_label_col(self, obj):
         return obj.display_invoice_number or f"[draft {obj.invoice_number[-8:]}]"
-
-    @admin.display(description="Service tier", ordering="service_plan_tier")
-    def service_tier_col(self, obj):
-        return obj.get_service_plan_tier_display()
 
     @admin.display(description="Open")
     def install_links(self, obj):
@@ -334,68 +432,6 @@ class JobAdmin(admin.ModelAdmin):
             + "</table>"
         )
         return table
-
-    @admin.display(description="Subscription")
-    def stripe_subscription_status_panel(self, obj):
-        if not obj.stripe_subscription_id:
-            return "No active subscription."
-
-        _ID = 'font-family:monospace;font-size:0.85em;color:#666'
-        _TD = 'padding:6px 4px'
-        _GREY = 'color:#666'
-
-        STATUS_STYLES = {
-            'active': 'color:#2e7d32;font-weight:bold',
-            'past_due': 'color:#e65100;font-weight:bold',
-            'canceled': 'color:#666',
-            'cancelled': 'color:#666',
-            'unpaid': 'color:#c62828;font-weight:bold',
-            'trialing': 'color:#1565c0',
-        }
-
-        rows = []
-
-        # Service Plan
-        tier_display = obj.get_service_plan_tier_display()
-        if not obj.service_plan_tier or obj.service_plan_tier == 'none':
-            plan_cell = format_html('<span style="{}">{}</span>', _GREY, tier_display)
-        else:
-            plan_cell = mark_safe(tier_display)
-        rows.append(format_html(
-            '<tr><td style="{td}"><strong>Service Plan</strong></td><td style="{td}">{v}</td></tr>',
-            td=_TD, v=plan_cell,
-        ))
-
-        # Status
-        sub_status = obj.subscription_status or ''
-        status_style = STATUS_STYLES.get(sub_status, '')
-        if status_style:
-            status_cell = format_html('<span style="{}">{}</span>', status_style, sub_status.replace('_', ' ').title())
-        else:
-            status_cell = format_html('<span style="{}">{}</span>', _ID, sub_status)
-        rows.append(format_html(
-            '<tr><td style="{td}"><strong>Status</strong></td><td style="{td}">{v}</td></tr>',
-            td=_TD, v=status_cell,
-        ))
-
-        # Billing Interval
-        rows.append(format_html(
-            '<tr><td style="{td}"><strong>Billing</strong></td><td style="{td}">{v}</td></tr>',
-            td=_TD, v=obj.get_billing_interval_display(),
-        ))
-
-        # Subscription ID
-        rows.append(format_html(
-            '<tr><td style="{td}"><strong>Subscription ID</strong></td>'
-            '<td style="{td}"><span style="{id}">{v}</span></td></tr>',
-            td=_TD, id=_ID, v=obj.stripe_subscription_id,
-        ))
-
-        return mark_safe(
-            '<table style="border-collapse:collapse;width:100%">'
-            + "".join(rows)
-            + "</table>"
-        )
 
 
 @admin.register(AuditLogEntry)

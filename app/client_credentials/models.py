@@ -17,9 +17,11 @@ class InstalledSystem(models.Model):
         CONTROL_INTERFACE = 'control_interface', 'Control Interface'
         OTHER = 'other', 'Other'
 
-    customer = models.ForeignKey(
-        'jobs.Customer',
+    property = models.ForeignKey(
+        'jobs.Property',
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name='installed_systems',
     )
     job = models.ForeignKey(
@@ -38,10 +40,10 @@ class InstalledSystem(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['customer', 'system_type', 'name']
+        ordering = ['property', 'system_type', 'name']
 
     def __str__(self):
-        return f"{self.customer} — {self.get_system_type_display()}: {self.name}"
+        return f"{self.property.customer} — {self.get_system_type_display()}: {self.name}"
 
 
 class SystemCredential(models.Model):
@@ -95,7 +97,7 @@ class Device(models.Model):
         ordering = ['system', 'name']
 
     def __str__(self):
-        return f"{self.system.customer} — {self.name}"
+        return f"{self.system.property.customer} — {self.name}"
 
 
 class DeviceCredential(models.Model):

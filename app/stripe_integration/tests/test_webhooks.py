@@ -4,7 +4,7 @@ from django.test import TestCase
 
 import stripe
 
-from jobs.models import Customer, Job
+from jobs.models import Customer, Job, Property
 from stripe_integration.models import InternalAlert
 
 
@@ -170,15 +170,19 @@ class InvoicePaidFinalTests(TestCase):
 
     @patch('stripe_integration.webhook_handler.create_subscription')
     def test_starts_subscription_when_pending_price_id_set(self, mock_create_sub):
-        self.job.pending_subscription_price_id = 'price_tier3_annual'
-        self.job.final_paid = True
-        self.job.save()
+        prop = self.job.customer.properties.first()
+        if prop is None:
+            prop = Property.objects.create(customer=self.job.customer)
+        prop.pending_subscription_price_id = 'price_tier3_annual'
+        prop.save(update_fields=['pending_subscription_price_id'])
+        self.job.property = prop
+        self.job.save(update_fields=['property'])
 
         self._handle({'id': 'in_fin', 'metadata': {'dfha_job_id': 'TEST-001', 'invoice_type': 'final'}})
 
         mock_create_sub.assert_called_once_with(self.job, 'price_tier3_annual')
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.pending_subscription_price_id, '')
+        prop.refresh_from_db()
+        self.assertEqual(prop.pending_subscription_price_id, '')
 
     @patch('stripe_integration.webhook_handler.create_subscription')
     def test_no_subscription_when_no_pending_price_id(self, mock_create_sub):
@@ -226,7 +230,12 @@ class InvoicePaymentFailedTests(TestCase):
 class SubscriptionUpdatedTests(TestCase):
     def setUp(self):
         self.customer = make_customer()
-        self.job = make_job(self.customer, stripe_subscription_id='sub_abc')
+        self.job = make_job(self.customer)
+        self.prop = self.customer.properties.first() or Property.objects.create(customer=self.customer)
+        self.prop.stripe_subscription_id = 'sub_abc'
+        self.prop.save(update_fields=['stripe_subscription_id'])
+        self.job.property = self.prop
+        self.job.save(update_fields=['property'])
 
     def _handle(self, data_dict):
         from stripe_integration.webhook_handler import _handle_subscription_updated
@@ -238,8 +247,8 @@ class SubscriptionUpdatedTests(TestCase):
                 'id': 'sub_abc', 'status': 'past_due',
                 'items': {'data': [{'price': {'id': 'price_t1'}}]},
             })
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.subscription_status, 'past_due')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.subscription_status, 'past_due')
 
     def test_updates_service_plan_tier(self):
         with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {'price_t2': 'tier2'}):
@@ -247,8 +256,8 @@ class SubscriptionUpdatedTests(TestCase):
                 'id': 'sub_abc', 'status': 'active',
                 'items': {'data': [{'price': {'id': 'price_t2'}}]},
             })
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.service_plan_tier, 'tier2')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.service_plan_tier, 'tier2')
 
     def test_monthly_price_sets_billing_interval_monthly(self):
         with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {'price_t1_mo': 'tier1'}):
@@ -256,8 +265,8 @@ class SubscriptionUpdatedTests(TestCase):
                 'id': 'sub_abc', 'status': 'active',
                 'items': {'data': [{'price': {'id': 'price_t1_mo', 'recurring': {'interval': 'month'}}}]},
             })
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.billing_interval, 'monthly')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.billing_interval, 'monthly')
 
     def test_annual_price_sets_billing_interval_annual(self):
         with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {'price_t1_yr': 'tier1'}):
@@ -265,8 +274,8 @@ class SubscriptionUpdatedTests(TestCase):
                 'id': 'sub_abc', 'status': 'active',
                 'items': {'data': [{'price': {'id': 'price_t1_yr', 'recurring': {'interval': 'year'}}}]},
             })
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.billing_interval, 'annual')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.billing_interval, 'annual')
 
     def test_nonexistent_subscription_returns_silently(self):
         with patch('stripe_integration.webhook_handler.PRICE_TO_TIER', {}):
@@ -283,7 +292,12 @@ class SubscriptionUpdatedTests(TestCase):
 class SubscriptionDeletedTests(TestCase):
     def setUp(self):
         self.customer = make_customer()
-        self.job = make_job(self.customer, stripe_subscription_id='sub_abc')
+        self.job = make_job(self.customer)
+        self.prop = self.customer.properties.first() or Property.objects.create(customer=self.customer)
+        self.prop.stripe_subscription_id = 'sub_abc'
+        self.prop.save(update_fields=['stripe_subscription_id'])
+        self.job.property = self.prop
+        self.job.save(update_fields=['property'])
 
     def _handle(self, data_dict):
         from stripe_integration.webhook_handler import _handle_subscription_deleted
@@ -291,8 +305,8 @@ class SubscriptionDeletedTests(TestCase):
 
     def test_sets_cancelled_status(self):
         self._handle({'id': 'sub_abc', 'status': 'canceled'})
-        self.job.refresh_from_db()
-        self.assertEqual(self.job.subscription_status, 'cancelled')
+        self.prop.refresh_from_db()
+        self.assertEqual(self.prop.subscription_status, 'cancelled')
 
     def test_nonexistent_subscription_returns_silently(self):
         self._handle({'id': 'sub_unknown', 'status': 'canceled'})

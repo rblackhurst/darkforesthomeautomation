@@ -73,6 +73,9 @@ jobs:
           PYTHON=$APP/.venv/bin/python
           MANAGE=$APP/manage.py
 
+          # Load env vars so manage.py can import encrypted_model_fields
+          set -a; source "$APP/.env"; set +a
+
           $PYTHON $MANAGE shell -c "
           import secrets
           from django.contrib.auth import get_user_model

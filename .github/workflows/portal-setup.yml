@@ -1,0 +1,134 @@
+# One-time setup for portal.darkforesthomeautomation.com.
+#
+# Run manually from Actions tab → "Portal infrastructure setup" → Run workflow.
+# Safe to re-run — every step is idempotent.
+# Delete this file once the portal is confirmed working.
+
+name: Portal infrastructure setup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Update .env — allowed hosts and notification email
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" bash <<'ENDSSH'
+          set -euo pipefail
+          ENV=/home/dfha/darkforesthomeautomation/app/.env
+
+          update_or_append() {
+            local key="$1" val="$2"
+            if grep -q "^${key}=" "$ENV"; then
+              sed -i "s|^${key}=.*|${key}=${val}|" "$ENV"
+              echo "Updated ${key}"
+            else
+              echo "${key}=${val}" >> "$ENV"
+              echo "Added ${key}"
+            fi
+          }
+
+          update_or_append DJANGO_ALLOWED_HOSTS \
+            "app.darkforesthomeautomation.com,portal.darkforesthomeautomation.com,127.0.0.1,localhost"
+          update_or_append STAFF_NOTIFICATION_EMAIL "ron@dfha.net"
+          ENDSSH
+
+      - name: Create system user and capture ID
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          SYSTEM_USER_ID=$(ssh -i ~/.ssh/id_deploy \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" bash <<'ENDSSH'
+          set -euo pipefail
+          APP=/home/dfha/darkforesthomeautomation/app
+          PYTHON=$APP/.venv/bin/python
+          MANAGE=$APP/manage.py
+
+          $PYTHON $MANAGE shell -c "
+          import secrets
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          if not User.objects.filter(username='system').exists():
+              u = User.objects.create_superuser(
+                  username='system',
+                  email='system@dfha.internal',
+                  password=secrets.token_hex(32),
+              )
+              print(u.pk)
+          else:
+              print(User.objects.get(username='system').pk)
+          "
+          ENDSSH
+          )
+          echo "System user id: ${SYSTEM_USER_ID}"
+          echo "SYSTEM_USER_ID=${SYSTEM_USER_ID}" >> "$GITHUB_ENV"
+
+      - name: Write SYSTEM_USER_ID to .env
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" bash <<ENDSSH
+          set -euo pipefail
+          ENV=/home/dfha/darkforesthomeautomation/app/.env
+          ID="${SYSTEM_USER_ID}"
+          if grep -q "^SYSTEM_USER_ID=" "\$ENV"; then
+            sed -i "s|^SYSTEM_USER_ID=.*|SYSTEM_USER_ID=\${ID}|" "\$ENV"
+            echo "Updated SYSTEM_USER_ID=\${ID}"
+          else
+            echo "SYSTEM_USER_ID=\${ID}" >> "\$ENV"
+            echo "Added SYSTEM_USER_ID=\${ID}"
+          fi
+          ENDSSH
+
+      - name: Restart app to pick up new env vars
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "sudo DFHA_BRANCH=main /usr/local/bin/dfha-deploy"
+
+      - name: Smoke-test app subdomain still responds
+        run: |
+          sleep 5
+          curl -sf --max-time 10 https://app.darkforesthomeautomation.com/_health/ \
+            && echo "app subdomain OK" \
+            || (echo "WARN: app health check failed" && exit 1)

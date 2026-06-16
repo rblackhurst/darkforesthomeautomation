@@ -239,7 +239,8 @@
           </div>
           {% endif %}
 
-          <!-- Payment received (manual fallback; auto-checked when Stripe confirms paid) -->
+          {% if job.payment_override %}
+          <!-- Manual payment checkbox — only shown when Stripe is not in play -->
           <div class="payment-received-row">
             <label class="payment-toggle">
               <input type="checkbox" id="payment-received-check" data-action="payment-received" {% if job.payment_received %}checked{% endif %}>
@@ -252,6 +253,7 @@
               </span>
             </label>
           </div>
+          {% endif %}
         </div>
 
       {% else %}

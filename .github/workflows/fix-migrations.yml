@@ -49,7 +49,7 @@ jobs:
           MANAGE=$APP/manage.py
 
           echo "=== Deduplicating Customer emails ==="
-          $PYTHON /tmp/fix-duplicate-customers.py
+          $PYTHON $MANAGE shell < /tmp/fix-duplicate-customers.py
 
           echo ""
           echo "=== Running migrations ==="

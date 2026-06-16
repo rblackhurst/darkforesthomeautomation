@@ -1,9 +1,3 @@
-import os
-import django
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfha.settings')
-django.setup()
-
 from django.db.models import Count
 from jobs.models import Customer, Job
 

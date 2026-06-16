@@ -221,6 +221,17 @@ main {
   border-color: var(--accent-dim);
 }
 
+.card-overview-link {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-left: 8px;
+  vertical-align: middle;
+  opacity: 0.6;
+  transition: opacity 0.12s;
+}
+.card:hover .card-overview-link { opacity: 1; color: var(--accent); }
+
 /* Two-button stack on prep cards: internal + backend side by side. */
 .card-actions {
   display: flex;
@@ -267,6 +278,100 @@ main {
   font-size: 14px;
   margin-top: 12px;
 }
+
+/* ── Secondary button (outlined) ── */
+.secondary-btn {
+  color: var(--accent);
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--accent-dim);
+  transition: background 0.12s, border-color 0.12s;
+}
+.secondary-btn:hover { background: var(--accent-bg); border-color: var(--accent); }
+
+/* ── Back / breadcrumb link ── */
+.back-link {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+.back-link:hover { color: var(--accent); }
+
+/* ── Job list table ── */
+.job-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 15px;
+}
+.job-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-muted);
+}
+.job-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.job-row { cursor: pointer; transition: background 0.1s; }
+.job-row:hover td { background: var(--accent-bg); }
+.job-row:last-child td { border-bottom: none; }
+.job-customer { font-weight: 600; }
+.job-invoice { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.job-stage { color: var(--text-soft); }
+.job-date { color: var(--text-muted); white-space: nowrap; }
+
+/* ── Pipeline breadcrumb (job overview) ── */
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+}
+.pipeline-stage {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.pipeline-stage--current {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+  font-weight: 600;
+}
+.pipeline-sep {
+  color: var(--border-dark);
+  font-size: 13px;
+}
+
+/* ── Overview job header ── */
+.job-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.job-header-meta .invoice,
+.job-header-meta .install-date { font-size: 14px; color: var(--text-muted); }
 
 /* ── Mobile ── */
 @media (max-width: 640px) {

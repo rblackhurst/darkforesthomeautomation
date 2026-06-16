@@ -1,0 +1,107 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFHA · {{ job.customer.last_name }}, {{ job.customer.first_name }}</title>
+  <link rel="stylesheet" href="{% static 'jobs/home.css' %}">
+</head>
+<body>
+
+<header class="page-header">
+  <div class="page-header-row">
+    <div style="display:flex;align-items:baseline;gap:18px;">
+      <a href="{% url 'jobs:home' %}" class="back-link">← All jobs</a>
+      <h1>{{ job.customer.last_name }}, {{ job.customer.first_name }}</h1>
+    </div>
+    <div class="page-header-meta">
+      <div class="job-header-meta">
+        {% if job.display_invoice_number %}<span class="invoice">{{ job.display_invoice_number }}</span>{% endif %}
+        {% if job.install_date %}<span class="install-date">install {{ job.install_date|date:"M j, Y" }}</span>{% endif %}
+      </div>
+      <a href="{% url 'jobs:board' %}" class="secondary-btn">Board</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'accounts:logout' %}" class="signout-link" title="Signed in as {{ user.email|default:user.username }}">Sign out</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <nav class="pipeline" aria-label="Job pipeline">
+    {% for stage in stages %}
+      <span class="pipeline-stage{% if stage.cards %} pipeline-stage--current{% endif %}">{{ stage.label }}</span>
+      {% if not forloop.last %}<span class="pipeline-sep">›</span>{% endif %}
+    {% endfor %}
+  </nav>
+</header>
+
+<main>
+  {% if internal_prep_cards %}
+    <section class="stage stage-special" data-stage="prep">
+      <header class="stage-header">
+        <h2>Prep <small class="stage-sublabel">(internal + backend, in parallel)</small></h2>
+        <span class="stage-count">{{ internal_prep_cards|length }}</span>
+      </header>
+      <div class="card-list">
+        {% for c in internal_prep_cards %}
+          <article class="card">
+            <div class="card-main">
+              <div class="card-meta">
+                <span class="invoice">{{ c.job.display_invoice_number }}</span>
+                {% if c.job.install_date %}
+                  <span class="install-date">install {{ c.job.install_date|date:"M j" }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="card-actions">
+              {% for a in c.actions %}
+                <a href="{{ a.url }}" class="card-action">{{ a.label }} →</a>
+              {% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% for stage in stages %}
+    {% if stage.cards %}
+      <section class="stage" data-stage="{{ stage.key }}">
+        <header class="stage-header">
+          <h2>{{ stage.label }}</h2>
+        </header>
+        <div class="card-list">
+          {% for c in stage.cards %}
+            <article class="card">
+              <div class="card-main">
+                <div class="card-meta">
+                  <span class="invoice">{% if c.job.display_invoice_number %}{{ c.job.display_invoice_number }}{% else %}<em>pending</em>{% endif %}</span>
+                  {% if c.job.install_date %}
+                    <span class="install-date">install {{ c.job.install_date|date:"M j" }}</span>
+                  {% else %}
+                    <span class="install-date pending">no install date</span>
+                  {% endif %}
+                  {% if c.progress %}
+                    <span class="progress">
+                      {{ c.progress.label }}: {{ c.progress.done }} / {{ c.progress.total }}
+                      {% if c.progress.total and c.progress.done == c.progress.total %}<span class="progress-complete">✓</span>{% endif %}
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+              <a href="{{ c.next_url }}" class="card-action">{{ c.next_label }} →</a>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  {% endfor %}
+
+  {% if total_active == 0 and not internal_prep_cards %}
+    <div class="empty-state">
+      <p>{{ job.get_status_display }} — no pending actions.</p>
+    </div>
+  {% endif %}
+</main>
+
+</body>
+</html>

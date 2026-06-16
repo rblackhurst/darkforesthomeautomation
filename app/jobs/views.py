@@ -1436,26 +1436,8 @@ def _card(job, backend_check_totals):
     }
 
 
-@login_required
-@staff_required
-def home_dashboard(request):
-    jobs = (
-        Job.objects
-        .select_related("customer")
-        .prefetch_related("backend_install")
-        .order_by("install_date", "-created_at")
-    )
-
-    # Pre-compute total check count per ChecklistTemplate so each card's
-    # progress doesn't fire its own COUNT query.
-    backend_check_totals = dict(
-        ChecklistItem.objects
-        .filter(kind="check")
-        .values_list("step__template_id")
-        .annotate(n=Count("id"))
-        .values_list("step__template_id", "n")
-    )
-
+def _build_stage_context(jobs, backend_check_totals):
+    """Build the stage/card context dict shared by board_view and job_overview."""
     archived_statuses = {s.value for s in ARCHIVE_STAGES}
     grouped = {s.value: [] for s in ACTIVE_STAGES}
     archive = []
@@ -1467,7 +1449,6 @@ def home_dashboard(request):
             archive.append(card)
         elif job.status in grouped:
             grouped[job.status].append(card)
-        # Collect finalized (invoiced) active jobs for the prep section.
         # Once pre-install is finalized, internal prep and backend install
         # can run in parallel — surface both buttons on the same card.
         if job.finalized_at and job.status not in archived_statuses:
@@ -1494,13 +1475,65 @@ def home_dashboard(request):
         for s in ACTIVE_STAGES
     ]
 
-    return render(request, "jobs/home.html", {
+    return {
         "stages": stages,
         "archive": archive,
         "total_active": sum(len(s["cards"]) for s in stages),
         "total_archive": len(archive),
         "internal_prep_cards": internal_prep_cards,
-    })
+    }
+
+
+def _backend_check_totals():
+    return dict(
+        ChecklistItem.objects
+        .filter(kind="check")
+        .values_list("step__template_id")
+        .annotate(n=Count("id"))
+        .values_list("step__template_id", "n")
+    )
+
+
+@login_required
+@staff_required
+def job_list(request):
+    active_statuses = [s.value for s in ACTIVE_STAGES]
+    jobs = (
+        Job.objects
+        .select_related("customer")
+        .filter(status__in=active_statuses)
+        .order_by("install_date", "-created_at")
+    )
+    return render(request, "jobs/job_list.html", {"jobs": jobs})
+
+
+# Keep the old name so any bookmarks / reverse() calls for "jobs:home" still work.
+home_dashboard = job_list
+
+
+@login_required
+@staff_required
+def board_view(request):
+    jobs = (
+        Job.objects
+        .select_related("customer")
+        .prefetch_related("backend_install")
+        .order_by("install_date", "-created_at")
+    )
+    ctx = _build_stage_context(jobs, _backend_check_totals())
+    return render(request, "jobs/board.html", ctx)
+
+
+@login_required
+@staff_required
+def job_overview(request, invoice_number):
+    job = get_object_or_404(
+        Job.objects.select_related("customer").prefetch_related("backend_install"),
+        invoice_number=invoice_number,
+    )
+    ctx = _build_stage_context([job], _backend_check_totals())
+    ctx["job"] = job
+    return render(request, "jobs/job_overview.html", ctx)
 
 
 # ── Pairing sheet ────────────────────────────────────────────────────────────

@@ -289,7 +289,8 @@
         </button>
       {% endif %}
 
-      <!-- Invoice sent — last confirmation step, always shown -->
+      {% if not job.stripe_deposit_invoice_id %}
+      <!-- Manual invoice-sent confirmation — hidden when Stripe is in play -->
       <div class="payment-received-row" style="margin-top:16px;">
         <label class="payment-toggle">
           <input type="checkbox" id="invoice-sent-check" data-action="invoice-sent" {% if pre_install_checklist.invoice_sent %}checked{% endif %}>
@@ -302,6 +303,7 @@
           </span>
         </label>
       </div>
+      {% endif %}
     </section>
 
 

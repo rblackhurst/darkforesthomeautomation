@@ -1,0 +1,41 @@
+name: Diagnostic — read server logs
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+
+      - name: Read gunicorn log and migration status
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              -o StrictHostKeyChecking=yes \
+              -o BatchMode=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" bash <<'ENDSSH'
+          set -euo pipefail
+          APP=/home/dfha/darkforesthomeautomation/app
+          echo "=== Last 50 lines of gunicorn log ==="
+          journalctl -u gunicorn --no-pager -n 50 2>/dev/null || \
+            journalctl -u dfha --no-pager -n 50 2>/dev/null || \
+            echo "(no gunicorn/dfha systemd unit found)"
+
+          echo ""
+          echo "=== Migration status ==="
+          set -a; source "$APP/.env"; set +a
+          $APP/.venv/bin/python $APP/manage.py showmigrations --list 2>&1 | grep -E "\[ \]|jobs|client_hub|client_cred"
+          ENDSSH

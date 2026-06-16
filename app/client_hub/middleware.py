@@ -3,7 +3,8 @@ from django.http import Http404
 _ADMIN_HOST = 'app.darkforesthomeautomation.com'
 _PORTAL_HOST = 'portal.darkforesthomeautomation.com'
 
-# Paths accessible on the admin subdomain outside the /admin/ prefix.
+# Paths accessible on the admin subdomain.
+# /jobs/    — all job workflow pages (pick sheet, pairing sheet, etc.)
 # /webhooks/ — Stripe posts to app.darkforesthomeautomation.com; must stay reachable.
 # /credentials/ — Phase 4 admin credential detail views (staff-only, no /admin prefix).
 _ADMIN_ALLOWED_PREFIXES = (
@@ -13,6 +14,7 @@ _ADMIN_ALLOWED_PREFIXES = (
     '/webhooks',
     '/static',
     '/credentials',
+    '/jobs',
 )
 
 
@@ -36,9 +38,9 @@ class SubdomainRoutingMiddleware:
 
         elif host == _ADMIN_HOST:
             # Block Client Hub URLs on the admin subdomain.
-            # client_hub URLs share the root prefix with jobs, so an explicit
-            # allowlist is needed — any path not on this list is a client_hub route.
-            if not any(request.path.startswith(p) for p in _ADMIN_ALLOWED_PREFIXES):
+            # / (exact) is the jobs home dashboard — allow it.
+            # All other paths must match the allowlist; anything else is a client_hub route.
+            if request.path != '/' and not any(request.path.startswith(p) for p in _ADMIN_ALLOWED_PREFIXES):
                 raise Http404
 
         return self.get_response(request)

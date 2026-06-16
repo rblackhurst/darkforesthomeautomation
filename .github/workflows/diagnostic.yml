@@ -17,7 +17,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
 
-      - name: Run missing migrations then restart
+      - name: Deduplicate customer emails then migrate and restart
         env:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -30,11 +30,41 @@ jobs:
           set -euo pipefail
           APP=/home/dfha/darkforesthomeautomation/app
           set -a; source "$APP/.env"; set +a
+          PYTHON=$APP/.venv/bin/python
+          MANAGE=$APP/manage.py
 
-          echo "=== Running migrations ==="
-          $APP/.venv/bin/python $APP/manage.py migrate --verbosity=1
+          echo "=== Deduplicating Customer emails ==="
+          $PYTHON $MANAGE shell -c "
+from jobs.models import Customer, Job
+from django.db.models import Count
+
+dupes = (Customer.objects
+    .values('email')
+    .annotate(n=Count('id'))
+    .filter(n__gt=1))
+
+for row in dupes:
+    email = row['email']
+    customers = list(Customer.objects.filter(email=email).order_by('created_at'))
+    keeper = customers[0]  # keep oldest record
+    others = customers[1:]
+    print(f'Duplicate email: {email}')
+    print(f'  Keeping id={keeper.id} (created {keeper.created_at})')
+    for dup in others:
+        job_count = Job.objects.filter(customer=dup).count()
+        print(f'  Merging id={dup.id} ({job_count} jobs) -> id={keeper.id}')
+        Job.objects.filter(customer=dup).update(customer=keeper)
+        dup.delete()
+        print(f'  Deleted id={dup.id}')
+
+print('Deduplication complete.')
+"
 
           echo ""
-          echo "=== Restarting gunicorn ==="
+          echo "=== Running migrations ==="
+          $PYTHON $MANAGE migrate --verbosity=1
+
+          echo ""
+          echo "=== Restarting app ==="
           sudo DFHA_BRANCH=main /usr/local/bin/dfha-deploy
           ENDSSH

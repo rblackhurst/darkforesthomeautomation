@@ -48,15 +48,11 @@ jobs:
           PYTHON=$APP/.venv/bin/python
           MANAGE=$APP/manage.py
 
-          echo "=== Applying migrations up to jobs 0024 ==="
-          $PYTHON $MANAGE migrate jobs 0024 --verbosity=1
-
-          echo ""
-          echo "=== Deduplicating Customer emails ==="
+          echo "=== Deduplicating Customer emails (raw SQL) ==="
           $PYTHON $MANAGE shell < /tmp/fix-duplicate-customers.py
 
           echo ""
-          echo "=== Applying remaining migrations ==="
+          echo "=== Running all pending migrations ==="
           $PYTHON $MANAGE migrate --verbosity=1
 
           echo ""

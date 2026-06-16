@@ -1,25 +1,32 @@
-from django.db.models import Count
-from jobs.models import Customer, Job
+from django.db import connection
 
-dupes = (
-    Customer.objects
-    .values('email')
-    .annotate(n=Count('id'))
-    .filter(n__gt=1)
-)
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT email, COUNT(*) AS cnt, MIN(id) AS keeper_id
+        FROM jobs_customer
+        GROUP BY email
+        HAVING COUNT(*) > 1
+    """)
+    dupes = cursor.fetchall()
 
-for row in dupes:
-    email = row['email']
-    customers = list(Customer.objects.filter(email=email).order_by('created_at'))
-    keeper = customers[0]
-    others = customers[1:]
-    print(f'Duplicate email: {email}')
-    print(f'  Keeping id={keeper.id} (created {keeper.created_at})')
-    for dup in others:
-        job_count = Job.objects.filter(customer=dup).count()
-        print(f'  Merging id={dup.id} ({job_count} jobs) -> id={keeper.id}')
-        Job.objects.filter(customer=dup).update(customer=keeper)
-        dup.delete()
-        print(f'  Deleted id={dup.id}')
+    if not dupes:
+        print('No duplicate emails found.')
+    else:
+        for email, cnt, keeper_id in dupes:
+            print(f'Duplicate: {email} (count={cnt}, keeping id={keeper_id})')
+
+            cursor.execute("""
+                UPDATE jobs_job
+                SET customer_id = %s
+                WHERE customer_id IN (
+                    SELECT id FROM jobs_customer WHERE email = %s AND id != %s
+                )
+            """, [keeper_id, email, keeper_id])
+            print(f'  Reassigned {cursor.rowcount} jobs to keeper')
+
+            cursor.execute("""
+                DELETE FROM jobs_customer WHERE email = %s AND id != %s
+            """, [email, keeper_id])
+            print(f'  Deleted {cursor.rowcount} duplicate customer(s)')
 
 print('Deduplication complete.')

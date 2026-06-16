@@ -185,6 +185,11 @@ urlpatterns = [
         name="pre_install_toggle_invoice_sent",
     ),
     path(
+        "jobs/<str:invoice_number>/deposit-invoice-status/",
+        views.deposit_invoice_status,
+        name="deposit_invoice_status",
+    ),
+    path(
         "jobs/<str:invoice_number>/final-invoice/",
         views.final_invoice_send,
         name="final_invoice_send",

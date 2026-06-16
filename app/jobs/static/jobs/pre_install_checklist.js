@@ -571,13 +571,19 @@
 
       if (data.stripe_invoice_sent && data.stripe_invoice_url) {
         _showFinalizeToast(data.invoice_number, true, null);
-        setTimeout(() => openQrModal(data.stripe_invoice_url, `Deposit invoice — ${data.invoice_number}`), 400);
+        // Open QR for the customer to scan. Page reloads when Done is clicked,
+        // when Escape is pressed, or after 3 minutes as a safety net.
+        setTimeout(() => openQrModal(data.stripe_invoice_url, `Deposit invoice — ${data.invoice_number}`, true), 400);
+        _finalizeReloadTimer = setTimeout(() => window.location.reload(), 3 * 60 * 1000);
       } else {
         _showFinalizeToast(data.invoice_number, data.stripe_invoice_sent, data.stripe_invoice_error);
         setTimeout(() => window.location.reload(), 2200);
       }
     });
   }
+
+  // Safety-net timer cleared when the modal handles its own reload.
+  let _finalizeReloadTimer = null;
 
   function _showFinalizeToast(invoiceNumber, invoiceSent, invoiceError) {
     const msg = invoiceSent
@@ -597,28 +603,97 @@
   }
 
   // ── QR code modal ──
-  function openQrModal(url, title) {
+  // openedFromFinalize: when true, closing the modal reloads the page so the
+  // finalized UI renders. When false (user clicked "Show QR" on an already-
+  // finalized page), closing just hides the modal.
+  function openQrModal(url, title, openedFromFinalize) {
     const modal = document.getElementById("qr-modal");
     const titleEl = document.getElementById("qr-modal-title");
     const container = document.getElementById("qr-code-container");
-    if (!modal || !container) return;
+    if (!modal || !container) {
+      // QRCode library failed to load or DOM missing — reload so the finalized
+      // state renders correctly instead of leaving the button stuck.
+      if (openedFromFinalize) window.location.reload();
+      return;
+    }
 
+    modal._reloadOnClose = !!openedFromFinalize;
     container.innerHTML = "";
     if (titleEl) titleEl.textContent = title || "";
 
-    new QRCode(container, { text: url, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M });
+    try {
+      new QRCode(container, { text: url, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M });
+    } catch (_) {
+      // QRCode constructor failed — reload to show finalized state.
+      if (openedFromFinalize) window.location.reload();
+      return;
+    }
     modal.hidden = false;
   }
 
-  document.getElementById("qr-modal-done")?.addEventListener("click", () => {
-    document.getElementById("qr-modal").hidden = true;
-    window.location.reload();
+  function _closeQrModal() {
+    const modal = document.getElementById("qr-modal");
+    if (!modal || modal.hidden) return;
+    clearTimeout(_finalizeReloadTimer);
+    modal.hidden = true;
+    if (modal._reloadOnClose) window.location.reload();
+  }
+
+  document.getElementById("qr-modal-done")?.addEventListener("click", _closeQrModal);
+
+  // Backdrop click (click on overlay but not on inner card).
+  document.getElementById("qr-modal")?.addEventListener("click", (e) => {
+    if (e.target === document.getElementById("qr-modal")) _closeQrModal();
+  });
+
+  // Escape key.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") _closeQrModal();
   });
 
   document.getElementById("show-deposit-qr-btn")?.addEventListener("click", () => {
     const url = window.DEPOSIT_INVOICE_URL;
-    if (url) openQrModal(url, "Deposit invoice");
+    if (url) openQrModal(url, "Deposit invoice", false);
   });
+
+  // ── Live Stripe status (shown when already finalized) ──
+  if (window.ALREADY_FINALIZED && window.STRIPE_STATUS_URL) {
+    fetch(window.STRIPE_STATUS_URL, { credentials: "same-origin" })
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById("stripe-status-row");
+        if (!el) return;
+
+        if (data.error) {
+          el.innerHTML = `<span class="stripe-status-item stripe-status-err">Could not reach Stripe</span>`;
+          return;
+        }
+        if (!data.has_invoice) {
+          el.innerHTML = `<span class="stripe-status-item stripe-status-muted">No Stripe invoice (manual payment)</span>`;
+          return;
+        }
+
+        const sentHtml = data.sent
+          ? `<span class="stripe-status-item stripe-status-ok">✓ Deposit invoice sent</span>`
+          : `<span class="stripe-status-item stripe-status-err">✗ Invoice not yet sent</span>`;
+
+        const paidHtml = data.paid
+          ? `<span class="stripe-status-item stripe-status-ok">✓ Deposit paid</span>`
+          : `<span class="stripe-status-item stripe-status-pending">· Awaiting payment</span>`;
+
+        el.innerHTML = sentHtml + paidHtml;
+
+        // Auto-check the "Payment received" checkbox if Stripe confirms paid.
+        if (data.paid) {
+          const payCheck = document.getElementById("payment-received-check");
+          if (payCheck && !payCheck.checked) payCheck.checked = true;
+        }
+      })
+      .catch(() => {
+        const el = document.getElementById("stripe-status-row");
+        if (el) el.innerHTML = `<span class="stripe-status-item stripe-status-err">Could not reach Stripe</span>`;
+      });
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // ── Payment received toggle ──

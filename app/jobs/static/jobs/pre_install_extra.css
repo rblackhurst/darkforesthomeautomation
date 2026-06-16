@@ -372,6 +372,24 @@
   margin-bottom: 16px;
 }
 
+/* Stripe live status row */
+.stripe-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.stripe-status-loading {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.stripe-status-item { font-weight: 500; }
+.stripe-status-ok     { color: var(--accent); }
+.stripe-status-pending { color: var(--amber, #b45309); }
+.stripe-status-err    { color: #b91c1c; }
+.stripe-status-muted  { color: var(--text-muted); }
+
 /* Payment received row */
 .payment-received-row { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--accent-dim); }
 .payment-toggle {

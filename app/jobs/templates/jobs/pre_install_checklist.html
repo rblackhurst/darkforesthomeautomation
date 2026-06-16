@@ -226,13 +226,20 @@
             {% if job.payment_override %}&nbsp;· <em>Email skipped (manual payment)</em>{% endif %}
           </div>
 
+          <!-- Live Stripe status (fetched on page load) -->
+          {% if job.stripe_deposit_invoice_id %}
+          <div class="stripe-status-row" id="stripe-status-row">
+            <span class="stripe-status-loading">Checking Stripe…</span>
+          </div>
+          {% endif %}
+
           {% if job.stripe_deposit_invoice_url %}
           <div class="finalize-qr-row">
             <button type="button" id="show-deposit-qr-btn" class="show-qr-btn">Show QR code to pay</button>
           </div>
           {% endif %}
 
-          <!-- Payment received -->
+          <!-- Payment received (manual fallback; auto-checked when Stripe confirms paid) -->
           <div class="payment-received-row">
             <label class="payment-toggle">
               <input type="checkbox" id="payment-received-check" data-action="payment-received" {% if job.payment_received %}checked{% endif %}>
@@ -360,6 +367,7 @@
   window.INVOICE_SENT_URL   = "{% url 'jobs:pre_install_toggle_invoice_sent' job.invoice_number %}";
   window.ALREADY_FINALIZED  = {{ job.finalized_at|yesno:"true,false" }};
   window.DEPOSIT_INVOICE_URL = "{{ job.stripe_deposit_invoice_url|default:'' }}";
+  window.STRIPE_STATUS_URL  = "{% url 'jobs:deposit_invoice_status' job.invoice_number %}";
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSe2s9eW0RFmFr3yy3GaJmMYrFDwJ7uXBrKA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="{% static 'jobs/pre_install_checklist.js' %}"></script>

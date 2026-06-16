@@ -473,6 +473,41 @@ def create_billing_portal_session(customer, return_url: str) -> str:
 
 # ── 7.7 Payment State Recovery ────────────────────────────────────────────────
 
+def get_deposit_invoice_status(job) -> dict:
+    """Return live Stripe status for the deposit invoice and sync deposit_paid if needed.
+
+    Returns a dict with keys:
+      has_invoice  — bool: whether a deposit invoice exists in Stripe
+      sent         — bool: whether the invoice has been sent (status != 'draft')
+      paid         — bool: whether the invoice has been paid
+      status       — str:  raw Stripe invoice status ('draft'|'open'|'paid'|'void'|'uncollectible')
+      hosted_url   — str|None: Stripe-hosted payment page URL
+    """
+    from jobs.models import Job as JobModel
+
+    if not job.stripe_deposit_invoice_id:
+        return {'has_invoice': False, 'sent': False, 'paid': False, 'status': None, 'hosted_url': None}
+
+    inv = stripe.Invoice.retrieve(job.stripe_deposit_invoice_id)
+    paid = inv.status == 'paid'
+    sent = inv.status != 'draft'
+
+    if paid and not job.deposit_paid:
+        job.deposit_paid = True
+        job.payment_failed = False
+        job.payment_failed_at = None
+        job.status = JobModel.Status.DEPOSIT_RECEIVED
+        job.save(update_fields=['deposit_paid', 'payment_failed', 'payment_failed_at', 'status'])
+
+    return {
+        'has_invoice': True,
+        'sent': sent,
+        'paid': paid,
+        'status': inv.status,
+        'hosted_url': inv.hosted_invoice_url,
+    }
+
+
 def sync_payment_status(job) -> dict:
     """Poll Stripe invoice state and update job payment flags.
 

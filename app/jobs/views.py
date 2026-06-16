@@ -1323,6 +1323,25 @@ _PLAN_ENV_KEYS = {
 
 @login_required
 @staff_required
+def deposit_invoice_status(request, invoice_number):
+    """
+    Return live Stripe status for the deposit invoice and sync deposit_paid if needed.
+    Called on page load from the finalized section of the pre-install checklist.
+    """
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    if not job.finalized_at:
+        return JsonResponse({'has_invoice': False, 'sent': False, 'paid': False, 'status': None})
+
+    try:
+        from stripe_integration.services import get_deposit_invoice_status
+        result = get_deposit_invoice_status(job)
+        return JsonResponse(result)
+    except Exception as exc:
+        return JsonResponse({'has_invoice': bool(job.stripe_deposit_invoice_id), 'error': str(exc)})
+
+
+@login_required
+@staff_required
 @require_POST
 def final_invoice_send(request, invoice_number):
     """

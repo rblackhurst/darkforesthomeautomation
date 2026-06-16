@@ -1,0 +1,55 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFHA · Active jobs</title>
+  <link rel="stylesheet" href="{% static 'jobs/home.css' %}">
+</head>
+<body>
+
+<header class="page-header">
+  <div class="page-header-row">
+    <h1>Active jobs</h1>
+    <div class="page-header-meta">
+      <a href="{% url 'jobs:board' %}" class="secondary-btn">Board view</a>
+      <a href="{% url 'jobs:sales_form' %}" class="primary-btn">+ New sale</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'accounts:logout' %}" class="signout-link" title="Signed in as {{ user.email|default:user.username }}">Sign out</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+  {% if jobs %}
+    <table class="job-table">
+      <thead>
+        <tr>
+          <th>Customer</th>
+          <th>Invoice</th>
+          <th>Stage</th>
+          <th>Install date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+          <tr class="job-row" onclick="location.href='{% url 'jobs:job_overview' job.invoice_number %}'">
+            <td class="job-customer">{{ job.customer.last_name }}, {{ job.customer.first_name }}</td>
+            <td class="job-invoice">{% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}<em>pending</em>{% endif %}</td>
+            <td class="job-stage">{{ job.get_status_display }}</td>
+            <td class="job-date">{% if job.install_date %}{{ job.install_date|date:"M j, Y" }}{% else %}<span class="pending">—</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state">
+      <p>No active jobs yet.</p>
+      <p><a href="{% url 'jobs:sales_form' %}">Start a new sale →</a></p>
+    </div>
+  {% endif %}
+</main>
+
+</body>
+</html>

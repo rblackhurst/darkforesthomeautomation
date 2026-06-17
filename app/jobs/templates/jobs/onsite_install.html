@@ -1,0 +1,212 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Onsite install</title>
+  <link rel="stylesheet" href="{% static 'jobs/onsite_install.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<header class="page-header">
+  <div class="header-row">
+    <div class="header-left">
+      <a class="back-link" href="{% url 'jobs:home' %}">← Active jobs</a>
+      <h1>Onsite install</h1>
+      <p class="header-sub">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · invoice {% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}{{ job.invoice_number }}{% endif %}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </div>
+    <div class="header-right">
+      {% if oi.completed_at %}
+        <span class="complete-badge">✓ Completed {{ oi.completed_at|date:"M j, g:i a" }}</span>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── DHCP Reservation Plan ── -->
+  <section class="card">
+    <h2 class="section-title">DHCP reservation plan</h2>
+    <p class="section-hint">Record the base network and assign a static IP to every device that needs one. Fill in IPs as you apply DHCP reservations on the router.</p>
+
+    <div class="subnet-row">
+      <label class="field-label" for="lan-subnet">LAN subnet (first 3 octets)</label>
+      <input type="text" id="lan-subnet" class="subnet-input"
+             value="{{ oi.lan_subnet }}" placeholder="e.g. 192.168.10" autocomplete="off">
+      <span class="subnet-suffix">.x</span>
+    </div>
+
+    {% if nuc_ip %}
+    <div class="nuc-ip-row">
+      <span class="device-label">NUC / Home Assistant server</span>
+      <span class="ip-ref">{{ nuc_ip }} <span class="ip-ref-note">(from backend install)</span></span>
+    </div>
+    {% endif %}
+
+    {% if dhcp_rows %}
+    <table class="dhcp-table">
+      <thead>
+        <tr>
+          <th>Device</th>
+          <th>Model</th>
+          <th>Room</th>
+          <th>HA name</th>
+          <th class="col-ip">Assigned IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for check in dhcp_rows %}
+        <tr>
+          <td>{{ check.pairing_row.room_device.device.get_device_type_display }}</td>
+          <td>{{ check.pairing_row.room_device.device.model_name }}</td>
+          <td>{{ check.pairing_row.room_device.room.display_label }}</td>
+          <td class="ha-name">{{ check.pairing_row.ha_name }}</td>
+          <td class="col-ip">
+            <input type="text" class="ip-input"
+                   data-check-id="{{ check.id }}"
+                   value="{{ check.ip_address }}"
+                   placeholder="—"
+                   autocomplete="off">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">No devices in this job require DHCP reservations (no NUC, switch, AP, hub, or camera assigned).</p>
+    {% endif %}
+  </section>
+
+  <!-- ── Device Install & Test ── -->
+  <section class="card">
+    <h2 class="section-title">Device install &amp; test</h2>
+    <p class="section-hint">Check off each device as it is physically installed and tested in its final position with automations running.</p>
+
+    {% if rooms %}
+      {% for bucket in rooms %}
+      <div class="room-block">
+        <h3 class="room-title">{{ bucket.room.display_label }}</h3>
+        <table class="device-table">
+          <thead>
+            <tr>
+              <th class="col-check">Installed</th>
+              <th class="col-check">Tested</th>
+              <th>Device</th>
+              <th>HA name</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for check in bucket.checks %}
+            <tr class="device-row{% if check.installed and check.tested %} done{% endif %}" data-check-id="{{ check.id }}">
+              <td class="col-check">
+                <label class="check-wrap">
+                  <input type="checkbox" class="installed-check"
+                         {% if check.installed %}checked{% endif %}>
+                  <span class="check-mark"></span>
+                </label>
+                {% if check.installed_at %}
+                  <div class="check-when">{{ check.installed_at|date:"g:i a" }}</div>
+                {% endif %}
+              </td>
+              <td class="col-check">
+                <label class="check-wrap">
+                  <input type="checkbox" class="tested-check"
+                         {% if check.tested %}checked{% endif %}>
+                  <span class="check-mark"></span>
+                </label>
+                {% if check.tested_at %}
+                  <div class="check-when">{{ check.tested_at|date:"g:i a" }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="hw-type">{{ check.pairing_row.room_device.device.get_device_type_display }}</span>
+                <span class="hw-model">{{ check.pairing_row.room_device.device.model_name }}</span>
+              </td>
+              <td class="ha-name">{{ check.pairing_row.ha_name }}</td>
+              <td>
+                <input type="text" class="device-notes-input"
+                       value="{{ check.notes }}"
+                       placeholder="—"
+                       autocomplete="off">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-note">No devices yet. Complete the pairing sheet first to populate this list.</p>
+    {% endif %}
+  </section>
+
+  <!-- ── Standard Checklist ── -->
+  <section class="card">
+    <h2 class="section-title">Standard onsite checklist</h2>
+    <ul class="standard-list">
+      {% for key, label in standard_checks %}
+      <li class="standard-item">
+        <label class="check-wrap">
+          <input type="checkbox" class="standard-check" data-key="{{ key }}">
+          <span class="check-mark"></span>
+        </label>
+        <span class="standard-label">{{ label }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <!-- ── Notes ── -->
+  <section class="card">
+    <h2 class="section-title">Notes</h2>
+    <div class="notes-grid">
+      <div class="notes-field">
+        <label class="field-label" for="vlan-changes">VLAN / DHCP changes made</label>
+        <textarea id="vlan-changes" class="notes-textarea" data-field="vlan_changes"
+                  placeholder="Document any VLAN assignments, DHCP scope changes, port configurations, etc.">{{ oi.vlan_changes }}</textarea>
+      </div>
+      <div class="notes-field">
+        <label class="field-label" for="remote-monitoring">Remote monitoring notes</label>
+        <textarea id="remote-monitoring" class="notes-textarea" data-field="remote_monitoring"
+                  placeholder="Remote access verification, HA cloud, any monitoring config notes.">{{ oi.remote_monitoring }}</textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Complete ── -->
+  <section class="complete-section">
+    {% if oi.completed_at %}
+      <p class="complete-msg">Onsite install marked complete. <a href="{% url 'jobs:walkthrough_render' job.invoice_number %}">Open walkthrough →</a></p>
+    {% else %}
+      <button type="button" class="complete-btn" id="complete-btn">Mark onsite install complete</button>
+      <p class="complete-hint">Advances the job to Walkthrough.</p>
+    {% endif %}
+  </section>
+
+</main>
+
+<div class="save-toast" id="save-toast">Saved</div>
+
+<script>
+  window.OI_URLS = {
+    toggleInstalled: (id) => `{% url 'jobs:onsite_install_toggle_installed' job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    toggleTested:    (id) => `{% url 'jobs:onsite_install_toggle_tested'    job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    saveIp:          (id) => `{% url 'jobs:onsite_install_save_ip'           job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    saveNotes:       (id) => `{% url 'jobs:onsite_install_save_device_notes' job.invoice_number 0 %}`.replace("/0/", `/${id}/`),
+    saveField:       "{% url 'jobs:onsite_install_save_field'    job.invoice_number %}",
+    toggleStandard:  "{% url 'jobs:onsite_install_toggle_standard' job.invoice_number %}",
+    complete:        "{% url 'jobs:onsite_install_complete'       job.invoice_number %}",
+    walkthroughUrl:  "{% url 'jobs:walkthrough_render'            job.invoice_number %}",
+  };
+  window.OI_STANDARD_STATE = {{ standard_checks_state_json|safe }};
+</script>
+<script src="{% static 'jobs/onsite_install.js' %}"></script>
+</body>
+</html>

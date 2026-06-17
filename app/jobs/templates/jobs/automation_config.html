@@ -1,0 +1,99 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Automation config</title>
+  <link rel="stylesheet" href="{% static 'jobs/automation_config.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<header class="page-header">
+  <div class="header-row">
+    <div class="header-left">
+      <a class="back-link" href="{% url 'jobs:home' %}">← Active jobs</a>
+      <h1>Automation config</h1>
+      <p class="header-sub">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · invoice {% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}{{ job.invoice_number }}{% endif %}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </div>
+    <div class="header-right">
+      {% if ac.completed_at %}
+        <span class="complete-badge">✓ Completed {{ ac.completed_at|date:"M j, g:i a" }}</span>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+
+  {% if job.custom_integrations or job.custom_automations %}
+  <section class="ref-panel">
+    <h2 class="section-title">Pre-install notes</h2>
+    {% if job.custom_integrations %}
+      <div class="ref-block">
+        <h3>Custom integrations requested</h3>
+        <p class="ref-text">{{ job.custom_integrations }}</p>
+      </div>
+    {% endif %}
+    {% if job.custom_automations %}
+      <div class="ref-block">
+        <h3>Custom automations requested</h3>
+        <p class="ref-text">{{ job.custom_automations }}</p>
+      </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="blueprints-section">
+    <h2 class="section-title">Applied blueprints</h2>
+    <p class="section-hint">Record each standard HA blueprint automation you apply. Add one entry per blueprint.</p>
+
+    <ul class="blueprint-list" id="blueprint-list">
+      <!-- populated by JS from blueprints_json -->
+    </ul>
+
+    <form class="add-blueprint-form" id="add-blueprint-form">
+      <div class="add-row">
+        <input type="text" id="bp-name" placeholder="Blueprint name (e.g. Motion-activated lights)" class="bp-name-input" autocomplete="off">
+        <input type="text" id="bp-notes" placeholder="Notes (rooms, conditions, etc.)" class="bp-notes-input" autocomplete="off">
+        <button type="submit" class="add-btn">Add</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="yaml-section">
+    <h2 class="section-title">Custom automations (YAML)</h2>
+    <p class="section-hint">Paste any custom automation YAML that goes beyond the standard blueprints. Auto-saves on change.</p>
+    <textarea id="custom-yaml" class="yaml-area" placeholder="# Custom automations YAML&#10;# e.g. trigger on specific sensor + condition + action">{{ ac.custom_yaml }}</textarea>
+  </section>
+
+  <section class="complete-section">
+    {% if ac.completed_at %}
+      <p class="complete-msg">Automation config marked complete. <a href="{% url 'jobs:onsite_install_render' job.invoice_number %}">Open onsite install →</a></p>
+    {% else %}
+      <button type="button" class="complete-btn" id="complete-btn">Mark automation config complete</button>
+      <p class="complete-hint">Advances the job to On-site install.</p>
+    {% endif %}
+  </section>
+
+</main>
+
+<div class="save-toast" id="save-toast">Saved</div>
+
+<script>
+  window.AC_URLS = {
+    addBlueprint:    "{% url 'jobs:automation_config_add_blueprint'    job.invoice_number %}",
+    removeBlueprint: "{% url 'jobs:automation_config_remove_blueprint' job.invoice_number %}",
+    saveYaml:        "{% url 'jobs:automation_config_save_yaml'        job.invoice_number %}",
+    complete:        "{% url 'jobs:automation_config_complete'         job.invoice_number %}",
+    onsiteUrl:       "{% url 'jobs:onsite_install_render'              job.invoice_number %}",
+  };
+  window.AC_BLUEPRINTS = {{ blueprints_json|safe }};
+</script>
+<script src="{% static 'jobs/automation_config.js' %}"></script>
+</body>
+</html>

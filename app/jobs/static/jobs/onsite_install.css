@@ -1,0 +1,101 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; background: #f5f5f5; color: #1a1a1a; }
+
+/* Header */
+.page-header { background: #1a1a2e; color: #fff; padding: 16px 24px; }
+.header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.header-left { display: flex; flex-direction: column; gap: 4px; }
+.back-link { color: #a0aec0; text-decoration: none; font-size: 13px; }
+.back-link:hover { color: #fff; }
+h1 { font-size: 20px; font-weight: 700; }
+.header-sub { color: #a0aec0; font-size: 13px; }
+.header-right { padding-top: 4px; }
+.complete-badge { background: #276749; color: #c6f6d5; font-size: 12px; padding: 4px 10px; border-radius: 12px; }
+
+/* Main */
+main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 24px; }
+
+/* Cards */
+.card { background: #fff; border-radius: 8px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.section-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.section-hint { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.5; }
+
+/* DHCP plan */
+.subnet-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.field-label { font-size: 12px; font-weight: 600; color: #555; white-space: nowrap; }
+.subnet-input { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; font-family: monospace; width: 180px; }
+.subnet-input:focus { outline: none; border-color: #667eea; }
+.subnet-suffix { font-family: monospace; color: #666; font-size: 13px; }
+
+.nuc-ip-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #f0fff4; border-radius: 5px; margin-bottom: 12px; font-size: 13px; }
+.device-label { font-weight: 600; }
+.ip-ref { font-family: monospace; color: #276749; }
+.ip-ref-note { font-family: inherit; color: #888; font-size: 11px; }
+
+.dhcp-table, .device-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dhcp-table th, .device-table th { text-align: left; padding: 7px 10px; background: #f8f9fa; border-bottom: 2px solid #e2e8f0; font-size: 12px; font-weight: 600; color: #555; }
+.dhcp-table td, .device-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+.dhcp-table tr:last-child td, .device-table tr:last-child td { border-bottom: none; }
+
+.col-ip { width: 140px; }
+.ip-input { width: 130px; padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-family: monospace; font-size: 12px; }
+.ip-input:focus { outline: none; border-color: #667eea; }
+.ha-name { font-family: monospace; font-size: 12px; color: #444; }
+
+/* Device rows */
+.room-block + .room-block { margin-top: 20px; }
+.room-title { font-size: 13px; font-weight: 700; color: #2d3748; padding-bottom: 6px; border-bottom: 1px solid #eee; margin-bottom: 8px; }
+
+.col-check { width: 64px; text-align: center; }
+.check-wrap { display: inline-flex; align-items: center; cursor: pointer; }
+.check-wrap input[type=checkbox] { display: none; }
+.check-mark {
+  width: 20px; height: 20px; border: 2px solid #d1d5db; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.check-wrap input:checked + .check-mark { background: #276749; border-color: #276749; }
+.check-wrap input:checked + .check-mark::after { content: '✓'; color: #fff; font-size: 12px; font-weight: 700; }
+.check-when { font-size: 10px; color: #888; margin-top: 2px; }
+
+.device-row.done td { background: #f0fff4; }
+.hw-type { font-size: 11px; color: #888; display: block; }
+.hw-model { font-size: 13px; }
+
+.device-notes-input { width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: 4px; font-size: 12px; background: transparent; }
+.device-notes-input:hover { border-color: #e2e8f0; }
+.device-notes-input:focus { outline: none; border-color: #667eea; background: #fff; }
+
+/* Standard checklist */
+.standard-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.standard-item { display: flex; align-items: center; gap: 10px; }
+.standard-label { font-size: 13px; }
+.standard-item .check-wrap input:checked + .check-mark { background: #2b6cb0; border-color: #2b6cb0; }
+
+/* Notes */
+.notes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .notes-grid { grid-template-columns: 1fr; } }
+.notes-field { display: flex; flex-direction: column; gap: 6px; }
+.notes-textarea {
+  padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px;
+  resize: vertical; min-height: 100px; line-height: 1.5; font-family: inherit;
+}
+.notes-textarea:focus { outline: none; border-color: #667eea; }
+
+/* Complete */
+.complete-section { background: #fff; border-radius: 8px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.08); text-align: center; }
+.complete-btn { padding: 10px 28px; background: #276749; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.complete-btn:hover { background: #1f5237; }
+.complete-hint { font-size: 12px; color: #888; margin-top: 8px; }
+.complete-msg { font-size: 14px; color: #276749; font-weight: 600; }
+.complete-msg a { color: #276749; }
+
+.empty-note { font-size: 13px; color: #888; font-style: italic; }
+
+/* Toast */
+.save-toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: #1a1a2e; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13px;
+  opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+.save-toast.visible { opacity: 1; }

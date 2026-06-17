@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import SalesForm
 from .models import (
+    AutomationConfig,
     BackendInstall,
     BackendInstallCapture,
     BackendInstallItemState,
@@ -25,6 +26,8 @@ from .models import (
     Customer,
     InternalPrep,
     Job,
+    OnsiteDeviceCheck,
+    OnsiteInstall,
     Package,
     PairingSheet,
     PairingSheetDevice,
@@ -36,6 +39,7 @@ from .models import (
     RoomDevice,
     SaleLine,
     ServiceTier,
+    WalkthroughSignoff,
 )
 
 
@@ -1421,6 +1425,21 @@ def _next_action(job):
             reverse("jobs:pairing_sheet_render", args=[job.invoice_number]),
             "Open pairing sheet",
         )
+    if job.status == Job.Status.AUTOMATION:
+        return (
+            reverse("jobs:automation_config_render", args=[job.invoice_number]),
+            "Open automation config",
+        )
+    if job.status == Job.Status.ONSITE:
+        return (
+            reverse("jobs:onsite_install_render", args=[job.invoice_number]),
+            "Open onsite install",
+        )
+    if job.status == Job.Status.WALKTHROUGH:
+        return (
+            reverse("jobs:walkthrough_render", args=[job.invoice_number]),
+            "Open walkthrough",
+        )
     return (
         reverse("admin:jobs_job_change", args=[job.invoice_number]),
         "Open in admin",
@@ -1824,6 +1843,9 @@ def pairing_sheet_lock(request, invoice_number):
         if ps.completed_at is None:
             ps.completed_at = ps.locked_at
         ps.save(update_fields=["locked", "locked_at", "locked_by", "completed_at"])
+        if job.status == Job.Status.PAIRING:
+            job.status = Job.Status.AUTOMATION
+            job.save(update_fields=["status"])
     return JsonResponse({
         "ok": True,
         "locked": True,
@@ -1843,3 +1865,360 @@ def pairing_sheet_unlock(request, invoice_number):
         ps.locked_by = None
         ps.save(update_fields=["locked", "locked_at", "locked_by"])
     return JsonResponse({"ok": True, "locked": False})
+
+
+# ── Automation Config ─────────────────────────────────────────────────────────
+
+def _get_or_init_automation_config(job):
+    ac, _ = AutomationConfig.objects.get_or_create(job=job)
+    return ac
+
+
+@login_required
+@staff_required
+def automation_config_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ac = _get_or_init_automation_config(job)
+    return render(request, "jobs/automation_config.html", {
+        "job": job,
+        "ac": ac,
+        "blueprints_json": json.dumps(ac.blueprints or []),
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def automation_config_add_blueprint(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ac = _get_or_init_automation_config(job)
+    data = _load_json(request)
+    name = str(data.get("name", "")).strip()
+    if not name:
+        return JsonResponse({"ok": False, "error": "name required"}, status=400)
+    entry = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "notes": str(data.get("notes", "")).strip(),
+    }
+    blueprints = list(ac.blueprints or [])
+    blueprints.append(entry)
+    ac.blueprints = blueprints
+    ac.save(update_fields=["blueprints"])
+    return JsonResponse({"ok": True, "blueprint": entry, "blueprints": blueprints})
+
+
+@login_required
+@staff_required
+@require_POST
+def automation_config_remove_blueprint(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ac = _get_or_init_automation_config(job)
+    data = _load_json(request)
+    bp_id = str(data.get("id", "")).strip()
+    blueprints = [b for b in (ac.blueprints or []) if b.get("id") != bp_id]
+    ac.blueprints = blueprints
+    ac.save(update_fields=["blueprints"])
+    return JsonResponse({"ok": True, "blueprints": blueprints})
+
+
+@login_required
+@staff_required
+@require_POST
+def automation_config_save_yaml(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ac = _get_or_init_automation_config(job)
+    data = _load_json(request)
+    ac.custom_yaml = str(data.get("value", ""))
+    ac.save(update_fields=["custom_yaml"])
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def automation_config_complete(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ac = _get_or_init_automation_config(job)
+    if ac.completed_at is None:
+        ac.completed_at = now()
+        ac.save(update_fields=["completed_at"])
+    if job.status == Job.Status.AUTOMATION:
+        job.status = Job.Status.ONSITE
+        job.save(update_fields=["status"])
+    return JsonResponse({"ok": True, "completed_at": ac.completed_at.isoformat()})
+
+
+# ── Onsite Install ────────────────────────────────────────────────────────────
+
+ONSITE_STANDARD_CHECKS = [
+    ("hub_powered",        "Hub/NUC powered and reachable on LAN"),
+    ("zigbee_online",      "Zigbee coordinator detected in Home Assistant"),
+    ("vlans_applied",      "VLAN/DHCP reservations applied on router/switch"),
+    ("correct_vlan",       "All devices confirmed on correct VLAN"),
+    ("automations_ok",     "All automations verified with devices in final room positions"),
+    ("cable_organized",    "Cable runs labeled and organized"),
+    ("router_documented",  "Router/switch config documented in notes"),
+]
+
+
+def _get_or_init_onsite_install(job):
+    oi, _ = OnsiteInstall.objects.get_or_create(job=job)
+    try:
+        ps = job.pairing_sheet
+    except PairingSheet.DoesNotExist:
+        return oi
+    existing_ids = set(oi.device_checks.values_list("pairing_row_id", flat=True))
+    for psd in ps.device_rows.select_related("room_device__device", "room_device__room"):
+        if psd.id not in existing_ids:
+            OnsiteDeviceCheck.objects.get_or_create(
+                onsite_install=oi,
+                pairing_row=psd,
+            )
+    return oi
+
+
+def _build_onsite_rooms(oi):
+    """Return room-grouped device check rows plus DHCP-only rows for the plan."""
+    checks = list(
+        oi.device_checks
+        .select_related(
+            "pairing_row__room_device__room",
+            "pairing_row__room_device__device",
+        )
+        .order_by(
+            "pairing_row__room_device__room__order",
+            "pairing_row__room_device_id",
+            "pairing_row__instance_index",
+        )
+    )
+    rooms = {}
+    dhcp_rows = []
+    for check in checks:
+        room = check.pairing_row.room_device.room
+        if room.id not in rooms:
+            rooms[room.id] = {"room": room, "checks": []}
+        rooms[room.id]["checks"].append(check)
+        if check.pairing_row.room_device.device.needs_dhcp_reservation:
+            dhcp_rows.append(check)
+    return list(rooms.values()), dhcp_rows
+
+
+@login_required
+@staff_required
+def onsite_install_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi = _get_or_init_onsite_install(job)
+    rooms, dhcp_rows = _build_onsite_rooms(oi)
+
+    nuc_ip = ""
+    try:
+        bi = job.backend_install
+        cap = bi.captures.filter(key="nuc_static_ip").first()
+        if cap:
+            nuc_ip = cap.value
+    except BackendInstall.DoesNotExist:
+        pass
+
+    return render(request, "jobs/onsite_install.html", {
+        "job": job,
+        "oi": oi,
+        "rooms": rooms,
+        "dhcp_rows": dhcp_rows,
+        "nuc_ip": nuc_ip,
+        "standard_checks": ONSITE_STANDARD_CHECKS,
+        "standard_checks_state_json": json.dumps(oi.standard_checks or {}),
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_toggle_installed(request, invoice_number, check_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    check = get_object_or_404(OnsiteDeviceCheck, id=check_id, onsite_install__job=job)
+    check.installed = not check.installed
+    check.installed_at = now() if check.installed else None
+    check.save(update_fields=["installed", "installed_at"])
+    return JsonResponse({"ok": True, "installed": check.installed})
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_toggle_tested(request, invoice_number, check_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    check = get_object_or_404(OnsiteDeviceCheck, id=check_id, onsite_install__job=job)
+    check.tested = not check.tested
+    check.tested_at = now() if check.tested else None
+    check.save(update_fields=["tested", "tested_at"])
+    return JsonResponse({"ok": True, "tested": check.tested})
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_save_ip(request, invoice_number, check_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    check = get_object_or_404(OnsiteDeviceCheck, id=check_id, onsite_install__job=job)
+    data = _load_json(request)
+    check.ip_address = str(data.get("value", "")).strip()
+    check.save(update_fields=["ip_address"])
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_save_device_notes(request, invoice_number, check_id):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    check = get_object_or_404(OnsiteDeviceCheck, id=check_id, onsite_install__job=job)
+    data = _load_json(request)
+    check.notes = str(data.get("value", ""))[:200]
+    check.save(update_fields=["notes"])
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_save_field(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi, _ = OnsiteInstall.objects.get_or_create(job=job)
+    data = _load_json(request)
+    field = str(data.get("field", ""))
+    value = str(data.get("value", ""))
+    allowed = {"vlan_changes", "remote_monitoring", "lan_subnet"}
+    if field not in allowed:
+        return JsonResponse({"ok": False, "error": "unknown field"}, status=400)
+    setattr(oi, field, value)
+    oi.save(update_fields=[field])
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_toggle_standard(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi, _ = OnsiteInstall.objects.get_or_create(job=job)
+    data = _load_json(request)
+    key = str(data.get("key", ""))
+    valid_keys = {k for k, _ in ONSITE_STANDARD_CHECKS}
+    if key not in valid_keys:
+        return JsonResponse({"ok": False, "error": "unknown key"}, status=400)
+    checks = dict(oi.standard_checks or {})
+    checks[key] = bool(data.get("checked", False))
+    oi.standard_checks = checks
+    oi.save(update_fields=["standard_checks"])
+    return JsonResponse({"ok": True, "checked": checks[key]})
+
+
+@login_required
+@staff_required
+@require_POST
+def onsite_install_complete(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    oi, _ = OnsiteInstall.objects.get_or_create(job=job)
+    if oi.completed_at is None:
+        oi.completed_at = now()
+        oi.save(update_fields=["completed_at"])
+    if job.status == Job.Status.ONSITE:
+        job.status = Job.Status.WALKTHROUGH
+        job.save(update_fields=["status"])
+    return JsonResponse({"ok": True, "completed_at": oi.completed_at.isoformat()})
+
+
+# ── Walkthrough Sign-off ──────────────────────────────────────────────────────
+
+WALKTHROUGH_ACK_TEXT = """By signing below, the customer confirms:
+
+• The Dark Forest Home Automation system and all installed hardware are owned by the customer.
+• Dark Forest Home Automation LLC retains no ownership of any installed hardware or software.
+• Home Assistant, Tailscale, GitHub, and associated accounts are registered in the customer's name; DFHA technician access may be revoked at any time.
+• Ongoing remote monitoring and support services require a separate service agreement, billed separately.
+• The customer has received a complete walkthrough of the installed system and understands its basic operation."""
+
+_PLAN_LABELS = {
+    "none":          "No service plan",
+    "tier1_monthly": "Basic — $29/mo",
+    "tier1_annual":  "Basic — $290/yr",
+    "tier2_monthly": "Standard — $49/mo",
+    "tier2_annual":  "Standard — $490/yr",
+    "tier3_monthly": "Premium — $79/mo",
+    "tier3_annual":  "Premium — $790/yr",
+}
+
+
+def _get_or_init_walkthrough(job):
+    ws, _ = WalkthroughSignoff.objects.get_or_create(job=job)
+    return ws
+
+
+@login_required
+@staff_required
+def walkthrough_render(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ws = _get_or_init_walkthrough(job)
+    rooms = list(
+        job.rooms.prefetch_related("devices__device").order_by("order", "id")
+    )
+    service_plan_choices = [
+        {"value": k, "label": v}
+        for k, v in _PLAN_LABELS.items()
+    ]
+    current_plan = job.property.service_plan_tier if job.property else "none"
+    return render(request, "jobs/walkthrough.html", {
+        "job": job,
+        "ws": ws,
+        "rooms": rooms,
+        "ack_text": WALKTHROUGH_ACK_TEXT,
+        "service_plan_choices": service_plan_choices,
+        "service_plan_choices_json": json.dumps(service_plan_choices),
+        "current_plan": current_plan,
+        "final_invoice_url": job.stripe_final_invoice_url or "",
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def walkthrough_save_field(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ws = _get_or_init_walkthrough(job)
+    data = _load_json(request)
+    field = str(data.get("field", ""))
+    value = str(data.get("value", ""))
+    allowed = {"tailscale_account", "customer_acknowledgement"}
+    if field not in allowed:
+        return JsonResponse({"ok": False, "error": "unknown field"}, status=400)
+    setattr(ws, field, value)
+    ws.save(update_fields=[field])
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@staff_required
+@require_POST
+def walkthrough_sign(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    ws = _get_or_init_walkthrough(job)
+    if ws.signed_at is not None:
+        return JsonResponse({
+            "ok": True,
+            "already_signed": True,
+            "signed_at": ws.signed_at.isoformat(),
+        })
+    data = _load_json(request)
+    customer_name = str(data.get("customer_name", "")).strip()
+    if not customer_name:
+        return JsonResponse({"ok": False, "error": "Customer name is required"}, status=400)
+    ws.signed_at = now()
+    ws.signed_by_name = customer_name
+    ws.signed_by_employee = request.user
+    ws.save(update_fields=["signed_at", "signed_by_name", "signed_by_employee"])
+    return JsonResponse({
+        "ok": True,
+        "signed_at": ws.signed_at.isoformat(),
+        "signed_by": customer_name,
+    })

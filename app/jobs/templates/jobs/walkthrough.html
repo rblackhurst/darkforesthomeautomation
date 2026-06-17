@@ -1,0 +1,187 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ job.customer.last_name }} · Walkthrough</title>
+  <link rel="stylesheet" href="{% static 'jobs/walkthrough.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<header class="page-header">
+  <div class="header-row">
+    <div class="header-left">
+      <a class="back-link" href="{% url 'jobs:home' %}">← Active jobs</a>
+      <h1>Customer walkthrough</h1>
+      <p class="header-sub">
+        <strong>{{ job.customer.first_name }} {{ job.customer.last_name }}</strong>
+        · invoice {% if job.display_invoice_number %}{{ job.display_invoice_number }}{% else %}{{ job.invoice_number }}{% endif %}
+        {% if job.install_date %} · install {{ job.install_date|date:"M j, Y" }}{% endif %}
+      </p>
+    </div>
+    <div class="header-right">
+      {% if ws.signed_at %}
+        <span class="signed-badge">✓ Signed {{ ws.signed_at|date:"M j, g:i a" }}</span>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── 1. Tailscale Setup ── -->
+  <section class="card">
+    <h2 class="section-title">1. Tailscale setup <span class="step-note">— do this first, with the customer</span></h2>
+    <p class="section-hint">Create or log in to the customer's Tailscale account, add the HA machine to their tailnet, and verify remote access before continuing.</p>
+    <div class="field-row">
+      <label class="field-label" for="tailscale-account">Customer Tailscale account email</label>
+      <input type="email" id="tailscale-account" class="text-input"
+             value="{{ ws.tailscale_account }}"
+             placeholder="customer@example.com"
+             autocomplete="off"
+             data-field="tailscale_account">
+    </div>
+  </section>
+
+  <!-- ── 2. Job Summary ── -->
+  <section class="card">
+    <h2 class="section-title">2. Install summary</h2>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <span class="summary-label">Package</span>
+        <span class="summary-value">{% if job.package %}{{ job.package.name }}{% else %}—{% endif %}</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">Rooms</span>
+        <span class="summary-value">{{ rooms|length }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">Invoice</span>
+        <span class="summary-value">{{ job.display_invoice_number|default:"Pending" }}</span>
+      </div>
+    </div>
+
+    {% if rooms %}
+    <table class="summary-table">
+      <thead>
+        <tr><th>Room</th><th>Devices</th></tr>
+      </thead>
+      <tbody>
+        {% for room in rooms %}
+        <tr>
+          <td>{{ room.display_label }}</td>
+          <td>
+            {% for rd in room.devices.all %}
+              <span class="device-chip">{{ rd.quantity }}× {{ rd.device.model_name }}</span>
+            {% empty %}
+              <span class="empty-chip">—</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+
+  <!-- ── 3. Service Plan ── -->
+  <section class="card">
+    <h2 class="section-title">3. Service plan</h2>
+    <p class="section-hint">Select the customer's monitoring plan. This will be included on the final invoice.</p>
+    <div class="plan-selector" id="plan-selector">
+      {% for choice in service_plan_choices %}
+      <label class="plan-option {% if choice.value == current_plan %}selected{% endif %}" data-value="{{ choice.value }}">
+        <input type="radio" name="service_plan" value="{{ choice.value }}"
+               {% if choice.value == current_plan %}checked{% endif %}>
+        {{ choice.label }}
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ── 4. Acknowledgment & Sign-off ── -->
+  <section class="card signoff-card">
+    <h2 class="section-title">4. Customer acknowledgment &amp; sign-off</h2>
+
+    <div class="ack-text">
+      {% for line in ack_text.splitlines %}
+        {% if line %}
+          <p>{{ line }}</p>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if ws.signed_at %}
+      <div class="signed-block">
+        <p class="signed-msg">
+          Signed by <strong>{{ ws.signed_by_name }}</strong>
+          on {{ ws.signed_at|date:"F j, Y" }} at {{ ws.signed_at|date:"g:i a" }}
+          · witnessed by {{ ws.signed_by_employee.get_full_name|default:ws.signed_by_employee.username }}
+        </p>
+      </div>
+    {% else %}
+      <div class="sign-form">
+        <div class="field-row">
+          <label class="field-label" for="customer-name">Customer full name <span class="required">*</span></label>
+          <input type="text" id="customer-name" class="text-input sign-name-input"
+                 placeholder="Type customer's full name to sign"
+                 autocomplete="off">
+        </div>
+        <div class="field-row">
+          <label class="field-label" for="walkthrough-notes">Walkthrough notes <span class="field-opt">(optional)</span></label>
+          <textarea id="walkthrough-notes" class="notes-textarea"
+                    data-field="customer_acknowledgement"
+                    placeholder="Any notes from the walkthrough session…">{{ ws.customer_acknowledgement }}</textarea>
+        </div>
+        <button type="button" class="sign-btn" id="sign-btn">Sign walkthrough</button>
+        <p class="sign-hint">Records the sign-off and locks this job. You can then send the final invoice below.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- ── 5. Final Invoice ── -->
+  <section class="card invoice-card">
+    <h2 class="section-title">5. Final invoice</h2>
+
+    {% if job.stripe_final_invoice_id %}
+      <div class="invoice-sent-block">
+        <p class="invoice-sent-msg">
+          Final invoice sent.
+          {% if job.stripe_final_invoice_url %}
+            <a href="{{ job.stripe_final_invoice_url }}" target="_blank" rel="noopener" class="invoice-link">View in Stripe →</a>
+          {% endif %}
+        </p>
+        {% if job.final_paid %}
+          <p class="paid-badge">✓ Paid</p>
+        {% else %}
+          <p class="awaiting-payment">Awaiting payment…</p>
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="section-hint">Once the walkthrough is signed, send the final invoice. The selected service plan will be activated automatically when the customer pays.</p>
+      <button type="button" class="invoice-btn" id="invoice-btn"
+              {% if not ws.signed_at %}disabled title="Sign the walkthrough first"{% endif %}>
+        Send final invoice
+      </button>
+      <p class="invoice-hint" id="invoice-status"></p>
+    {% endif %}
+  </section>
+
+</main>
+
+<div class="save-toast" id="save-toast">Saved</div>
+
+<script>
+  window.WT_URLS = {
+    saveField:   "{% url 'jobs:walkthrough_save_field' job.invoice_number %}",
+    sign:        "{% url 'jobs:walkthrough_sign'       job.invoice_number %}",
+    finalInvoice:"{% url 'jobs:final_invoice_send'     job.invoice_number %}",
+  };
+  window.WT_SIGNED = {{ ws.signed_at|yesno:"true,false" }};
+  window.WT_PLAN_CHOICES = {{ service_plan_choices_json|safe }};
+  window.WT_CURRENT_PLAN = "{{ current_plan }}";
+</script>
+<script src="{% static 'jobs/walkthrough.js' %}"></script>
+</body>
+</html>

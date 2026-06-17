@@ -199,4 +199,90 @@ urlpatterns = [
         views.sales_form_edit,
         name="sales_form_edit",
     ),
+
+    # ── Automation config ────────────────────────────────────────────────
+    path(
+        "jobs/<str:invoice_number>/automation-config/",
+        views.automation_config_render,
+        name="automation_config_render",
+    ),
+    path(
+        "jobs/<str:invoice_number>/automation-config/blueprint/add/",
+        views.automation_config_add_blueprint,
+        name="automation_config_add_blueprint",
+    ),
+    path(
+        "jobs/<str:invoice_number>/automation-config/blueprint/remove/",
+        views.automation_config_remove_blueprint,
+        name="automation_config_remove_blueprint",
+    ),
+    path(
+        "jobs/<str:invoice_number>/automation-config/yaml/",
+        views.automation_config_save_yaml,
+        name="automation_config_save_yaml",
+    ),
+    path(
+        "jobs/<str:invoice_number>/automation-config/complete/",
+        views.automation_config_complete,
+        name="automation_config_complete",
+    ),
+
+    # ── Onsite install ───────────────────────────────────────────────────
+    path(
+        "jobs/<str:invoice_number>/onsite-install/",
+        views.onsite_install_render,
+        name="onsite_install_render",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/check/<int:check_id>/installed/",
+        views.onsite_install_toggle_installed,
+        name="onsite_install_toggle_installed",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/check/<int:check_id>/tested/",
+        views.onsite_install_toggle_tested,
+        name="onsite_install_toggle_tested",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/check/<int:check_id>/ip/",
+        views.onsite_install_save_ip,
+        name="onsite_install_save_ip",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/check/<int:check_id>/notes/",
+        views.onsite_install_save_device_notes,
+        name="onsite_install_save_device_notes",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/field/",
+        views.onsite_install_save_field,
+        name="onsite_install_save_field",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/standard/",
+        views.onsite_install_toggle_standard,
+        name="onsite_install_toggle_standard",
+    ),
+    path(
+        "jobs/<str:invoice_number>/onsite-install/complete/",
+        views.onsite_install_complete,
+        name="onsite_install_complete",
+    ),
+
+    # ── Walkthrough sign-off ─────────────────────────────────────────────
+    path(
+        "jobs/<str:invoice_number>/walkthrough/",
+        views.walkthrough_render,
+        name="walkthrough_render",
+    ),
+    path(
+        "jobs/<str:invoice_number>/walkthrough/field/",
+        views.walkthrough_save_field,
+        name="walkthrough_save_field",
+    ),
+    path(
+        "jobs/<str:invoice_number>/walkthrough/sign/",
+        views.walkthrough_sign,
+        name="walkthrough_sign",
+    ),
 ]

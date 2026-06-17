@@ -189,6 +189,22 @@ class InvoicePaidFinalTests(TestCase):
         self._handle({'id': 'in_fin', 'metadata': {'dfha_job_id': 'TEST-001', 'invoice_type': 'final'}})
         mock_create_sub.assert_not_called()
 
+    @patch('stripe_integration.webhook_handler.create_subscription')
+    @patch('client_hub.emails.send_mail')
+    def test_sends_portal_activation_email_on_final_paid(self, mock_send_mail, mock_create_sub):
+        self._handle({'id': 'in_fin', 'metadata': {'dfha_job_id': 'TEST-001', 'invoice_type': 'final'}})
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args
+        self.assertIn(self.customer.email, call_kwargs[1]['recipient_list'])
+
+    @patch('stripe_integration.webhook_handler.create_subscription')
+    @patch('client_hub.emails.send_mail', side_effect=Exception("smtp down"))
+    def test_portal_activation_failure_does_not_affect_invoice_processing(self, mock_send_mail, mock_create_sub):
+        self._handle({'id': 'in_fin', 'metadata': {'dfha_job_id': 'TEST-001', 'invoice_type': 'final'}})
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.final_paid)
+        self.assertEqual(self.job.status, Job.Status.FINAL_PAID)
+
 
 # ---------------------------------------------------------------------------
 # invoice.payment_failed

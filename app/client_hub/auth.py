@@ -5,10 +5,13 @@ from django.conf import settings
 from django.utils import timezone
 
 
-def generate_magic_link_token(customer):
+def generate_magic_link_token(customer, expiry_seconds=None):
     """
     Invalidate any existing unused tokens for this customer, then create a new one.
     Returns the token string.
+
+    Pass expiry_seconds to override the default MAGIC_LINK_EXPIRY_SECONDS setting
+    (e.g. for portal activation emails that should stay valid longer).
     """
     from .models import MagicLinkToken
 
@@ -18,9 +21,9 @@ def generate_magic_link_token(customer):
     ).update(expires_at=timezone.now())
 
     token_string = secrets.token_urlsafe(32)
-    expiry = timezone.now() + timedelta(
-        seconds=getattr(settings, 'MAGIC_LINK_EXPIRY_SECONDS', 1200)
-    )
+    if expiry_seconds is None:
+        expiry_seconds = getattr(settings, 'MAGIC_LINK_EXPIRY_SECONDS', 1200)
+    expiry = timezone.now() + timedelta(seconds=expiry_seconds)
     MagicLinkToken.objects.create(
         customer=customer,
         token=token_string,

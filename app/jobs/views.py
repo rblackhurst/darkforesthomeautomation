@@ -2278,7 +2278,10 @@ def walkthrough_render(request, invoice_number):
 def walkthrough_save_plan(request, invoice_number):
     job = get_object_or_404(Job, invoice_number=invoice_number)
     if job.property is None:
-        return JsonResponse({"ok": False, "error": "Job has no associated property"}, status=400)
+        from .models import Property
+        prop = Property.objects.create(customer=job.customer)
+        job.property = prop
+        job.save(update_fields=["property"])
     data = _load_json(request)
     plan = str(data.get("plan", "")).strip()
     valid_compound = set(_PLAN_ENV_KEYS.keys()) | {"none"}

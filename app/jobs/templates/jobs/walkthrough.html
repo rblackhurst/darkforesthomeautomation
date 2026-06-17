@@ -142,32 +142,19 @@
 
   <!-- ── 5. Final Invoice ── -->
   <section class="card invoice-card">
-    <h2 class="section-title">5. Final invoice</h2>
+    <h2 class="section-title">5. Final invoice &amp; service plan</h2>
 
-    {% if job.stripe_final_invoice_id %}
-      <div class="invoice-sent-block">
-        <p class="invoice-sent-msg">
-          Final invoice sent.
-          {% if job.stripe_final_invoice_url %}
-            <a href="{{ job.stripe_final_invoice_url }}" target="_blank" rel="noopener" class="invoice-link">View in Stripe →</a>
-          {% endif %}
-        </p>
-        {% if job.final_paid %}
-          <p class="paid-badge">✓ Paid</p>
-        {% else %}
-          <p class="awaiting-payment">Awaiting payment…</p>
-        {% endif %}
-      </div>
-    {% else %}
+    {% if not job.stripe_final_invoice_id %}
+      <!-- Preview before sending -->
       <table class="invoice-preview">
         <tbody>
           <tr>
-            <td class="preview-label">Install total</td>
+            <td class="preview-label">Install balance (50%)</td>
             <td class="preview-amount">${{ final_total }}</td>
           </tr>
           <tr id="plan-preview-row" class="plan-preview-row{% if current_plan == 'none' %} hidden{% endif %}">
-            <td class="preview-label">Service plan <span class="preview-note" id="plan-preview-label">{% if current_plan != 'none' %}{{ current_plan }}{% endif %}</span></td>
-            <td class="preview-amount preview-recurring" id="plan-preview-amount">billed separately after payment</td>
+            <td class="preview-label">Service plan <span class="preview-note" id="plan-preview-label">{% if current_plan != 'none' %}{{ plan_label }}{% endif %}</span></td>
+            <td class="preview-amount preview-recurring">billed separately after payment</td>
           </tr>
         </tbody>
         <tfoot>
@@ -177,13 +164,62 @@
           </tr>
         </tfoot>
       </table>
-      <p class="section-hint" id="plan-note" {% if current_plan == 'none' %}style="display:none"{% endif %}>Service plan billing starts after the customer pays this invoice.</p>
+      {% if current_plan != 'none' %}
+        <p class="section-hint" id="plan-note">Service plan billing starts automatically after the customer pays this invoice.</p>
+      {% else %}
+        <p class="section-hint" id="plan-note" style="display:none">Service plan billing starts automatically after the customer pays this invoice.</p>
+      {% endif %}
       <button type="button" class="invoice-btn" id="invoice-btn"
               {% if not ws.signed_at %}disabled title="Sign the walkthrough first"{% endif %}>
         Send final invoice
       </button>
       <p class="invoice-hint" id="invoice-status"></p>
     {% endif %}
+
+    <!-- ── Install balance row ── -->
+    {% if job.stripe_final_invoice_id %}
+    <div class="billing-row">
+      <div class="billing-row-left">
+        <span class="billing-label">Install balance</span>
+        <span class="billing-amount">${{ final_total }}</span>
+      </div>
+      <div class="billing-row-right">
+        {% if job.final_paid %}
+          <span class="status-badge status-paid">✓ Paid</span>
+        {% else %}
+          <span class="status-badge status-pending">Awaiting payment</span>
+        {% endif %}
+        {% if job.stripe_final_invoice_url %}
+          <a href="{{ job.stripe_final_invoice_url }}" target="_blank" rel="noopener" class="stripe-link">View in Stripe →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Service plan row ── -->
+    {% if job.stripe_final_invoice_id %}
+    <div class="billing-row">
+      <div class="billing-row-left">
+        <span class="billing-label">Service plan</span>
+        <span class="billing-amount">{{ plan_label }}</span>
+      </div>
+      <div class="billing-row-right">
+        {% if prop.stripe_subscription_id %}
+          <span class="status-badge status-paid">✓ Active</span>
+          {% if prop.subscription_status and prop.subscription_status != 'active' %}
+            <span class="status-sub">{{ prop.subscription_status }}</span>
+          {% endif %}
+        {% elif current_plan == 'none' %}
+          <span class="status-badge status-none">No plan selected</span>
+        {% elif job.final_paid %}
+          <span class="status-badge status-warning">Paid — subscription not started</span>
+        {% else %}
+          <span class="status-badge status-pending">Queued — starts after payment</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
   </section>
 
 </main>

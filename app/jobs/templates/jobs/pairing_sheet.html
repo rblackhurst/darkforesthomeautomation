@@ -100,13 +100,13 @@
     {% if pairing_sheet.locked %}
       <p class="lock-hint">This pairing sheet is locked. Unlock to make adjustments — changes will be audit-logged after the walkthrough sign-off.</p>
     {% else %}
-      <p class="lock-hint">When every device is paired and named, lock the sheet to freeze the entity names that go into Home Assistant and the install record.</p>
+      <p class="lock-hint">When every device is paired and named, complete the pairing phase. This freezes the HA entity names and advances the job to Automation config.</p>
       <button type="button" class="lock-btn" id="lock-btn"
               {% if remaining > 0 %}disabled{% endif %}>
-        Mark pairing sheet complete
+        Complete pairing
       </button>
       {% if remaining > 0 %}
-        <p class="lock-pending">{{ remaining }} device{{ remaining|pluralize }} still need a paired ✓ before this can be locked.</p>
+        <p class="lock-pending">{{ remaining }} device{{ remaining|pluralize }} still need a paired ✓ before this can be completed.</p>
       {% endif %}
     {% endif %}
   </section>

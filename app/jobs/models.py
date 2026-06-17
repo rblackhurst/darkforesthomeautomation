@@ -278,9 +278,16 @@ class AutomationConfig(InstallRecord):
 
 class OnsiteInstall(InstallRecord):
     job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="onsite_install")
+    lan_subnet = models.CharField(
+        max_length=50, blank=True,
+        help_text="Base network for DHCP plan (first 3 octets), e.g. '192.168.10'.",
+    )
     vlan_changes = models.TextField(blank=True)
-    tailscale_account = models.CharField(max_length=200, blank=True)
     remote_monitoring = models.TextField(blank=True)
+    standard_checks = models.JSONField(
+        default=dict, blank=True,
+        help_text="State of standard onsite checklist items keyed by slug.",
+    )
 
     def __str__(self):
         return f"OnsiteInstall for {self.job_id}"
@@ -288,6 +295,10 @@ class OnsiteInstall(InstallRecord):
 
 class WalkthroughSignoff(models.Model):
     job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name="walkthrough_signoff")
+    tailscale_account = models.CharField(
+        max_length=200, blank=True,
+        help_text="Customer's Tailscale account email, set up at the start of the walkthrough.",
+    )
     signed_at = models.DateTimeField(null=True, blank=True)
     signed_by_name = models.CharField(max_length=200, blank=True)
     signed_by_employee = models.ForeignKey(
@@ -556,6 +567,10 @@ class CatalogDevice(models.Model):
     )
     notes = models.TextField(blank=True)
     active = models.BooleanField(default=True)
+    needs_dhcp_reservation = models.BooleanField(
+        default=False,
+        help_text="True if this device requires a static DHCP reservation (NUC, switch, AP, hub, camera).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -837,6 +852,43 @@ class PairingSheetDevice(models.Model):
 
     def __str__(self):
         return f"{self.pairing_sheet.job_id}: {self.ha_name or '(unnamed)'}"
+
+
+# ── Onsite device check rows ──────────────────────────────────────────────────
+
+class OnsiteDeviceCheck(models.Model):
+    """One row per device on the onsite install sheet, generated from PairingSheetDevice rows."""
+    onsite_install = models.ForeignKey(
+        OnsiteInstall, on_delete=models.CASCADE, related_name="device_checks",
+    )
+    pairing_row = models.ForeignKey(
+        PairingSheetDevice, on_delete=models.CASCADE, related_name="onsite_checks",
+    )
+    installed = models.BooleanField(default=False)
+    installed_at = models.DateTimeField(null=True, blank=True)
+    tested = models.BooleanField(default=False)
+    tested_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.CharField(
+        max_length=50, blank=True,
+        help_text="Static IP assigned (only for devices requiring a DHCP reservation).",
+    )
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["onsite_install", "pairing_row"],
+                name="unique_onsite_device_check",
+            ),
+        ]
+        ordering = [
+            "pairing_row__room_device__room__order",
+            "pairing_row__room_device_id",
+            "pairing_row__instance_index",
+        ]
+
+    def __str__(self):
+        return f"{self.onsite_install.job_id}: {self.pairing_row.ha_name or '(unnamed)'}"
 
 
 # ── Signals ───────────────────────────────────────────────────────────────────

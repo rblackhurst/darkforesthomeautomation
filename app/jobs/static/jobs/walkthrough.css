@@ -1,0 +1,109 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; background: #f5f5f5; color: #1a1a1a; }
+
+/* Header */
+.page-header { background: #1a1a2e; color: #fff; padding: 16px 24px; }
+.header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.header-left { display: flex; flex-direction: column; gap: 4px; }
+.back-link { color: #a0aec0; text-decoration: none; font-size: 13px; }
+.back-link:hover { color: #fff; }
+h1 { font-size: 20px; font-weight: 700; }
+.header-sub { color: #a0aec0; font-size: 13px; }
+.header-right { padding-top: 4px; }
+.signed-badge { background: #276749; color: #c6f6d5; font-size: 12px; padding: 4px 10px; border-radius: 12px; }
+
+/* Main */
+main { max-width: 800px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 24px; }
+
+/* Cards */
+.card { background: #fff; border-radius: 8px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.section-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.step-note { font-size: 12px; font-weight: 400; color: #888; }
+.section-hint { font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.5; }
+
+/* Fields */
+.field-row { display: flex; flex-direction: column; gap: 5px; }
+.field-row + .field-row { margin-top: 14px; }
+.field-label { font-size: 12px; font-weight: 600; color: #555; }
+.field-opt { font-weight: 400; color: #888; }
+.required { color: #e53e3e; }
+.text-input { padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; width: 100%; max-width: 360px; }
+.text-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,.2); }
+
+/* Summary */
+.summary-grid { display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+.summary-item { display: flex; flex-direction: column; gap: 2px; }
+.summary-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; }
+.summary-value { font-size: 15px; font-weight: 700; }
+
+.summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.summary-table th { text-align: left; padding: 6px 10px; background: #f8f9fa; border-bottom: 2px solid #e2e8f0; font-size: 12px; font-weight: 600; color: #555; }
+.summary-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+.summary-table tr:last-child td { border-bottom: none; }
+.device-chip { display: inline-block; background: #edf2f7; border-radius: 4px; padding: 2px 7px; font-size: 12px; margin: 2px 2px 2px 0; }
+.empty-chip { color: #bbb; font-size: 12px; }
+
+/* Plan selector */
+.plan-selector { display: flex; flex-wrap: wrap; gap: 8px; }
+.plan-option {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  border: 2px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px;
+  transition: border-color .15s, background .15s;
+}
+.plan-option input[type=radio] { display: none; }
+.plan-option.selected { border-color: #667eea; background: #ebf4ff; font-weight: 600; }
+.plan-option:hover:not(.selected) { border-color: #a0aec0; }
+
+/* Acknowledgment */
+.ack-text {
+  background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 16px; margin-bottom: 20px; font-size: 13px; line-height: 1.7;
+}
+.ack-text p { margin-bottom: 6px; }
+.ack-text p:last-child { margin-bottom: 0; }
+
+.sign-form { display: flex; flex-direction: column; gap: 14px; }
+.sign-name-input { max-width: 320px; }
+.notes-textarea {
+  padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px;
+  resize: vertical; min-height: 80px; line-height: 1.5; font-family: inherit; width: 100%;
+}
+.notes-textarea:focus { outline: none; border-color: #667eea; }
+
+.sign-btn {
+  align-self: flex-start; padding: 10px 28px; background: #2b6cb0; color: #fff;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.sign-btn:hover { background: #2c5282; }
+.sign-btn:disabled { background: #a0aec0; cursor: not-allowed; }
+.sign-hint { font-size: 12px; color: #888; }
+
+.signed-block { padding: 12px 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #c6f6d5; }
+.signed-msg { font-size: 13px; color: #276749; }
+
+/* Invoice */
+.invoice-card {}
+.invoice-btn {
+  padding: 10px 28px; background: #744210; color: #fff;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.invoice-btn:hover:not(:disabled) { background: #5c3310; }
+.invoice-btn:disabled { background: #a0aec0; cursor: not-allowed; }
+.invoice-hint { font-size: 13px; margin-top: 10px; }
+.invoice-hint.ok { color: #276749; font-weight: 600; }
+.invoice-hint.err { color: #c53030; }
+
+.invoice-sent-block { padding: 12px 16px; background: #fffff0; border-radius: 6px; border: 1px solid #faf089; }
+.invoice-sent-msg { font-size: 13px; font-weight: 600; }
+.invoice-link { color: #744210; }
+.paid-badge { color: #276749; font-weight: 700; margin-top: 6px; }
+.awaiting-payment { color: #888; margin-top: 6px; font-size: 13px; }
+
+/* Toast */
+.save-toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: #1a1a2e; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13px;
+  opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+.save-toast.visible { opacity: 1; }

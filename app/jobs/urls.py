@@ -300,4 +300,9 @@ urlpatterns = [
         views.walkthrough_sign,
         name="walkthrough_sign",
     ),
+    path(
+        "jobs/<str:invoice_number>/walkthrough/activate-plan/",
+        views.walkthrough_activate_plan,
+        name="walkthrough_activate_plan",
+    ),
 ]

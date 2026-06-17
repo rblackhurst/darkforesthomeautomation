@@ -140,6 +140,18 @@ main { max-width: 800px; margin: 0 auto; padding: 24px 16px 48px; display: flex;
 .paid-badge { color: #276749; font-weight: 700; margin-top: 6px; }
 .awaiting-payment { color: #888; margin-top: 6px; font-size: 13px; }
 
+/* Activate plan button */
+.activate-btn {
+  padding: 10px 28px; background: #276749; color: #fff;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.activate-btn:hover:not(:disabled) { background: #1f4e37; }
+.activate-btn:disabled { background: #a0aec0; cursor: not-allowed; }
+
+/* Plan save error hint */
+.plan-save-hint { font-size: 12px; margin-top: 8px; min-height: 16px; }
+.plan-save-hint.err { color: #c53030; }
+
 /* Toast */
 .save-toast {
   position: fixed; bottom: 20px; right: 20px;
@@ -147,3 +159,9 @@ main { max-width: 800px; margin: 0 auto; padding: 24px 16px 48px; display: flex;
   opacity: 0; transition: opacity .25s; pointer-events: none;
 }
 .save-toast.visible { opacity: 1; }
+.save-toast-err {
+  position: fixed; bottom: 56px; right: 20px;
+  background: #9b2c2c; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13px;
+  opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+.save-toast-err.visible { opacity: 1; }

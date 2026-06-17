@@ -186,6 +186,8 @@ def backend_install_render(request, invoice_number):
         total_checks += check_total
         total_done += check_done
 
+    final_checks_state = {k: bool(bi.final_checks.get(k)) for k, _ in BACKEND_FINAL_CHECKS}
+
     return render(request, "jobs/backend_install.html", {
         "job": job,
         "backend_install": bi,
@@ -193,6 +195,8 @@ def backend_install_render(request, invoice_number):
         "steps": rendered_steps,
         "total_checks": total_checks,
         "total_done": total_done,
+        "final_checks": BACKEND_FINAL_CHECKS,
+        "final_checks_state_json": json.dumps(final_checks_state),
     })
 
 
@@ -290,6 +294,51 @@ def backend_install_reset(request, invoice_number):
         bi.save(update_fields=["template"])
 
     return JsonResponse({"reset": True})
+
+
+BACKEND_FINAL_CHECKS = [
+    ("ha_accessible",      "Home Assistant accessible in browser"),
+    ("z2m_online",         "Zigbee2MQTT coordinator detected and online"),
+    ("devices_responding", "All paired devices responding in HA"),
+    ("automations_tested", "Automations tested and verified"),
+    ("ha_user_created",    "Customer HA user account created"),
+    ("tailscale_running",  "Tailscale installed and connected on NUC"),
+    ("snapshot_taken",     "Full HA snapshot/backup taken"),
+    ("nuc_ip_confirmed",   "NUC static IP confirmed and documented"),
+]
+
+
+@login_required
+@staff_required
+@require_POST
+def backend_install_toggle_final_check(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    bi = _get_or_init_backend_install(job)
+    data = _load_json(request)
+    key = str(data.get("key", ""))
+    valid_keys = {k for k, _ in BACKEND_FINAL_CHECKS}
+    if key not in valid_keys:
+        return JsonResponse({"ok": False, "error": "unknown key"}, status=400)
+    checks = dict(bi.final_checks or {})
+    checks[key] = bool(data.get("checked", False))
+    bi.final_checks = checks
+    bi.save(update_fields=["final_checks"])
+    return JsonResponse({"ok": True, "checked": checks[key]})
+
+
+@login_required
+@staff_required
+@require_POST
+def backend_install_complete(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    bi = _get_or_init_backend_install(job)
+    if bi.completed_at is None:
+        bi.completed_at = now()
+        bi.save(update_fields=["completed_at"])
+    if job.status == Job.Status.BACKEND:
+        job.status = Job.Status.PAIRING
+        job.save(update_fields=["status"])
+    return JsonResponse({"ok": True, "completed_at": bi.completed_at.isoformat()})
 
 
 # ── Pre-install checklist ────────────────────────────────────────────────

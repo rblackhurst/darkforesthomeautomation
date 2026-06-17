@@ -101,6 +101,26 @@
     });
   });
 
+  // ── Final verification checks ──
+  const finalState = window.BI_FINAL_STATE || {};
+  document.querySelectorAll('.final-check').forEach((el) => {
+    const key = el.dataset.key;
+    el.checked = !!finalState[key];
+    el.addEventListener('change', async () => {
+      const r = await post(window.BI_URLS.toggleFinalCheck, { key, checked: el.checked }, el.closest('.final-item'));
+      if (r && !r.ok) el.checked = !el.checked;
+    });
+  });
+
+  // ── Complete ──
+  const completeBtn = document.getElementById('complete-btn');
+  if (completeBtn) {
+    completeBtn.addEventListener('click', async () => {
+      const r = await post(window.BI_URLS.complete, {}, completeBtn);
+      if (r && r.ok) window.location.href = window.BI_URLS.pairingSheetUrl;
+    });
+  }
+
   // ── Reset ──
   const resetBtn = document.querySelector('[data-action="reset"]');
   if (resetBtn) {

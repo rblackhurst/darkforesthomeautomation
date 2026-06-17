@@ -2226,6 +2226,7 @@ def walkthrough_render(request, invoice_number):
         current_plan = "none"
     override = job.payment_override_amount if job.payment_override else None
     final_total = _sale_total(job, override).quantize(Decimal("0.01"))
+    plan_label = _PLAN_LABELS.get(current_plan, "No service plan")
     return render(request, "jobs/walkthrough.html", {
         "job": job,
         "ws": ws,
@@ -2234,8 +2235,10 @@ def walkthrough_render(request, invoice_number):
         "service_plan_choices": service_plan_choices,
         "service_plan_choices_json": json.dumps(service_plan_choices),
         "current_plan": current_plan,
+        "plan_label": plan_label,
         "final_invoice_url": job.stripe_final_invoice_url or "",
         "final_total": final_total,
+        "prop": job.property,
     })
 
 

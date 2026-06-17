@@ -88,7 +88,7 @@
   <!-- ── 3. Service Plan ── -->
   <section class="card">
     <h2 class="section-title">3. Service plan</h2>
-    <p class="section-hint">Select the customer's monitoring plan. This will be included on the final invoice.</p>
+    <p class="section-hint">Select the customer's monitoring plan. Save the selection here, then activate the subscription in section 6 after signing.</p>
     <div class="plan-selector" id="plan-selector">
       {% for choice in service_plan_choices %}
       <label class="plan-option {% if choice.value == current_plan %}selected{% endif %}" data-value="{{ choice.value }}">
@@ -98,6 +98,7 @@
       </label>
       {% endfor %}
     </div>
+    <p class="plan-save-hint" id="plan-save-hint"></p>
   </section>
 
   <!-- ── 4. Acknowledgment & Sign-off ── -->
@@ -140,9 +141,9 @@
     {% endif %}
   </section>
 
-  <!-- ── 5. Final Invoice ── -->
+  <!-- ── 5. Final Invoice (install balance) ── -->
   <section class="card invoice-card">
-    <h2 class="section-title">5. Final invoice &amp; service plan</h2>
+    <h2 class="section-title">5. Final invoice <span class="step-note">— install balance (50%)</span></h2>
 
     {% if not job.stripe_final_invoice_id %}
       <!-- Preview before sending -->
@@ -152,10 +153,6 @@
             <td class="preview-label">Install balance (50%)</td>
             <td class="preview-amount">${{ final_total }}</td>
           </tr>
-          <tr id="plan-preview-row" class="plan-preview-row{% if current_plan == 'none' %} hidden{% endif %}">
-            <td class="preview-label">Service plan <span class="preview-note" id="plan-preview-label">{% if current_plan != 'none' %}{{ plan_label }}{% endif %}</span></td>
-            <td class="preview-amount preview-recurring">billed separately after payment</td>
-          </tr>
         </tbody>
         <tfoot>
           <tr class="preview-total-row">
@@ -164,74 +161,78 @@
           </tr>
         </tfoot>
       </table>
-      {% if current_plan != 'none' %}
-        <p class="section-hint" id="plan-note">Service plan billing starts automatically after the customer pays this invoice.</p>
-      {% else %}
-        <p class="section-hint" id="plan-note" style="display:none">Service plan billing starts automatically after the customer pays this invoice.</p>
-      {% endif %}
       <button type="button" class="invoice-btn" id="invoice-btn"
               {% if not ws.signed_at %}disabled title="Sign the walkthrough first"{% endif %}>
         Send final invoice
       </button>
       <p class="invoice-hint" id="invoice-status"></p>
+    {% else %}
+      <div class="billing-row">
+        <div class="billing-row-left">
+          <span class="billing-label">Install balance</span>
+          <span class="billing-amount">${{ final_total }}</span>
+        </div>
+        <div class="billing-row-right">
+          {% if job.final_paid %}
+            <span class="status-badge status-paid">✓ Paid</span>
+          {% else %}
+            <span class="status-badge status-pending">Awaiting payment</span>
+          {% endif %}
+          {% if job.stripe_final_invoice_url %}
+            <a href="{{ job.stripe_final_invoice_url }}" target="_blank" rel="noopener" class="stripe-link">View in Stripe →</a>
+          {% endif %}
+        </div>
+      </div>
     {% endif %}
+  </section>
 
-    <!-- ── Install balance row ── -->
-    {% if job.stripe_final_invoice_id %}
-    <div class="billing-row">
-      <div class="billing-row-left">
-        <span class="billing-label">Install balance</span>
-        <span class="billing-amount">${{ final_total }}</span>
-      </div>
-      <div class="billing-row-right">
-        {% if job.final_paid %}
-          <span class="status-badge status-paid">✓ Paid</span>
-        {% else %}
-          <span class="status-badge status-pending">Awaiting payment</span>
-        {% endif %}
-        {% if job.stripe_final_invoice_url %}
-          <a href="{{ job.stripe_final_invoice_url }}" target="_blank" rel="noopener" class="stripe-link">View in Stripe →</a>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
+  <!-- ── 6. Service Plan Activation ── -->
+  <section class="card">
+    <h2 class="section-title">6. Service plan activation</h2>
 
-    <!-- ── Service plan row ── -->
-    {% if job.stripe_final_invoice_id %}
-    <div class="billing-row">
-      <div class="billing-row-left">
-        <span class="billing-label">Service plan</span>
-        <span class="billing-amount">{{ plan_label }}</span>
-      </div>
-      <div class="billing-row-right">
-        {% if prop.stripe_subscription_id %}
+    {% if prop and prop.stripe_subscription_id %}
+      <!-- Already active -->
+      <div class="billing-row">
+        <div class="billing-row-left">
+          <span class="billing-label">Subscription</span>
+          <span class="billing-amount">{{ plan_label }}</span>
+        </div>
+        <div class="billing-row-right">
           <span class="status-badge status-paid">✓ Active</span>
           {% if prop.subscription_status and prop.subscription_status != 'active' %}
             <span class="status-sub">{{ prop.subscription_status }}</span>
           {% endif %}
-        {% elif current_plan == 'none' %}
-          <span class="status-badge status-none">No plan selected</span>
-        {% elif job.final_paid %}
-          <span class="status-badge status-warning">Paid — subscription not started</span>
-        {% else %}
-          <span class="status-badge status-pending">Queued — starts after payment</span>
-        {% endif %}
+        </div>
       </div>
-    </div>
-    {% endif %}
 
+    {% elif current_plan == 'none' %}
+      <p class="section-hint">No service plan selected. Choose a plan in section 3 first.</p>
+
+    {% else %}
+      <p class="section-hint">
+        Selected plan: <strong id="activation-plan-label">{{ plan_label }}</strong>.
+        Billing starts the first of next month after activation.
+      </p>
+      <button type="button" class="activate-btn" id="activate-btn"
+              {% if not ws.signed_at %}disabled title="Sign the walkthrough first"{% endif %}>
+        Activate service plan
+      </button>
+      <p class="invoice-hint" id="activate-status"></p>
+    {% endif %}
   </section>
 
 </main>
 
 <div class="save-toast" id="save-toast">Saved</div>
+<div class="save-toast save-toast-err" id="save-toast-err">Save failed</div>
 
 <script>
   window.WT_URLS = {
-    saveField:   "{% url 'jobs:walkthrough_save_field' job.invoice_number %}",
-    savePlan:    "{% url 'jobs:walkthrough_save_plan'  job.invoice_number %}",
-    sign:        "{% url 'jobs:walkthrough_sign'       job.invoice_number %}",
-    finalInvoice:"{% url 'jobs:final_invoice_send'     job.invoice_number %}",
+    saveField:    "{% url 'jobs:walkthrough_save_field'    job.invoice_number %}",
+    savePlan:     "{% url 'jobs:walkthrough_save_plan'     job.invoice_number %}",
+    sign:         "{% url 'jobs:walkthrough_sign'          job.invoice_number %}",
+    finalInvoice: "{% url 'jobs:final_invoice_send'        job.invoice_number %}",
+    activatePlan: "{% url 'jobs:walkthrough_activate_plan' job.invoice_number %}",
   };
   window.WT_SIGNED = {{ ws.signed_at|yesno:"true,false" }};
   window.WT_PLAN_CHOICES = {{ service_plan_choices_json|safe }};

@@ -1397,14 +1397,7 @@ def deposit_invoice_status(request, invoice_number):
 @staff_required
 @require_POST
 def final_invoice_send(request, invoice_number):
-    """
-    Create and send the final Stripe invoice for a finalized job.
-
-    The service plan selection is read from job.property (saved at walkthrough
-    plan-selection time via walkthrough_save_plan) so nothing is lost between
-    the plan picker and this button click.
-    """
-    import os
+    """Send the final Stripe invoice (install balance only — subscription is a separate step)."""
     job = get_object_or_404(Job, invoice_number=invoice_number)
 
     if not job.finalized_at:
@@ -1412,24 +1405,6 @@ def final_invoice_send(request, invoice_number):
     if job.stripe_final_invoice_id:
         return JsonResponse({"ok": False, "error": "Final invoice already exists",
                              "stripe_final_invoice_url": job.stripe_final_invoice_url}, status=400)
-
-    # Build the compound plan key from the persisted tier + interval on the property.
-    if job.property:
-        _tier = job.property.service_plan_tier or "none"
-        _interval = job.property.billing_interval or "none"
-        service_plan = f"{_tier}_{_interval}" if _tier != "none" and _interval != "none" else ""
-    else:
-        service_plan = ""
-
-    if service_plan:
-        env_key = _PLAN_ENV_KEYS.get(service_plan)
-        if not env_key:
-            return JsonResponse({"ok": False, "error": f"Unknown service plan combination: {service_plan}"}, status=400)
-        price_id = os.environ.get(env_key)
-        if not price_id:
-            return JsonResponse({"ok": False, "error": f"Stripe price ID not configured for {service_plan} — set {env_key} in environment"}, status=400)
-        job.property.pending_subscription_price_id = price_id
-        job.property.save(update_fields=['pending_subscription_price_id'])
 
     try:
         from stripe_integration.services import create_and_send_final_invoice
@@ -1443,6 +1418,61 @@ def final_invoice_send(request, invoice_number):
         })
     except Exception as exc:
         return JsonResponse({"ok": True, "stripe_invoice_sent": False, "stripe_invoice_error": str(exc)})
+
+
+@login_required
+@staff_required
+@require_POST
+def walkthrough_activate_plan(request, invoice_number):
+    """Activate a Stripe subscription for the selected service plan, independent of invoice payment."""
+    import os
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+
+    if job.property is None:
+        return JsonResponse({"ok": False, "error": "Job has no associated property"}, status=400)
+
+    prop = job.property
+    if prop.stripe_subscription_id:
+        return JsonResponse({"ok": False, "error": "Subscription already active"}, status=400)
+
+    _tier = prop.service_plan_tier or "none"
+    _interval = prop.billing_interval or "none"
+    if _tier == "none" or _interval == "none":
+        return JsonResponse({"ok": False, "error": "No service plan selected — choose a plan first"}, status=400)
+
+    compound = f"{_tier}_{_interval}"
+    env_key = _PLAN_ENV_KEYS.get(compound)
+    if not env_key:
+        return JsonResponse({"ok": False, "error": f"Unknown plan combination: {compound}"}, status=400)
+    price_id = os.environ.get(env_key)
+    if not price_id:
+        return JsonResponse({"ok": False, "error": f"Stripe price ID not configured — set {env_key} in environment"}, status=400)
+
+    try:
+        from stripe_integration.services import (
+            get_or_create_stripe_customer,
+            _first_of_next_month_timestamp,
+        )
+        import stripe as _stripe
+        stripe_cust = get_or_create_stripe_customer(job.customer)
+        sub = _stripe.Subscription.create(
+            customer=stripe_cust.id,
+            items=[{"price": price_id}],
+            billing_cycle_anchor=_first_of_next_month_timestamp(),
+            proration_behavior="none",
+            metadata={"dfha_job_id": str(job.pk)},
+        )
+        prop.stripe_subscription_id = sub.id
+        prop.subscription_status = sub.status
+        prop.pending_subscription_price_id = ""
+        prop.save(update_fields=["stripe_subscription_id", "subscription_status", "pending_subscription_price_id"])
+        return JsonResponse({
+            "ok": True,
+            "subscription_id": sub.id,
+            "subscription_status": sub.status,
+        })
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
 
 
 # ── Installer home / pipeline view ──────────────────────────────────────

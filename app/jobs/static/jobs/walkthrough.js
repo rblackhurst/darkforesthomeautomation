@@ -10,11 +10,13 @@ function post(url, body) {
   }).then(r => r.json());
 }
 
-function showToast() {
-  const t = document.getElementById('save-toast');
+function showToast(isError) {
+  const id = isError ? 'save-toast-err' : 'save-toast';
+  const t = document.getElementById(id);
+  if (!t) return;
   t.classList.add('visible');
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('visible'), 1800);
+  t._timer = setTimeout(() => t.classList.remove('visible'), 2200);
 }
 
 function debounce(fn, ms) {
@@ -27,7 +29,7 @@ const tailscaleInput = document.getElementById('tailscale-account');
 if (tailscaleInput) {
   tailscaleInput.addEventListener('input', debounce(() => {
     post(window.WT_URLS.saveField, { field: 'tailscale_account', value: tailscaleInput.value.trim() })
-      .then(() => showToast());
+      .then(() => showToast(false));
   }, 600));
 }
 
@@ -36,7 +38,7 @@ const notesEl = document.getElementById('walkthrough-notes');
 if (notesEl) {
   notesEl.addEventListener('input', debounce(() => {
     post(window.WT_URLS.saveField, { field: 'customer_acknowledgement', value: notesEl.value })
-      .then(() => showToast());
+      .then(() => showToast(false));
   }, 600));
 }
 
@@ -46,21 +48,6 @@ let selectedPlan = window.WT_CURRENT_PLAN || 'none';
 const planLabelMap = {};
 (window.WT_PLAN_LABELS || []).forEach(c => { planLabelMap[c.value] = c.label; });
 
-function updatePlanPreview(plan) {
-  const row = document.getElementById('plan-preview-row');
-  const labelEl = document.getElementById('plan-preview-label');
-  const noteEl = document.getElementById('plan-note');
-  if (!row) return;
-  if (plan && plan !== 'none') {
-    row.classList.remove('hidden');
-    if (labelEl) labelEl.textContent = planLabelMap[plan] || plan;
-    if (noteEl) noteEl.style.display = '';
-  } else {
-    row.classList.add('hidden');
-    if (noteEl) noteEl.style.display = 'none';
-  }
-}
-
 document.querySelectorAll('.plan-option').forEach(opt => {
   opt.addEventListener('click', () => {
     selectedPlan = opt.dataset.value;
@@ -68,14 +55,34 @@ document.querySelectorAll('.plan-option').forEach(opt => {
       o.classList.toggle('selected', o.dataset.value === selectedPlan);
       o.querySelector('input').checked = o.dataset.value === selectedPlan;
     });
-    updatePlanPreview(selectedPlan);
+
+    // Update activation section label if visible
+    const activationLabel = document.getElementById('activation-plan-label');
+    if (activationLabel) {
+      activationLabel.textContent = planLabelMap[selectedPlan] || selectedPlan;
+    }
+
+    const hintEl = document.getElementById('plan-save-hint');
     post(window.WT_URLS.savePlan, { plan: selectedPlan }).then(data => {
-      if (data.ok) showToast();
+      if (data.ok) {
+        showToast(false);
+        if (hintEl) { hintEl.textContent = ''; }
+      } else {
+        showToast(true);
+        if (hintEl) {
+          hintEl.textContent = `Could not save: ${data.error || 'unknown error'}`;
+          hintEl.className = 'plan-save-hint err';
+        }
+      }
+    }).catch(() => {
+      showToast(true);
+      if (hintEl) {
+        hintEl.textContent = 'Network error — plan not saved';
+        hintEl.className = 'plan-save-hint err';
+      }
     });
   });
 });
-
-updatePlanPreview(selectedPlan);
 
 // ── Sign walkthrough ──────────────────────────────────────────────────────────
 const signBtn = document.getElementById('sign-btn');
@@ -118,7 +125,7 @@ if (invoiceBtn) {
           const link = data.stripe_invoice_url
             ? ` <a href="${data.stripe_invoice_url}" target="_blank" rel="noopener">View in Stripe →</a>`
             : '';
-          statusEl.innerHTML = `Invoice sent.${link}`;
+          statusEl.innerHTML = `Invoice sent.${link} Reload to see payment status.`;
         }
         invoiceBtn.textContent = 'Invoice sent';
       } else if (data.ok && !data.stripe_invoice_sent) {
@@ -135,6 +142,40 @@ if (invoiceBtn) {
           statusEl.className = 'invoice-hint err';
           statusEl.textContent = data.error || 'Failed to send invoice';
         }
+      }
+    });
+  });
+}
+
+// ── Activate service plan ─────────────────────────────────────────────────────
+const activateBtn = document.getElementById('activate-btn');
+if (activateBtn) {
+  activateBtn.addEventListener('click', () => {
+    activateBtn.disabled = true;
+    activateBtn.textContent = 'Activating…';
+    const statusEl = document.getElementById('activate-status');
+
+    post(window.WT_URLS.activatePlan, {}).then(data => {
+      if (data.ok) {
+        if (statusEl) {
+          statusEl.className = 'invoice-hint ok';
+          statusEl.textContent = `Subscription activated (${data.subscription_status || 'active'}). Reload to update status.`;
+        }
+        activateBtn.textContent = 'Activated';
+      } else {
+        activateBtn.disabled = false;
+        activateBtn.textContent = 'Activate service plan';
+        if (statusEl) {
+          statusEl.className = 'invoice-hint err';
+          statusEl.textContent = data.error || 'Activation failed';
+        }
+      }
+    }).catch(() => {
+      activateBtn.disabled = false;
+      activateBtn.textContent = 'Activate service plan';
+      if (statusEl) {
+        statusEl.className = 'invoice-hint err';
+        statusEl.textContent = 'Network error — try again';
       }
     });
   });

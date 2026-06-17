@@ -111,11 +111,7 @@ if (invoiceBtn) {
     invoiceBtn.textContent = 'Sending…';
     const statusEl = document.getElementById('invoice-status');
 
-    const body = selectedPlan && selectedPlan !== 'none'
-      ? { service_plan: selectedPlan }
-      : {};
-
-    post(window.WT_URLS.finalInvoice, body).then(data => {
+    post(window.WT_URLS.finalInvoice, {}).then(data => {
       if (data.ok && data.stripe_invoice_sent) {
         if (statusEl) {
           statusEl.className = 'invoice-hint ok';

@@ -1400,10 +1400,9 @@ def final_invoice_send(request, invoice_number):
     """
     Create and send the final Stripe invoice for a finalized job.
 
-    POST body (JSON):
-      service_plan   str  — optional plan key, e.g. "tier3_annual"; queued on
-                            the job so the webhook starts the subscription after
-                            the customer pays
+    The service plan selection is read from job.property (saved at walkthrough
+    plan-selection time via walkthrough_save_plan) so nothing is lost between
+    the plan picker and this button click.
     """
     import os
     job = get_object_or_404(Job, invoice_number=invoice_number)
@@ -1414,18 +1413,21 @@ def final_invoice_send(request, invoice_number):
         return JsonResponse({"ok": False, "error": "Final invoice already exists",
                              "stripe_final_invoice_url": job.stripe_final_invoice_url}, status=400)
 
-    data = _load_json(request)
-    service_plan = str(data.get("service_plan", "")).strip()
+    # Build the compound plan key from the persisted tier + interval on the property.
+    if job.property:
+        _tier = job.property.service_plan_tier or "none"
+        _interval = job.property.billing_interval or "none"
+        service_plan = f"{_tier}_{_interval}" if _tier != "none" and _interval != "none" else ""
+    else:
+        service_plan = ""
 
     if service_plan:
         env_key = _PLAN_ENV_KEYS.get(service_plan)
         if not env_key:
-            return JsonResponse({"ok": False, "error": f"Unknown service_plan: {service_plan}"}, status=400)
+            return JsonResponse({"ok": False, "error": f"Unknown service plan combination: {service_plan}"}, status=400)
         price_id = os.environ.get(env_key)
         if not price_id:
-            return JsonResponse({"ok": False, "error": f"Stripe price not configured for {service_plan}"}, status=400)
-        if job.property is None:
-            return JsonResponse({"ok": False, "error": "Job has no associated property"}, status=400)
+            return JsonResponse({"ok": False, "error": f"Stripe price ID not configured for {service_plan} — set {env_key} in environment"}, status=400)
         job.property.pending_subscription_price_id = price_id
         job.property.save(update_fields=['pending_subscription_price_id'])
 
@@ -2216,7 +2218,12 @@ def walkthrough_render(request, invoice_number):
         {"value": k, "label": v}
         for k, v in _PLAN_LABELS.items()
     ]
-    current_plan = job.property.service_plan_tier if job.property else "none"
+    if job.property:
+        _tier = job.property.service_plan_tier or "none"
+        _interval = job.property.billing_interval or "none"
+        current_plan = f"{_tier}_{_interval}" if _tier != "none" and _interval != "none" else "none"
+    else:
+        current_plan = "none"
     override = job.payment_override_amount if job.payment_override else None
     final_total = _sale_total(job, override).quantize(Decimal("0.01"))
     return render(request, "jobs/walkthrough.html", {
@@ -2241,11 +2248,18 @@ def walkthrough_save_plan(request, invoice_number):
         return JsonResponse({"ok": False, "error": "Job has no associated property"}, status=400)
     data = _load_json(request)
     plan = str(data.get("plan", "")).strip()
-    valid = {k for k, _ in _PLAN_LABELS.items()}
-    if plan not in valid:
+    valid_compound = set(_PLAN_ENV_KEYS.keys()) | {"none"}
+    if plan not in valid_compound:
         return JsonResponse({"ok": False, "error": "Unknown plan"}, status=400)
-    job.property.service_plan_tier = plan
-    job.property.save(update_fields=["service_plan_tier"])
+    if plan == "none":
+        job.property.service_plan_tier = "none"
+        job.property.billing_interval = "none"
+    else:
+        # plan is "tier1_monthly" or "tier2_annual" etc.
+        tier, interval = plan.rsplit("_", 1)
+        job.property.service_plan_tier = tier      # "tier1", "tier2", "tier3"
+        job.property.billing_interval = interval   # "monthly", "annual"
+    job.property.save(update_fields=["service_plan_tier", "billing_interval"])
     return JsonResponse({"ok": True})
 
 

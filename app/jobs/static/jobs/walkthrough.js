@@ -65,7 +65,7 @@ document.querySelectorAll('.plan-option').forEach(opt => {
           + '. Billing starts the first of next month after activation.';
         if (activateBtn && window.WT_SIGNED) activateBtn.disabled = false;
       } else {
-        activationLabel.textContent = 'No service plan selected — choose one in section 3 above.';
+        activationLabel.textContent = 'No service plan selected — choose one in section 5 above.';
         if (activateBtn) activateBtn.disabled = true;
       }
     }

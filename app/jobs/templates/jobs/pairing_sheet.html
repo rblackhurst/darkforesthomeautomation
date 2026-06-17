@@ -98,7 +98,8 @@
 
   <section class="lock-card">
     {% if pairing_sheet.locked %}
-      <p class="lock-hint">This pairing sheet is locked. Unlock to make adjustments — changes will be audit-logged after the walkthrough sign-off.</p>
+      <p class="lock-hint">Pairing sheet locked{% if pairing_sheet.locked_at %} {{ pairing_sheet.locked_at|date:"M j, g:i a" }}{% endif %}. Unlock to make adjustments — changes will be audit-logged after the walkthrough sign-off.</p>
+      <p class="lock-hint"><a href="{% url 'jobs:automation_config_render' job.invoice_number %}">Open automation config →</a></p>
     {% else %}
       <p class="lock-hint">When every device is paired and named, complete the pairing phase. This freezes the HA entity names and advances the job to Automation config.</p>
       <button type="button" class="lock-btn" id="lock-btn"

@@ -85,25 +85,9 @@
     {% endif %}
   </section>
 
-  <!-- ── 3. Service Plan ── -->
-  <section class="card">
-    <h2 class="section-title">3. Service plan</h2>
-    <p class="section-hint">Select the customer's monitoring plan. Save the selection here, then activate the subscription in section 6 after signing.</p>
-    <div class="plan-selector" id="plan-selector">
-      {% for choice in service_plan_choices %}
-      <label class="plan-option {% if choice.value == current_plan %}selected{% endif %}" data-value="{{ choice.value }}">
-        <input type="radio" name="service_plan" value="{{ choice.value }}"
-               {% if choice.value == current_plan %}checked{% endif %}>
-        {{ choice.label }}
-      </label>
-      {% endfor %}
-    </div>
-    <p class="plan-save-hint" id="plan-save-hint"></p>
-  </section>
-
-  <!-- ── 4. Acknowledgment & Sign-off ── -->
+  <!-- ── 3. Acknowledgment & Sign-off ── -->
   <section class="card signoff-card">
-    <h2 class="section-title">4. Customer acknowledgment &amp; sign-off</h2>
+    <h2 class="section-title">3. Customer acknowledgment &amp; sign-off</h2>
 
     <div class="ack-text">
       {% for line in ack_text.splitlines %}
@@ -141,12 +125,11 @@
     {% endif %}
   </section>
 
-  <!-- ── 5. Final Invoice (install balance) ── -->
+  <!-- ── 4. Final Invoice (install balance) ── -->
   <section class="card invoice-card">
-    <h2 class="section-title">5. Final invoice <span class="step-note">— install balance (50%)</span></h2>
+    <h2 class="section-title">4. Final invoice <span class="step-note">— install balance (50%)</span></h2>
 
     {% if not job.stripe_final_invoice_id %}
-      <!-- Preview before sending -->
       <table class="invoice-preview">
         <tbody>
           <tr>
@@ -186,12 +169,27 @@
     {% endif %}
   </section>
 
+  <!-- ── 5. Service Plan ── -->
+  <section class="card">
+    <h2 class="section-title">5. Service plan</h2>
+    <p class="section-hint">Select the customer's monitoring plan, then activate the subscription in section 6.</p>
+    <div class="plan-selector" id="plan-selector">
+      {% for choice in service_plan_choices %}
+      <label class="plan-option {% if choice.value == current_plan %}selected{% endif %}" data-value="{{ choice.value }}">
+        <input type="radio" name="service_plan" value="{{ choice.value }}"
+               {% if choice.value == current_plan %}checked{% endif %}>
+        {{ choice.label }}
+      </label>
+      {% endfor %}
+    </div>
+    <p class="plan-save-hint" id="plan-save-hint"></p>
+  </section>
+
   <!-- ── 6. Service Plan Activation ── -->
   <section class="card">
     <h2 class="section-title">6. Service plan activation</h2>
 
     {% if prop and prop.stripe_subscription_id %}
-      <!-- Already active -->
       <div class="billing-row">
         <div class="billing-row-left">
           <span class="billing-label">Subscription</span>
@@ -204,17 +202,17 @@
           {% endif %}
         </div>
       </div>
-
-    {% elif current_plan == 'none' %}
-      <p class="section-hint">No service plan selected. Choose a plan in section 3 first.</p>
-
     {% else %}
-      <p class="section-hint">
-        Selected plan: <strong id="activation-plan-label">{{ plan_label }}</strong>.
-        Billing starts the first of next month after activation.
+      <p class="section-hint" id="activate-hint">
+        {% if current_plan != 'none' %}
+          Selected plan: <strong id="activation-plan-label">{{ plan_label }}</strong>.
+          Billing starts the first of next month after activation.
+        {% else %}
+          <span id="activation-plan-label">No service plan selected — choose one in section 5 above.</span>
+        {% endif %}
       </p>
       <button type="button" class="activate-btn" id="activate-btn"
-              {% if not ws.signed_at %}disabled title="Sign the walkthrough first"{% endif %}>
+              {% if not ws.signed_at or current_plan == 'none' %}disabled{% endif %}>
         Activate service plan
       </button>
       <p class="invoice-hint" id="activate-status"></p>

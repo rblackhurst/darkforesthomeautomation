@@ -187,7 +187,12 @@ DFHA_REPLY_TO_EMAIL = os.environ.get(
 )
 
 # ── Client Hub ────────────────────────────────────────────────────────────────
-MAGIC_LINK_EXPIRY_SECONDS = 1200  # 20 minutes
+MAGIC_LINK_EXPIRY_SECONDS = 1200  # 20 minutes for on-demand login links
+PORTAL_INVITE_EXPIRY_SECONDS = 7 * 24 * 3600  # 7 days for activation emails
+PORTAL_BASE_URL = os.environ.get(
+    "PORTAL_BASE_URL",
+    "https://portal.darkforesthomeautomation.com",
+)
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 
 STAFF_NOTIFICATION_EMAIL = os.environ.get(

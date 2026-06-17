@@ -2,6 +2,39 @@ from django.conf import settings
 from django.core.mail import send_mail
 
 
+def send_portal_activation_email(customer):
+    """
+    Send the "your portal is now active" email when a customer's final invoice
+    is paid. Called from the Stripe webhook handler — no request context available,
+    so the portal URL is built from settings.PORTAL_BASE_URL.
+
+    Uses a 7-day token (PORTAL_INVITE_EXPIRY_SECONDS) so the customer has time
+    to check their email before the link expires.
+    """
+    from .auth import generate_magic_link_token
+
+    expiry_seconds = getattr(settings, 'PORTAL_INVITE_EXPIRY_SECONDS', 7 * 24 * 3600)
+    token = generate_magic_link_token(customer, expiry_seconds=expiry_seconds)
+    base_url = getattr(settings, 'PORTAL_BASE_URL', 'https://portal.darkforesthomeautomation.com').rstrip('/')
+    verify_url = f'{base_url}/login/verify/{token}/'
+
+    send_mail(
+        subject='Your Dark Forest Home Automation portal is ready',
+        message=(
+            f'Hi {customer.first_name},\n\n'
+            f'Your installation is complete and your client portal is now active.\n\n'
+            f'Log in to your portal to view your system details and manage your account:\n\n'
+            f'{verify_url}\n\n'
+            f'This link expires in 7 days. You can always request a new login link at:\n'
+            f'{base_url}/login/\n\n'
+            f'Thank you for choosing Dark Forest Home Automation.\n\n'
+            f'Dark Forest Home Automation'
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[customer.email],
+    )
+
+
 def send_magic_link(customer, token, request):
     verify_url = request.build_absolute_uri(
         f'/login/verify/{token}/'

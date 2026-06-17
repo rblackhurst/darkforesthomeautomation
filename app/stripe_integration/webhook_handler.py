@@ -92,6 +92,12 @@ def _handle_invoice_paid(event):
             except Exception:
                 logger.exception("invoice.paid: failed to start subscription for job %s", job.pk)
 
+        try:
+            from client_hub.emails import send_portal_activation_email
+            send_portal_activation_email(job.customer)
+        except Exception:
+            logger.exception("invoice.paid: failed to send portal activation email for job %s", job.pk)
+
 
 def _handle_invoice_payment_failed(event):
     invoice = _to_dict(event['data']['object'])

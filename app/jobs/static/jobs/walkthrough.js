@@ -56,10 +56,18 @@ document.querySelectorAll('.plan-option').forEach(opt => {
       o.querySelector('input').checked = o.dataset.value === selectedPlan;
     });
 
-    // Update activation section label if visible
+    // Update Section 6 hint + enable/disable activate button
     const activationLabel = document.getElementById('activation-plan-label');
+    const activateBtn = document.getElementById('activate-btn');
     if (activationLabel) {
-      activationLabel.textContent = planLabelMap[selectedPlan] || selectedPlan;
+      if (selectedPlan && selectedPlan !== 'none') {
+        activationLabel.textContent = (planLabelMap[selectedPlan] || selectedPlan)
+          + '. Billing starts the first of next month after activation.';
+        if (activateBtn && window.WT_SIGNED) activateBtn.disabled = false;
+      } else {
+        activationLabel.textContent = 'No service plan selected — choose one in section 3 above.';
+        if (activateBtn) activateBtn.disabled = true;
+      }
     }
 
     const hintEl = document.getElementById('plan-save-hint');

@@ -191,7 +191,6 @@
     <h2 class="section-title">6. Service plan activation</h2>
 
     {% if prop and prop.stripe_subscription_id %}
-      <!-- Already active -->
       <div class="billing-row">
         <div class="billing-row-left">
           <span class="billing-label">Subscription</span>
@@ -204,17 +203,17 @@
           {% endif %}
         </div>
       </div>
-
-    {% elif current_plan == 'none' %}
-      <p class="section-hint">No service plan selected. Choose a plan in section 3 first.</p>
-
     {% else %}
-      <p class="section-hint">
-        Selected plan: <strong id="activation-plan-label">{{ plan_label }}</strong>.
-        Billing starts the first of next month after activation.
+      <p class="section-hint" id="activate-hint">
+        {% if current_plan != 'none' %}
+          Selected plan: <strong id="activation-plan-label">{{ plan_label }}</strong>.
+          Billing starts the first of next month after activation.
+        {% else %}
+          <span id="activation-plan-label">No service plan selected — choose one in section 3 above.</span>
+        {% endif %}
       </p>
       <button type="button" class="activate-btn" id="activate-btn"
-              {% if not ws.signed_at %}disabled title="Sign the walkthrough first"{% endif %}>
+              {% if not ws.signed_at or current_plan == 'none' %}disabled{% endif %}>
         Activate service plan
       </button>
       <p class="invoice-hint" id="activate-status"></p>

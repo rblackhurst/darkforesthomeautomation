@@ -37,6 +37,16 @@ urlpatterns = [
         views.backend_install_reset,
         name="backend_install_reset",
     ),
+    path(
+        "jobs/<str:invoice_number>/backend-install/final-check/",
+        views.backend_install_toggle_final_check,
+        name="backend_install_toggle_final_check",
+    ),
+    path(
+        "jobs/<str:invoice_number>/backend-install/complete/",
+        views.backend_install_complete,
+        name="backend_install_complete",
+    ),
 
     # ── Pre-install checklist ────────────────────────────────────────────
     path(

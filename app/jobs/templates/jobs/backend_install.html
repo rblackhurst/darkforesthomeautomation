@@ -56,7 +56,7 @@
     </header>
 
     {% for entry in steps %}
-      <section class="step" id="step-{{ entry.step.order|floatformat:'0' }}">
+      <section class="step" id="step-{{ entry.step.order|floatformat:'0' }}" data-step-section>
         <header class="step-header">
           <span class="step-badge">Step {{ entry.step.order|floatformat:"0" }}</span>
           <h2>{{ entry.step.title }}</h2>
@@ -111,9 +111,40 @@
 
 </div>
 
+<!-- ── Final Verification ── -->
+<div class="final-section">
+  <h2 class="final-title">Final verification</h2>
+  <ul class="final-list">
+    {% for key, label in final_checks %}
+    <li class="final-item">
+      <label class="final-check-wrap">
+        <input type="checkbox" class="final-check" data-key="{{ key }}">
+        <span class="check-mark"></span>
+      </label>
+      <span class="final-label">{{ label }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="complete-section">
+    {% if backend_install.completed_at %}
+      <p class="complete-msg">Backend install marked complete. <a href="{% url 'jobs:pairing_sheet_render' job.invoice_number %}">Open pairing sheet →</a></p>
+    {% else %}
+      <button type="button" class="complete-btn" id="complete-btn">Mark backend install complete</button>
+      <p class="complete-hint">Advances the job to Pairing.</p>
+    {% endif %}
+  </div>
+</div>
+
 <script>
   window.BI_BASE_URL = "{% url 'jobs:backend_install_render' job.invoice_number %}";
   window.BI_CUSTOMER_LABEL = "{{ job.customer.first_name }} {{ job.customer.last_name }}";
+  window.BI_URLS = {
+    toggleFinalCheck: "{% url 'jobs:backend_install_toggle_final_check' job.invoice_number %}",
+    complete:         "{% url 'jobs:backend_install_complete' job.invoice_number %}",
+    pairingSheetUrl:  "{% url 'jobs:pairing_sheet_render' job.invoice_number %}",
+  };
+  window.BI_FINAL_STATE = {{ final_checks_state_json|safe }};
 </script>
 <script src="{% static 'jobs/backend_install.js' %}"></script>
 </body>

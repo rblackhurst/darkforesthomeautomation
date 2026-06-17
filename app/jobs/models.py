@@ -243,6 +243,10 @@ class BackendInstall(InstallRecord):
         help_text="Snapshot reference: this BackendInstall renders against this exact "
                   "template version, even if a newer version is published later.",
     )
+    final_checks = models.JSONField(
+        default=dict, blank=True,
+        help_text="State of final-verification checklist items keyed by slug.",
+    )
 
     def __str__(self):
         return f"BackendInstall for {self.job_id}"

@@ -94,6 +94,18 @@ main { max-width: 800px; margin: 0 auto; padding: 24px 16px 48px; display: flex;
 .invoice-hint.ok { color: #276749; font-weight: 600; }
 .invoice-hint.err { color: #c53030; }
 
+/* Invoice preview table */
+.invoice-preview { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.invoice-preview td { padding: 7px 4px; font-size: 14px; }
+.preview-label { color: #555; }
+.preview-note { font-size: 12px; color: #888; margin-left: 6px; }
+.preview-amount { text-align: right; font-variant-numeric: tabular-nums; }
+.preview-recurring { color: #888; font-size: 12px; }
+.preview-total-row td { border-top: 1px solid #e2e8f0; padding-top: 10px; font-weight: 700; }
+.preview-total-label { color: #1a202c; }
+.preview-total { color: #1a202c; font-size: 15px; }
+.hidden { display: none !important; }
+
 .invoice-sent-block { padding: 12px 16px; background: #fffff0; border-radius: 6px; border: 1px solid #faf089; }
 .invoice-sent-msg { font-size: 13px; font-weight: 600; }
 .invoice-link { color: #744210; }

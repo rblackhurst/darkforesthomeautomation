@@ -2217,6 +2217,8 @@ def walkthrough_render(request, invoice_number):
         for k, v in _PLAN_LABELS.items()
     ]
     current_plan = job.property.service_plan_tier if job.property else "none"
+    override = job.payment_override_amount if job.payment_override else None
+    final_total = _sale_total(job, override).quantize(Decimal("0.01"))
     return render(request, "jobs/walkthrough.html", {
         "job": job,
         "ws": ws,
@@ -2226,7 +2228,25 @@ def walkthrough_render(request, invoice_number):
         "service_plan_choices_json": json.dumps(service_plan_choices),
         "current_plan": current_plan,
         "final_invoice_url": job.stripe_final_invoice_url or "",
+        "final_total": final_total,
     })
+
+
+@login_required
+@staff_required
+@require_POST
+def walkthrough_save_plan(request, invoice_number):
+    job = get_object_or_404(Job, invoice_number=invoice_number)
+    if job.property is None:
+        return JsonResponse({"ok": False, "error": "Job has no associated property"}, status=400)
+    data = _load_json(request)
+    plan = str(data.get("plan", "")).strip()
+    valid = {k for k, _ in _PLAN_LABELS.items()}
+    if plan not in valid:
+        return JsonResponse({"ok": False, "error": "Unknown plan"}, status=400)
+    job.property.service_plan_tier = plan
+    job.property.save(update_fields=["service_plan_tier"])
+    return JsonResponse({"ok": True})
 
 
 @login_required

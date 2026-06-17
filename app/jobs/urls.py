@@ -291,6 +291,11 @@ urlpatterns = [
         name="walkthrough_save_field",
     ),
     path(
+        "jobs/<str:invoice_number>/walkthrough/plan/",
+        views.walkthrough_save_plan,
+        name="walkthrough_save_plan",
+    ),
+    path(
         "jobs/<str:invoice_number>/walkthrough/sign/",
         views.walkthrough_sign,
         name="walkthrough_sign",

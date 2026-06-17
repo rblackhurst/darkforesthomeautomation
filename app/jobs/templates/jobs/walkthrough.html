@@ -159,7 +159,25 @@
         {% endif %}
       </div>
     {% else %}
-      <p class="section-hint">Once the walkthrough is signed, send the final invoice. The selected service plan will be activated automatically when the customer pays.</p>
+      <table class="invoice-preview">
+        <tbody>
+          <tr>
+            <td class="preview-label">Install total</td>
+            <td class="preview-amount">${{ final_total }}</td>
+          </tr>
+          <tr id="plan-preview-row" class="plan-preview-row{% if current_plan == 'none' %} hidden{% endif %}">
+            <td class="preview-label">Service plan <span class="preview-note" id="plan-preview-label">{% if current_plan != 'none' %}{{ current_plan }}{% endif %}</span></td>
+            <td class="preview-amount preview-recurring" id="plan-preview-amount">billed separately after payment</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="preview-total-row">
+            <td class="preview-label preview-total-label">Invoice total</td>
+            <td class="preview-amount preview-total">${{ final_total }}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <p class="section-hint" id="plan-note" {% if current_plan == 'none' %}style="display:none"{% endif %}>Service plan billing starts after the customer pays this invoice.</p>
       <button type="button" class="invoice-btn" id="invoice-btn"
               {% if not ws.signed_at %}disabled title="Sign the walkthrough first"{% endif %}>
         Send final invoice
@@ -175,12 +193,14 @@
 <script>
   window.WT_URLS = {
     saveField:   "{% url 'jobs:walkthrough_save_field' job.invoice_number %}",
+    savePlan:    "{% url 'jobs:walkthrough_save_plan'  job.invoice_number %}",
     sign:        "{% url 'jobs:walkthrough_sign'       job.invoice_number %}",
     finalInvoice:"{% url 'jobs:final_invoice_send'     job.invoice_number %}",
   };
   window.WT_SIGNED = {{ ws.signed_at|yesno:"true,false" }};
   window.WT_PLAN_CHOICES = {{ service_plan_choices_json|safe }};
   window.WT_CURRENT_PLAN = "{{ current_plan }}";
+  window.WT_PLAN_LABELS = {{ service_plan_choices_json|safe }};
 </script>
 <script src="{% static 'jobs/walkthrough.js' %}"></script>
 </body>

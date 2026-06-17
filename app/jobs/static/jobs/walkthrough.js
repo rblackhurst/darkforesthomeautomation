@@ -43,6 +43,24 @@ if (notesEl) {
 // ── Service plan selector ─────────────────────────────────────────────────────
 let selectedPlan = window.WT_CURRENT_PLAN || 'none';
 
+const planLabelMap = {};
+(window.WT_PLAN_LABELS || []).forEach(c => { planLabelMap[c.value] = c.label; });
+
+function updatePlanPreview(plan) {
+  const row = document.getElementById('plan-preview-row');
+  const labelEl = document.getElementById('plan-preview-label');
+  const noteEl = document.getElementById('plan-note');
+  if (!row) return;
+  if (plan && plan !== 'none') {
+    row.classList.remove('hidden');
+    if (labelEl) labelEl.textContent = planLabelMap[plan] || plan;
+    if (noteEl) noteEl.style.display = '';
+  } else {
+    row.classList.add('hidden');
+    if (noteEl) noteEl.style.display = 'none';
+  }
+}
+
 document.querySelectorAll('.plan-option').forEach(opt => {
   opt.addEventListener('click', () => {
     selectedPlan = opt.dataset.value;
@@ -50,8 +68,14 @@ document.querySelectorAll('.plan-option').forEach(opt => {
       o.classList.toggle('selected', o.dataset.value === selectedPlan);
       o.querySelector('input').checked = o.dataset.value === selectedPlan;
     });
+    updatePlanPreview(selectedPlan);
+    post(window.WT_URLS.savePlan, { plan: selectedPlan }).then(data => {
+      if (data.ok) showToast();
+    });
   });
 });
+
+updatePlanPreview(selectedPlan);
 
 // ── Sign walkthrough ──────────────────────────────────────────────────────────
 const signBtn = document.getElementById('sign-btn');

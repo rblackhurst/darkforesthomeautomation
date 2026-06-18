@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core import signing
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -10,11 +11,12 @@ from django.views.decorators.http import require_POST
 from client_credentials.models import (
     CredentialAccessLog,
     CredentialDeletionRequest,
+    Device,
     DeviceCredential,
     InstalledSystem,
     SystemCredential,
 )
-from jobs.models import Customer, Property
+from jobs.models import Customer, Job, Property
 
 from .auth import generate_magic_link_token, validate_magic_link_token
 from .decorators import customer_login_required
@@ -123,7 +125,6 @@ def system_detail(request, pk):
         InstalledSystem, pk=pk, property__customer=request.customer, is_visible=True
     )
     credentials = SystemCredential.objects.filter(system=system, is_visible=True)
-    from client_credentials.models import Device
     devices = Device.objects.filter(
         system=system, is_visible=True
     ).prefetch_related('credentials')
@@ -131,6 +132,37 @@ def system_detail(request, pk):
         'system': system,
         'credentials': credentials,
         'devices': devices,
+    })
+
+
+@customer_login_required
+def install_document(request, pk):
+    prop = get_object_or_404(Property, pk=pk, customer=request.customer)
+    systems = (
+        InstalledSystem.objects
+        .filter(property=prop, is_visible=True)
+        .prefetch_related(
+            Prefetch('credentials', queryset=SystemCredential.objects.filter(is_visible=True)),
+            Prefetch(
+                'devices',
+                queryset=Device.objects.filter(is_visible=True).prefetch_related(
+                    Prefetch('credentials', queryset=DeviceCredential.objects.filter(is_visible=True))
+                ),
+            ),
+        )
+        .order_by('system_type', 'name')
+    )
+    latest_job = (
+        Job.objects
+        .filter(property=prop)
+        .exclude(status='cancelled')
+        .order_by('-install_date', '-created_at')
+        .first()
+    )
+    return render(request, 'client_hub/install_document.html', {
+        'property': prop,
+        'systems': systems,
+        'latest_job': latest_job,
     })
 
 

@@ -1,0 +1,137 @@
+{% extends "client_hub/base.html" %}
+{% block title %}Install Document — {{ property.name }} — Dark Forest Home Automation{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'client_hub:property_detail' property.pk %}">&larr; {{ property.name }}</a></p>
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;gap:1rem;">
+  <h1 style="margin-bottom:0;">Install Document</h1>
+  <button onclick="window.print()" class="btn btn-secondary" style="flex-shrink:0;">Print</button>
+</div>
+
+<div class="card">
+  <h2>{{ property.name }}</h2>
+  {% if property.address_line1 %}
+  <p class="meta" style="margin-bottom:0.5rem;">
+    {{ property.address_line1 }}{% if property.address_line2 %}, {{ property.address_line2 }}{% endif %}<br>
+    {{ property.city }}{% if property.city and property.state %}, {% endif %}{{ property.state }} {{ property.postal_code }}
+  </p>
+  {% endif %}
+  {% if latest_job and latest_job.install_date %}
+  <p class="meta">Install date: {{ latest_job.install_date|date:"N j, Y" }}</p>
+  {% endif %}
+  {% if property.service_plan_tier and property.service_plan_tier != 'none' %}
+  <p class="meta">Service plan: <strong>{{ property.get_service_plan_tier_display }}</strong>
+  {% if property.billing_interval and property.billing_interval != 'none' %} &mdash; {{ property.get_billing_interval_display }}{% endif %}</p>
+  {% endif %}
+</div>
+
+{% if systems %}
+  {% for system in systems %}
+  <div class="card">
+    <h2>{{ system.name }}</h2>
+    <p class="meta">
+      {{ system.get_system_type_display }}{% if system.manufacturer %} &mdash; {{ system.manufacturer }}{% endif %}
+    </p>
+    {% if system.notes %}<p style="font-size:0.9rem;color:#555;margin-top:0.5rem;">{{ system.notes }}</p>{% endif %}
+
+    {% with creds=system.credentials.all %}
+    {% if creds %}
+    <h3 style="margin-top:1.25rem;margin-bottom:0.5rem;">Platform Credentials</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+      <thead>
+        <tr style="border-bottom:2px solid #e0e0e0;text-align:left;">
+          <th style="padding:0.4rem 0.75rem 0.4rem 0;white-space:nowrap;">Service</th>
+          <th style="padding:0.4rem 0.75rem;white-space:nowrap;">Username</th>
+          <th style="padding:0.4rem 0.75rem;">Login URL</th>
+          <th style="padding:0.4rem 0;text-align:right;white-space:nowrap;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cred in creds %}
+        <tr style="border-bottom:1px solid #f0f0f0;">
+          <td style="padding:0.5rem 0.75rem 0.5rem 0;font-weight:500;">{{ cred.label }}</td>
+          <td style="padding:0.5rem 0.75rem;">
+            {% if cred.username %}<code style="font-size:0.85rem;">{{ cred.username }}</code>{% else %}&mdash;{% endif %}
+          </td>
+          <td style="padding:0.5rem 0.75rem;">
+            {% if cred.portal_url %}
+            <a href="{{ cred.portal_url }}" target="_blank" rel="noopener noreferrer" style="font-size:0.85rem;word-break:break-all;">{{ cred.portal_url }}</a>
+            {% else %}&mdash;{% endif %}
+          </td>
+          <td style="padding:0.5rem 0;text-align:right;white-space:nowrap;">
+            <a href="{% url 'client_hub:system_credential_detail' cred.pk %}">View password &rarr;</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    {% endwith %}
+
+    {% with devs=system.devices.all %}
+    {% if devs %}
+    <h3 style="margin-top:1.25rem;margin-bottom:0.75rem;">Installed Devices</h3>
+    {% for device in devs %}
+    <div style="padding:0.75rem 0;border-top:1px solid #f0f0f0;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;flex-wrap:wrap;">
+        <strong>{{ device.name }}</strong>
+        {% if device.location %}<span class="meta">{{ device.location }}</span>{% endif %}
+      </div>
+      {% if device.device_type or device.manufacturer or device.model_number %}
+      <p class="meta" style="margin-top:0.2rem;margin-bottom:0.4rem;">
+        {% if device.device_type %}{{ device.device_type }}{% endif %}
+        {% if device.manufacturer %} &mdash; {{ device.manufacturer }}{% endif %}
+        {% if device.model_number %} {{ device.model_number }}{% endif %}
+      </p>
+      {% endif %}
+      {% if device.serial_number or device.mac_address or device.ip_address or device.firmware_version %}
+      <dl style="display:grid;grid-template-columns:max-content 1fr;gap:0.15rem 1rem;font-size:0.85rem;margin:0.35rem 0;">
+        {% if device.serial_number %}
+        <dt style="color:#666;white-space:nowrap;">Serial no.</dt>
+        <dd>{{ device.serial_number }}</dd>
+        {% endif %}
+        {% if device.mac_address %}
+        <dt style="color:#666;white-space:nowrap;">MAC address</dt>
+        <dd><code>{{ device.mac_address }}</code></dd>
+        {% endif %}
+        {% if device.ip_address %}
+        <dt style="color:#666;white-space:nowrap;">IP address</dt>
+        <dd><code>{{ device.ip_address }}</code></dd>
+        {% endif %}
+        {% if device.firmware_version %}
+        <dt style="color:#666;white-space:nowrap;">Firmware</dt>
+        <dd>{{ device.firmware_version }}</dd>
+        {% endif %}
+      </dl>
+      {% endif %}
+      {% if device.notes %}<p style="font-size:0.85rem;color:#555;margin-top:0.35rem;margin-bottom:0;">{{ device.notes }}</p>{% endif %}
+      {% with dcreds=device.credentials.all %}
+      {% if dcreds %}
+      <div style="margin-top:0.5rem;padding-top:0.4rem;border-top:1px dashed #e0e0e0;font-size:0.85rem;">
+        {% for dcred in dcreds %}
+        <span class="meta">
+          {{ dcred.label }} ({{ dcred.get_credential_type_display }}){% if dcred.username %}: {{ dcred.username }}{% endif %}
+        </span>
+        &nbsp;<a href="{% url 'client_hub:device_credential_detail' dcred.pk %}">View &rarr;</a>
+        {% if not forloop.last %}<br>{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </div>
+  {% endfor %}
+{% else %}
+<div class="card">
+  <p>No systems have been recorded for this property yet. Contact us if you have any questions.</p>
+</div>
+{% endif %}
+
+<div style="margin-top:0.5rem;">
+  <a href="{% url 'client_hub:property_detail' property.pk %}">&larr; Back to {{ property.name }}</a>
+</div>
+{% endblock %}

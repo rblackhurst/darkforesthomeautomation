@@ -46,6 +46,8 @@
 </div>
 
 <div style="margin-top:1rem;">
+  <a href="{% url 'client_hub:install_document' property.pk %}" class="btn btn-secondary">View Install Document</a>
+  &nbsp;
   <a href="{% url 'client_hub:work_request_form' %}" class="btn btn-primary">Submit a Work Request</a>
   &nbsp;
   <a href="{% url 'client_hub:account_closure' %}" style="font-size:0.85rem;color:#888;">Account closure</a>

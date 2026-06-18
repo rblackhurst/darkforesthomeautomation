@@ -254,6 +254,146 @@ class AuthViewTests(TestCase):
         self.assertEqual(CredentialDeletionRequest.objects.count(), 1)
         self.assertEqual(len(mail.outbox), 2)
 
+    # ── install document ──────────────────────────────────────────────────────
+
+    def test_install_document_unauthenticated_redirects_to_login(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        resp = self._get('client_hub:install_document', kwargs={'pk': prop.pk})
+        self.assertRedirects(
+            resp, reverse('client_hub:login'), fetch_redirect_response=False
+        )
+
+    def test_install_document_other_customers_property_returns_404(self):
+        other = Customer.objects.create(
+            first_name='Other', last_name='Doc', email='other.doc@view.com'
+        )
+        other_prop = Property.objects.filter(customer=other).first()
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:install_document', kwargs={'pk': other_prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_install_document_own_property_returns_200(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:install_document', kwargs={'pk': prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_install_document_shows_systems_credentials_and_devices(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        system = InstalledSystem.objects.create(
+            property=prop,
+            system_type='networking',
+            name='Home Network',
+            manufacturer='Ubiquiti',
+        )
+        cred = SystemCredential.objects.create(
+            system=system,
+            label='Router Admin',
+            username='admin',
+            portal_url='http://192.168.1.1',
+            password='secret123',
+        )
+        device = Device.objects.create(
+            system=system,
+            name='Dream Machine Pro',
+            manufacturer='Ubiquiti',
+            model_number='UDM-Pro',
+            serial_number='SN123456',
+            mac_address='AA:BB:CC:DD:EE:FF',
+            ip_address='192.168.1.1',
+            firmware_version='3.2.1',
+            location='Network closet',
+        )
+        dcred = DeviceCredential.objects.create(
+            device=device,
+            label='Admin PIN',
+            credential_type='pin',
+            value='9876',
+        )
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:install_document', kwargs={'pk': prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Home Network')
+        self.assertContains(resp, 'Router Admin')
+        self.assertContains(resp, 'admin')
+        self.assertContains(resp, 'http://192.168.1.1')
+        self.assertContains(resp, 'Dream Machine Pro')
+        self.assertContains(resp, 'SN123456')
+        self.assertContains(resp, 'AA:BB:CC:DD:EE:FF')
+        self.assertContains(resp, '192.168.1.1')
+        self.assertContains(resp, '3.2.1')
+        self.assertContains(resp, 'Network closet')
+        self.assertContains(resp, 'Admin PIN')
+        # Credential values must NOT appear on the index page
+        self.assertNotContains(resp, 'secret123')
+        self.assertNotContains(resp, '9876')
+
+    def test_install_document_hides_invisible_credentials_and_devices(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        system = InstalledSystem.objects.create(
+            property=prop,
+            system_type='lighting',
+            name='Visible System',
+        )
+        SystemCredential.objects.create(
+            system=system,
+            label='Hidden Cred',
+            username='hide_me',
+            password='pw',
+            is_visible=False,
+        )
+        Device.objects.create(
+            system=system,
+            name='Hidden Device',
+            is_visible=False,
+        )
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:install_document', kwargs={'pk': prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'Hidden Cred')
+        self.assertNotContains(resp, 'hide_me')
+        self.assertNotContains(resp, 'Hidden Device')
+
+    def test_install_document_links_to_credential_reveal_views(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        system = InstalledSystem.objects.create(
+            property=prop,
+            system_type='access',
+            name='Access Control',
+        )
+        cred = SystemCredential.objects.create(
+            system=system, label='Hub Login', username='owner', password='pw',
+        )
+        device = Device.objects.create(system=system, name='Smart Lock')
+        dcred = DeviceCredential.objects.create(
+            device=device, label='Lock Code', credential_type='pin', value='1234',
+        )
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:install_document', kwargs={'pk': prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertContains(
+            resp,
+            reverse('client_hub:system_credential_detail', kwargs={'pk': cred.pk}),
+        )
+        self.assertContains(
+            resp,
+            reverse('client_hub:device_credential_detail', kwargs={'pk': dcred.pk}),
+        )
+
     # ── profile edit ──────────────────────────────────────────────────────────
 
     def test_profile_edit_updates_customer_fields(self):

@@ -18,6 +18,7 @@ urlpatterns = [
 
     # Properties and credentials
     path('property/<int:pk>/', views.property_detail, name='property_detail'),
+    path('property/<int:pk>/install-document/', views.install_document, name='install_document'),
     path('system/<int:pk>/', views.system_detail, name='system_detail'),
     path('credential/system/<int:pk>/', views.system_credential_detail, name='system_credential_detail'),
     path('credential/device/<int:pk>/', views.device_credential_detail, name='device_credential_detail'),

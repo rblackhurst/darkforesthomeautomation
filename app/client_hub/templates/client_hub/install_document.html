@@ -4,9 +4,12 @@
 {% block content %}
 <p><a href="{% url 'client_hub:property_detail' property.pk %}">&larr; {{ property.name }}</a></p>
 
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;gap:1rem;">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;gap:1rem;flex-wrap:wrap;">
   <h1 style="margin-bottom:0;">Install Document</h1>
-  <button onclick="window.print()" class="btn btn-secondary" style="flex-shrink:0;">Print</button>
+  <div style="display:flex;gap:0.5rem;flex-shrink:0;">
+    <a href="{% url 'client_hub:download_credentials' property.pk %}" class="btn btn-secondary">Download credentials (JSON)</a>
+    <button onclick="window.print()" class="btn btn-secondary">Print</button>
+  </div>
 </div>
 
 <div class="card">

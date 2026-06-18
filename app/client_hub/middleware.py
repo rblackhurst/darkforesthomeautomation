@@ -16,6 +16,7 @@ _ADMIN_ALLOWED_PREFIXES = (
     '/credentials',
     '/jobs',
     '/board',
+    '/alerts',
 )
 
 

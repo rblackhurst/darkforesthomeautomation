@@ -5,8 +5,24 @@
 <div class="card" style="text-align:center;padding:2rem;">
   <div style="font-size:2rem;margin-bottom:1rem;">✓</div>
   <h1>Request received</h1>
-  <p>We've received your account closure request. A team member will review it and contact you to confirm next steps.</p>
-  <p class="meta">Remember: your credential data belongs to you. Contact us any time to request a copy.</p>
+  <p>We've received your account closure request. A team member will review it and contact you to confirm next steps before anything is deleted.</p>
+</div>
+
+{% if properties %}
+<div class="card" style="border-color:#f59e0b;background:#fffbeb;">
+  <h2 style="color:#92400e;">Last chance to download your credentials</h2>
+  <p class="meta">Your portal access remains active until our team completes the removal process. Download your credential data now so you have it for your own records.</p>
+  <div style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.5rem;">
+    {% for prop in properties %}
+    <a href="{% url 'client_hub:download_credentials' prop.pk %}" class="btn btn-secondary" style="display:inline-block;width:fit-content;">
+      Download: {{ prop.name }} (JSON)
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div style="margin-top:1rem;text-align:center;">
   <a href="{% url 'client_hub:dashboard' %}" class="btn btn-secondary">Back to my properties</a>
 </div>
 {% endblock %}

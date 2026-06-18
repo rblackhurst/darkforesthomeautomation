@@ -254,6 +254,108 @@ class AuthViewTests(TestCase):
         self.assertEqual(CredentialDeletionRequest.objects.count(), 1)
         self.assertEqual(len(mail.outbox), 2)
 
+    # ── credential download ───────────────────────────────────────────────────
+
+    @override_settings(SYSTEM_USER_ID=None)
+    def test_download_credentials_returns_json_file(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        system = InstalledSystem.objects.create(
+            property=prop, system_type='networking', name='Network',
+        )
+        SystemCredential.objects.create(
+            system=system, label='Router', username='admin', password='secret',
+        )
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:download_credentials', kwargs={'pk': prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'application/json')
+        self.assertIn('attachment', resp['Content-Disposition'])
+        self.assertIn('.json', resp['Content-Disposition'])
+        self.assertEqual(resp['Cache-Control'], 'no-store')
+
+    @override_settings(SYSTEM_USER_ID=None)
+    def test_download_credentials_contains_decrypted_values(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        system = InstalledSystem.objects.create(
+            property=prop, system_type='access', name='Access',
+        )
+        SystemCredential.objects.create(
+            system=system, label='Hub', username='owner', password='topsecret',
+        )
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:download_credentials', kwargs={'pk': prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        import json as _json
+        data = _json.loads(resp.content)
+        cred = data['systems'][0]['credentials'][0]
+        self.assertEqual(cred['label'], 'Hub')
+        self.assertEqual(cred['username'], 'owner')
+        self.assertEqual(cred['password'], 'topsecret')
+
+    @override_settings(SYSTEM_USER_ID=None)
+    def test_download_credentials_logs_each_credential_access(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        system = InstalledSystem.objects.create(
+            property=prop, system_type='lighting', name='Lights',
+        )
+        SystemCredential.objects.create(
+            system=system, label='App', username='u', password='pw',
+        )
+        self._login()
+        self.client.get(
+            reverse('client_hub:download_credentials', kwargs={'pk': prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        from client_credentials.models import CredentialAccessLog
+        self.assertEqual(CredentialAccessLog.objects.count(), 1)
+        self.assertEqual(CredentialAccessLog.objects.first().action, 'viewed_by_customer')
+
+    def test_download_credentials_other_customers_property_returns_404(self):
+        other = Customer.objects.create(
+            first_name='X', last_name='Y', email='xy@view.com'
+        )
+        other_prop = Property.objects.filter(customer=other).first()
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:download_credentials', kwargs={'pk': other_prop.pk}),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_download_credentials_unauthenticated_redirects(self):
+        prop = Property.objects.filter(customer=self.customer).first()
+        resp = self._get('client_hub:download_credentials', kwargs={'pk': prop.pk})
+        self.assertRedirects(
+            resp, reverse('client_hub:login'), fetch_redirect_response=False
+        )
+
+    # ── account closure passes properties ─────────────────────────────────────
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_account_closure_form_includes_properties_in_context(self):
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:account_closure'),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('properties', resp.context)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_account_closure_success_includes_properties_in_context(self):
+        self._login()
+        resp = self.client.get(
+            reverse('client_hub:account_closure_success'),
+            HTTP_HOST=PORTAL_HOST,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('properties', resp.context)
+
     # ── install document ──────────────────────────────────────────────────────
 
     def test_install_document_unauthenticated_redirects_to_login(self):

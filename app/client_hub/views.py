@@ -1,9 +1,12 @@
 from datetime import timedelta
 
+import json
+
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core import signing
 from django.db.models import Prefetch
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -164,6 +167,101 @@ def install_document(request, pk):
         'systems': systems,
         'latest_job': latest_job,
     })
+
+
+@customer_login_required
+def download_credentials(request, pk):
+    """Return a JSON file of all credentials for one property. Repeatable download."""
+    prop = get_object_or_404(Property, pk=pk, customer=request.customer)
+    systems = (
+        InstalledSystem.objects
+        .filter(property=prop, is_visible=True)
+        .prefetch_related(
+            Prefetch('credentials', queryset=SystemCredential.objects.filter(is_visible=True)),
+            Prefetch(
+                'devices',
+                queryset=Device.objects.filter(is_visible=True).prefetch_related(
+                    Prefetch('credentials', queryset=DeviceCredential.objects.filter(is_visible=True))
+                ),
+            ),
+        )
+        .order_by('system_type', 'name')
+    )
+
+    addr_parts = filter(None, [
+        prop.address_line1,
+        prop.address_line2,
+        prop.city,
+        prop.state,
+        prop.postal_code,
+    ])
+
+    payload = {
+        'exported_at': timezone.now().isoformat(),
+        'customer': f"{request.customer.first_name} {request.customer.last_name}".strip(),
+        'property': {
+            'name': prop.name,
+            'address': ', '.join(addr_parts),
+        },
+        'systems': [],
+    }
+
+    for system in systems:
+        sys_entry = {
+            'name': system.name,
+            'type': system.get_system_type_display(),
+            'manufacturer': system.manufacturer,
+            'notes': system.notes,
+            'credentials': [],
+            'devices': [],
+        }
+        for cred in system.credentials.all():
+            sys_entry['credentials'].append({
+                'label': cred.label,
+                'portal_url': cred.portal_url,
+                'username': cred.username,
+                'password': cred.password,
+                'api_key': cred.api_key,
+                'notes': cred.notes,
+            })
+            _log_credential_access(request, cred)
+
+        for device in system.devices.all():
+            dev_entry = {
+                'name': device.name,
+                'type': device.device_type,
+                'manufacturer': device.manufacturer,
+                'model': device.model_number,
+                'serial': device.serial_number,
+                'mac': device.mac_address,
+                'ip': str(device.ip_address) if device.ip_address else '',
+                'firmware': device.firmware_version,
+                'location': device.location,
+                'notes': device.notes,
+                'credentials': [],
+            }
+            for dcred in device.credentials.all():
+                dev_entry['credentials'].append({
+                    'label': dcred.label,
+                    'type': dcred.get_credential_type_display(),
+                    'username': dcred.username,
+                    'value': dcred.value,
+                    'notes': dcred.notes,
+                })
+                _log_credential_access(request, dcred)
+            sys_entry['devices'].append(dev_entry)
+
+        payload['systems'].append(sys_entry)
+
+    slug = prop.name.lower().replace(' ', '-').replace('/', '-')
+    filename = f"dfha-credentials-{slug}.json"
+    response = HttpResponse(
+        json.dumps(payload, indent=2, default=str),
+        content_type='application/json',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 def _log_credential_access(request, obj):
@@ -372,6 +470,7 @@ def service_plan_change_success(request):
 @customer_login_required
 def account_closure(request):
     customer = request.customer
+    properties = Property.objects.filter(customer=customer)
 
     if request.method == 'POST':
         form = AccountClosureForm(request.POST)
@@ -388,8 +487,15 @@ def account_closure(request):
     else:
         form = AccountClosureForm()
 
-    return render(request, 'client_hub/account_closure_form.html', {'form': form})
+    return render(request, 'client_hub/account_closure_form.html', {
+        'form': form,
+        'properties': properties,
+    })
 
 
+@customer_login_required
 def account_closure_success(request):
-    return render(request, 'client_hub/account_closure_success.html')
+    properties = Property.objects.filter(customer=request.customer)
+    return render(request, 'client_hub/account_closure_success.html', {
+        'properties': properties,
+    })

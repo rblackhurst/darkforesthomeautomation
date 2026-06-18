@@ -12,6 +12,9 @@
   <div class="page-header-row">
     <h1>Active jobs</h1>
     <div class="page-header-meta">
+      <a href="{% url 'jobs:payment_alerts' %}" class="secondary-btn" style="{% if unreviewed_alert_count %}background:#b91c1c;color:#fff;{% endif %}">
+        Alerts{% if unreviewed_alert_count %} ({{ unreviewed_alert_count }}){% endif %}
+      </a>
       <a href="{% url 'jobs:board' %}" class="secondary-btn">Board view</a>
       <a href="{% url 'jobs:sales_form' %}" class="primary-btn">+ New sale</a>
       {% if user.is_authenticated %}

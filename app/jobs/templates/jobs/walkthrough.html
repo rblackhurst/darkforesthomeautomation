@@ -125,6 +125,25 @@
     {% endif %}
   </section>
 
+  <!-- ── Payment Alerts ── -->
+  {% if payment_alerts %}
+  <section class="card" style="border-color:#b91c1c;background:#fef2f2;">
+    <h2 class="section-title" style="color:#b91c1c;">Payment alert{% if payment_alerts|length > 1 %}s{% endif %}</h2>
+    {% for alert in payment_alerts %}
+    <div style="{% if not forloop.last %}border-bottom:1px solid #fca5a5;padding-bottom:0.75rem;margin-bottom:0.75rem;{% endif %}">
+      <p style="font-weight:600;color:#b91c1c;margin-bottom:0.25rem;">{{ alert.get_alert_type_display }}</p>
+      <p style="font-size:0.9rem;margin-bottom:0.25rem;">{{ alert.message }}</p>
+      <p style="font-size:0.8rem;color:#888;">{{ alert.created_at|date:"M j, Y" }} at {{ alert.created_at|time:"g:i a" }}</p>
+      <form method="post" action="{% url 'jobs:alert_mark_reviewed' alert.pk %}" style="margin-top:0.4rem;">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'jobs:walkthrough_render' job.invoice_number %}">
+        <button type="submit" style="background:#b91c1c;color:#fff;border:none;padding:0.3rem 0.85rem;border-radius:4px;font-size:0.85rem;cursor:pointer;">Mark reviewed</button>
+      </form>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
   <!-- ── 4. Final Invoice (install balance) ── -->
   <section class="card invoice-card">
     <h2 class="section-title">4. Final invoice <span class="step-note">— install balance (50%)</span></h2>

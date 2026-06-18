@@ -7,11 +7,24 @@
 
 <div class="card">
   <h2>Before you proceed</h2>
-  <p><strong>All credential data belongs to you.</strong> You can request a full copy of your credentials at any time — before or after closure.</p>
   <p><strong>DFHA remote access will be revoked.</strong> We will no longer be able to provide remote monitoring or support for your system.</p>
   <p><strong>Re-establishing service may incur a setup fee.</strong> If you decide to return to a DFHA service plan in the future, a new setup fee may apply.</p>
   <p><strong>This is not immediate.</strong> Submitting this form sends a request to our team for review. A team member will contact you to confirm next steps before anything is changed.</p>
 </div>
+
+{% if properties %}
+<div class="card" style="border-color:#f59e0b;background:#fffbeb;">
+  <h2 style="color:#92400e;">Download your credentials first</h2>
+  <p>All credential data belongs to you. Once your account is closed and data is removed from our servers, you will lose access to the portal. Download your credentials for safekeeping before submitting this request.</p>
+  <div style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.5rem;">
+    {% for prop in properties %}
+    <a href="{% url 'client_hub:download_credentials' prop.pk %}" class="btn btn-secondary" style="display:inline-block;width:fit-content;">
+      Download: {{ prop.name }} (JSON)
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 <form method="post">
   {% csrf_token %}

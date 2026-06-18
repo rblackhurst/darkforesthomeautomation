@@ -1,0 +1,111 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFHA · Payment Alerts</title>
+  <link rel="stylesheet" href="{% static 'jobs/home.css' %}">
+  <style>
+    .alerts-header { display:flex; align-items:baseline; gap:16px; margin-bottom:1.5rem; }
+    .alert-count-badge {
+      display:inline-block; background:#b91c1c; color:#fff;
+      font-size:0.8rem; font-weight:700; padding:0.2rem 0.55rem;
+      border-radius:9999px; vertical-align:middle;
+    }
+    .alerts-table { width:100%; border-collapse:collapse; font-size:0.95rem; }
+    .alerts-table th {
+      text-align:left; padding:0.5rem 0.75rem;
+      border-bottom:2px solid #e0e0e0; font-weight:600; color:#555;
+    }
+    .alerts-table td { padding:0.65rem 0.75rem; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+    .alerts-table tr.reviewed td { color:#aaa; }
+    .alert-type { font-weight:600; color:#b91c1c; }
+    .alert-type.reviewed { color:#aaa; font-weight:normal; }
+    .alert-msg { font-size:0.88rem; color:#555; margin-top:0.2rem; }
+    .alert-meta { font-size:0.8rem; color:#888; }
+    .btn-review {
+      display:inline-block; padding:0.3rem 0.85rem;
+      background:#b91c1c; color:#fff; border:none; border-radius:4px;
+      font-size:0.85rem; cursor:pointer; text-decoration:none;
+    }
+    .btn-review:hover { background:#991b1b; }
+    .reviewed-label { font-size:0.82rem; color:#999; }
+    .empty-state { padding:2rem; text-align:center; color:#888; }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <div class="page-header-row">
+    <div style="display:flex;align-items:baseline;gap:16px;">
+      <a href="{% url 'jobs:home' %}" class="back-link">← Active jobs</a>
+      <h1>Payment Alerts
+        {% if unreviewed_count %}
+          <span class="alert-count-badge">{{ unreviewed_count }}</span>
+        {% endif %}
+      </h1>
+    </div>
+    <div class="page-header-meta">
+      {% if user.is_authenticated %}
+        <a href="{% url 'accounts:logout' %}" class="signout-link" title="Signed in as {{ user.email|default:user.username }}">Sign out</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+  {% if alerts %}
+  <table class="alerts-table">
+    <thead>
+      <tr>
+        <th>Customer</th>
+        <th>Alert</th>
+        <th>When</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for alert in alerts %}
+      <tr class="{% if alert.reviewed %}reviewed{% endif %}">
+        <td>
+          <a href="{% url 'jobs:walkthrough_render' alert.job.invoice_number %}">
+            {{ alert.job.customer.last_name }}, {{ alert.job.customer.first_name }}
+          </a>
+          <div class="alert-meta">
+            {% if alert.job.display_invoice_number %}{{ alert.job.display_invoice_number }}{% else %}{{ alert.job.invoice_number }}{% endif %}
+          </div>
+        </td>
+        <td>
+          <span class="alert-type {% if alert.reviewed %}reviewed{% endif %}">
+            {{ alert.get_alert_type_display }}
+          </span>
+          <div class="alert-msg">{{ alert.message }}</div>
+        </td>
+        <td class="alert-meta">{{ alert.created_at|date:"M j, Y" }}<br>{{ alert.created_at|time:"g:i a" }}</td>
+        <td>
+          {% if not alert.reviewed %}
+          <form method="post" action="{% url 'jobs:alert_mark_reviewed' alert.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'jobs:payment_alerts' %}">
+            <button type="submit" class="btn-review">Mark reviewed</button>
+          </form>
+          {% else %}
+          <span class="reviewed-label">
+            Reviewed {{ alert.reviewed_at|date:"M j" }}
+            {% if alert.reviewed_by %}by {{ alert.reviewed_by.get_full_name|default:alert.reviewed_by.username }}{% endif %}
+          </span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <p>No payment alerts on record.</p>
+  </div>
+  {% endif %}
+</main>
+
+</body>
+</html>

@@ -1616,6 +1616,7 @@ def _backend_check_totals():
 @login_required
 @staff_required
 def job_list(request):
+    from stripe_integration.models import InternalAlert
     active_statuses = [s.value for s in ACTIVE_STAGES]
     jobs = (
         Job.objects
@@ -1623,11 +1624,45 @@ def job_list(request):
         .filter(status__in=active_statuses)
         .order_by("install_date", "-created_at")
     )
-    return render(request, "jobs/job_list.html", {"jobs": jobs})
+    unreviewed_alert_count = InternalAlert.objects.filter(reviewed=False).count()
+    return render(request, "jobs/job_list.html", {
+        "jobs": jobs,
+        "unreviewed_alert_count": unreviewed_alert_count,
+    })
 
 
 # Keep the old name so any bookmarks / reverse() calls for "jobs:home" still work.
 home_dashboard = job_list
+
+
+@login_required
+@staff_required
+def payment_alerts(request):
+    from stripe_integration.models import InternalAlert
+    alerts = (
+        InternalAlert.objects
+        .select_related("job__customer")
+        .order_by("reviewed", "-created_at")
+    )
+    unreviewed_count = alerts.filter(reviewed=False).count()
+    return render(request, "jobs/payment_alerts.html", {
+        "alerts": alerts,
+        "unreviewed_count": unreviewed_count,
+    })
+
+
+@login_required
+@staff_required
+@require_POST
+def alert_mark_reviewed(request, alert_id):
+    from stripe_integration.models import InternalAlert
+    alert = get_object_or_404(InternalAlert, pk=alert_id)
+    alert.reviewed = True
+    alert.reviewed_by = request.user
+    alert.reviewed_at = now()
+    alert.save(update_fields=["reviewed", "reviewed_by", "reviewed_at"])
+    next_url = request.POST.get("next") or reverse("jobs:payment_alerts")
+    return redirect(next_url)
 
 
 @login_required
@@ -2254,9 +2289,11 @@ def walkthrough_render(request, invoice_number):
         current_plan = f"{_tier}_{_interval}" if _tier != "none" and _interval != "none" else "none"
     else:
         current_plan = "none"
+    from stripe_integration.models import InternalAlert
     override = job.payment_override_amount if job.payment_override else None
     final_total = _sale_total(job, override).quantize(Decimal("0.01"))
     plan_label = _PLAN_LABELS.get(current_plan, "No service plan")
+    payment_alerts = InternalAlert.objects.filter(job=job, reviewed=False).order_by('-created_at')
     return render(request, "jobs/walkthrough.html", {
         "job": job,
         "ws": ws,
@@ -2269,6 +2306,7 @@ def walkthrough_render(request, invoice_number):
         "final_invoice_url": job.stripe_final_invoice_url or "",
         "final_total": final_total,
         "prop": job.property,
+        "payment_alerts": payment_alerts,
     })
 
 
